@@ -1,7 +1,7 @@
-/chesspoker_package/pkg
-/chesspoker_package/target
+/chesspoker_package/pkg/
+/chesspoker_package/target/
 
-/single-server/target
+/single-server/target/
 
-/wasm_builder/pkg
-/wasm_builder/target
+/wasm_builder/pkg/
+/wasm_builder/target/
