@@ -1,0 +1,30 @@
+[package]
+name = "physicsengine"
+version = "0.1.0"
+authors = ["alex <alex.gusain@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+nalgebra   = {version = "0.23", features = ["serde-serialize"] }
+ncollide3d = "0.26"
+nphysics3d = {version = "0.18", default-features = false, features = [ "dim3", "use-wasm-bindgen" ] }
+
+
+#nphysics_testbed3d = "*"
+
+
+#DISABLE THIS IN WEBASSUMBLY VERSION
+#tungstenite = "*"
+
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
+
+#web_sys = "*"
+
+#DISABLE THIS IN SERVER VERSION
+#wasm-bindgen = "*"
+
+
