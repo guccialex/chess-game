@@ -1,5 +1,7 @@
-/chesscheckersgame
-/chesspoker_package
-/express_server
-/single-server
-/wasm_builder
+/chesspoker_package/pkg
+/chesspoker_package/target
+
+/single-server/target
+
+/wasm_builder/pkg
+/wasm_builder/target

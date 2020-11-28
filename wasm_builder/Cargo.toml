@@ -1,0 +1,25 @@
+[package]
+name = "wasm_builder"
+version = "0.1.0"
+authors = ["gucci"]
+edition = "2018"
+#wasm-opt = "false"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+
+physicsengine = { path = "../chesspoker_package" }
+
+
+wasm-bindgen = { version = "*", features = ["serde-serialize"] }
+
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
+
+console_error_panic_hook = "0.1.6"
+
+
+[lib]
+crate-type = ["cdylib"]
