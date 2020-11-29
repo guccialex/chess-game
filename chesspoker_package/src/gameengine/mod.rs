@@ -650,7 +650,7 @@ impl GameEngineState{
 #[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Clone, Copy, Debug)]
 enum GameObjectID{
     
-    boardsquare(u32,u32),
+    boardsquare(u8,u8),
     piece(u32),
     
 }
@@ -658,7 +658,7 @@ enum GameObjectID{
 impl GameObjectID{
     
     //create a new gameobjectid for a boardsquare
-    fn new_boardsquare(x:u32, y:u32) -> GameObjectID{
+    fn new_boardsquare(x:u8, y: u8) -> GameObjectID{
         
         GameObjectID::boardsquare(x,y)
         
@@ -823,7 +823,7 @@ impl GameEngine{
     
     //add a piece with this id to a certain position on the board
     //return object id
-    pub fn add_piece(&mut self, pieceid:u32, mut pos:(u32,u32), shapeid: u32  ) -> u16{
+    pub fn add_piece(&mut self, pieceid:u32, mut pos:(u8,u8), shapeid: u32  ) -> u16{
         
         
         let pos = convert_id_pos_to_physical_pos( (pos.0, pos.1)  );
@@ -1012,7 +1012,7 @@ impl GameEngine{
     
     pub fn set_long_boardsquare_drop(&mut self, length: u32, boardsquareid: (u8,u8)){
         
-        let objectid = GameObjectID::boardsquare( boardsquareid.0 as u32, boardsquareid.1 as u32 );
+        let objectid = GameObjectID::boardsquare( boardsquareid.0 , boardsquareid.1  );
         
         let longliftanddropmission = Mission::make_lengthed_drop_and_raise(length);
         
@@ -1167,7 +1167,7 @@ impl GameEngine{
     
     
     //get the board square that a certain piece is on
-    pub fn get_board_square_piece_is_on(&self, pieceid: &u32) -> Option<(u32,u32)>{
+    pub fn get_board_square_piece_is_on(&self, pieceid: &u32) -> Option<(u8,u8)>{
         
         let physicalid = self.gameobjectIDtophysicalID.get( &GameObjectID::new_piece(*pieceid) ).unwrap();
         
@@ -1191,7 +1191,7 @@ impl GameEngine{
     }
     
     //get  all the pieces that are on this board  square
-    pub fn get_pieces_on_board_square(&self, boardsquareid: &(u32,u32)) -> HashSet<u32>{
+    pub fn get_pieces_on_board_square(&self, boardsquareid: &(u8,u8)) -> HashSet<u32>{
         
         //i could just do "get_boardsquare_piece_is_on" for every piece
         //it just takes a bit of runtime
@@ -1263,7 +1263,7 @@ impl GameEngine{
         
     }
     
-    pub fn get_board_square_translation(&self, boardsquareid: &(u32,u32)) -> (f32,f32,f32){
+    pub fn get_board_square_translation(&self, boardsquareid: &(u8,u8)) -> (f32,f32,f32){
         
         
         let gameobjectid = GameObjectID::new_boardsquare(boardsquareid.0, boardsquareid.1);
@@ -1273,7 +1273,7 @@ impl GameEngine{
         
     }
     
-    pub fn get_board_square_rotation(&self, boardsquareid: &(u32,u32)) -> (f32,f32,f32){
+    pub fn get_board_square_rotation(&self, boardsquareid: &(u8,u8)) -> (f32,f32,f32){
         
         let gameobjectid = GameObjectID::new_boardsquare(boardsquareid.0, boardsquareid.1);
         let physicalid = self.gameobjectIDtophysicalID.get( &gameobjectid).expect("why does this piece not have an associated object?");
@@ -1391,7 +1391,7 @@ impl GameEngine{
 
 //convert  the object center to what board square its on
 //and if it isnt on any board square, return None
-fn convert_physical_pos_to_id_pos( xpos: f32, zpos: f32 ) -> Option<(u32,u32)>{
+fn convert_physical_pos_to_id_pos( xpos: f32, zpos: f32 ) -> Option<(u8,u8)>{
     
     
     //println!("x and y {:?}", (xpos, zpos));
@@ -1413,7 +1413,7 @@ fn convert_physical_pos_to_id_pos( xpos: f32, zpos: f32 ) -> Option<(u32,u32)>{
         if intzpos >= 0 && intzpos <= 7{
             
             //return the board square id
-            return Some(  (intxpos as u32, intzpos as u32)  )  ;
+            return Some(  (intxpos as u8, intzpos as u8)  )  ;
             
         };
         
@@ -1427,7 +1427,7 @@ fn convert_physical_pos_to_id_pos( xpos: f32, zpos: f32 ) -> Option<(u32,u32)>{
 
 
 //convert the id of a board square, to the position at the center of that board square
-fn convert_id_pos_to_physical_pos( boardsquare:(u32,u32) ) -> (f32,f32) {
+fn convert_id_pos_to_physical_pos( boardsquare:(u8,u8) ) -> (f32,f32) {
     
     
     let mut xpos = boardsquare.0 as f32;

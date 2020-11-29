@@ -22,7 +22,7 @@ nphysics3d = {version = "0.18", default-features = false, features = [ "dim3", "
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 
-#web_sys = "*"
+
 
 #DISABLE THIS IN SERVER VERSION
 #wasm-bindgen = "*"

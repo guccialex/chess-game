@@ -4,7 +4,7 @@ use physicsengine::Card;
 
 use std::collections::HashMap;
 
-use physicsengine::GameInterface;
+use physicsengine::MainGame;
 
 
 use physicsengine::GameData;
@@ -20,7 +20,7 @@ pub struct LocalGameInterface{
     playerid: u8,
     
     //the actual rust game
-    thegame: GameInterface,
+    thegame: MainGame,
     
     
 }
@@ -34,7 +34,7 @@ impl LocalGameInterface{
     pub fn new(playerid: u8) -> LocalGameInterface{
         
         
-        let thegame = GameInterface::new_2_player_game();
+        let thegame = MainGame::new_two_player();
         
         LocalGameInterface{
             
@@ -73,7 +73,7 @@ impl LocalGameInterface{
         if let ObjectType::piece(pieceid) = objectid{
             
             //get the board squares reachable by the piece
-            let reachableboardsquareids = self.thegame.get_squares_reachable_by_piece(&pieceid);
+            let reachableboardsquareids = self.thegame.get_board_squares_reachable_by_piece(&pieceid);
             
             for (boardsquareidx, boardsquareidy) in reachableboardsquareids{
                 let objectid = ObjectType::boardsquare(boardsquareidx, boardsquareidy);
@@ -85,7 +85,7 @@ impl LocalGameInterface{
         else if let ObjectType::card(cardid) = objectid{
             
             //get the actions allowed by the card
-            let (pieceids, boardsquareids) = self.thegame.get_pieces_and_squares_actable_by_card( &cardid );
+            let (pieceids, boardsquareids) = self.thegame.get_pieces_and_squares_actable_by_card( cardid, self.playerid );
             
             for pieceid in pieceids{
                 
