@@ -73,19 +73,27 @@ impl LocalGameInterface{
         if let ObjectType::piece(pieceid) = objectid{
             
             //get the board squares reachable by the piece
-            let reachableboardsquareids = self.thegame.get_board_squares_reachable_by_piece(&pieceid);
+            let (pieceids, squareids) = self.thegame.get_pieces_and_squares_reachable_by_piece(&pieceid);
             
-            for (boardsquareidx, boardsquareidy) in reachableboardsquareids{
+            for (boardsquareidx, boardsquareidy) in squareids{
                 let objectid = ObjectType::boardsquare(boardsquareidx, boardsquareidy);
                 toreturn.push(objectid);
             };
+
+            for pieceid in pieceids{
+            
+                let objectid = ObjectType::piece(pieceid);
+                toreturn.push(objectid);
+            
+            }
+
             
         }
         //if the object is a card
         else if let ObjectType::card(cardid) = objectid{
             
             //get the actions allowed by the card
-            let (pieceids, boardsquareids) = self.thegame.get_pieces_and_squares_actable_by_card( cardid, self.playerid );
+            let (pieceids, boardsquareids) = self.thegame.get_pieces_and_squares_actable_by_card( self.playerid, cardid );
             
             for pieceid in pieceids{
                 
@@ -97,7 +105,7 @@ impl LocalGameInterface{
             
             for boardsquareid in boardsquareids{
                 
-                let objectid = ObjectType::boardsquare(boardsquareid.0 as u32, boardsquareid.1 as u32);
+                let objectid = ObjectType::boardsquare(boardsquareid.0 , boardsquareid.1 );
                 toreturn.push(objectid);
                 
             }
@@ -160,7 +168,7 @@ impl LocalGameInterface{
         else if let ObjectType::card(cardid) = objectid{
             
             //get the pieces and squares actable by the card
-            let (boardsquareinputs, pieceinputs) = self.thegame.get_piece_and_square_actions_allowed_by_card(&cardid);
+            let (pieceinputs, boardsquareinputs) = self.thegame.get_piece_and_square_actions_allowed_by_card(self.playerid, cardid);
 
             //panic!("the inputs allowed{:?}", boardsquareinputs);
             
@@ -172,7 +180,7 @@ impl LocalGameInterface{
             }
             for ((bsidx, bsidy), input) in boardsquareinputs{
                 
-                toreturn.insert( ObjectType::boardsquare(bsidx as u32, bsidy as u32), input );
+                toreturn.insert( ObjectType::boardsquare(bsidx , bsidy ), input );
                 
             }
             
@@ -200,17 +208,15 @@ impl LocalGameInterface{
     //try to perform that action and return whether it succeded and was sent to be performed or not
     pub fn try_to_perform_action(&mut self, object1: ObjectType, object2: ObjectType) -> bool{
         
-        
         let objecttoinput = self.get_inputs_of_object(object1);
 
-        
         
         //if there is a player input that lets object1 perform some action on object 2
         if let Some(playerinput) = objecttoinput.get(&object2){
 
             
             //send that input to the game and return true
-            self.thegame.receive_input(&self.playerid, playerinput.clone());
+            self.thegame.receive_input( self.playerid, playerinput.clone());
             
             return true;
             
@@ -231,7 +237,7 @@ impl LocalGameInterface{
         let flickinput = PlayerInput::pieceaction(pieceid, flickaction);
         
         //give the flick input to the game
-        self.thegame.receive_input(&self.playerid, flickinput);
+        self.thegame.receive_input(self.playerid, flickinput);
         
         true
         
@@ -245,7 +251,7 @@ impl LocalGameInterface{
         
         let input = PlayerInput::playcardonboard(cardid);
         
-        self.thegame.receive_input( &self.playerid, input);
+        self.thegame.receive_input( self.playerid, input);
         
     }
     
@@ -255,7 +261,7 @@ impl LocalGameInterface{
 
         let input = PlayerInput::playcardonboard(cardid);
         
-        self.thegame.receive_input( &self.playerid, input);
+        self.thegame.receive_input( self.playerid, input);
         
     }
     
@@ -439,7 +445,6 @@ impl LocalGameInterface{
     fn get_objects(&self) -> Vec<ObjectType>{
         
         let pieceids = self.get_piece_ids();
-        let cardids = self.get_card_ids();
         let boardsquareids = self.get_board_square_ids();
         
         let mut toreturn = Vec::new();
@@ -449,14 +454,11 @@ impl LocalGameInterface{
             let objectid = ObjectType::piece(curpieceid);
             toreturn.push(objectid);
         };
-        for curcardid in cardids{
-            let objectid = ObjectType::card(curcardid);
-            toreturn.push(objectid);
-        };
         for (curboardsquareidx, curboardsquareidy) in boardsquareids{
             let objectid = ObjectType::boardsquare(curboardsquareidx, curboardsquareidy);
             toreturn.push(objectid);
         };
+
         
         
         
@@ -469,7 +471,6 @@ impl LocalGameInterface{
     pub fn get_object_flat_plane_position(&self, objectid: ObjectType) -> (f32,f32){
         
         if let ObjectType::piece(pieceid) = objectid{
-            
             
             //get its position
             let (xpos, ypos, zpos) = self.thegame.get_piece_translation( pieceid);
@@ -485,27 +486,6 @@ impl LocalGameInterface{
         //panic!("it shouldnt be anything but a ")
     }
     
-    
-    
-    //get the id of every piece currently in the scene
-    fn get_piece_ids(&self) -> Vec<u32>{
-        
-        let pieceids = self.thegame.get_piece_ids();
-        
-        pieceids
-    }
-    fn get_board_square_ids(&self) -> Vec<(u32, u32)>{
-        
-        let boardsquareids = self.thegame.get_board_square_ids();
-        
-        boardsquareids
-    }
-    fn get_card_ids(&self) -> Vec<u16>{
-        
-        let cardids = self.thegame.get_card_ids();
-        
-        cardids
-    }
     
     
     
@@ -761,7 +741,7 @@ impl LocalGameInterface{
 pub enum ObjectType{
     
     card(u16),
-    boardsquare(u32,u32),
+    boardsquare(u8,u8),
     piece(u32),
     
 }
@@ -909,7 +889,7 @@ pub fn objectname_to_objecttype(objectname: String) -> Option<ObjectType> {
         let boardsquarexid = objectname.chars().nth(1).unwrap().to_digit(10).unwrap();
         let boardsquareyid = objectname.chars().nth(2).unwrap().to_digit(10).unwrap();
         
-        let toreturn = ObjectType::boardsquare(boardsquarexid, boardsquareyid);
+        let toreturn = ObjectType::boardsquare(boardsquarexid as u8, boardsquareyid as u8);
         
         return(Some (toreturn));
         
@@ -947,7 +927,7 @@ pub fn objecttype_to_objectname(inputobjecttype: ObjectType) -> String {
         
     }
     else{
-        panic!("cant convert object type to a string... Why not??");
+        panic!("cant convert object type to a string");
     }
     
     

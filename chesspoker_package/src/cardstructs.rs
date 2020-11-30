@@ -60,6 +60,19 @@ impl CardsInterface{
 
     }
 
+
+    pub fn get_all_card_ids(&self) -> Vec<u16>{
+
+        let mut toreturn = Vec::new();
+
+        for (cardid, card) in &self.cards{
+
+            toreturn.push(*cardid);
+        };
+
+        toreturn
+
+    }
     
     pub fn get_cards_in_hand(&self, playerid: u8) -> Vec<Card>{
 
