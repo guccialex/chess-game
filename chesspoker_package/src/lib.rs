@@ -104,12 +104,12 @@ impl MainGame{
     }
     
 
+
     pub fn get_game_information_string(&self, playerid: u8) -> String{
 
         "somestring".to_string()
 
     }
-    
     
     
     //card getter functions
