@@ -25,13 +25,13 @@ pub enum PlayerInput{
     playcardonboard(u16),
 
     //playing a card with a target of a piece
-    playcardonpiece(u16, u32),
+    playcardonpiece(u16, u16),
 
     //playing a card with a target of a board square
-    playcardonsquare(u16, (u8,u8)),
+    playcardonsquare(u16, u16),
     
     //perform an action on a piece
-    pieceaction(u32, PieceAction),
+    pieceaction(u16, PieceAction),
     
 }
 
@@ -51,13 +51,8 @@ fn is_in_range(ranges: Vec< (u32,u32) >, value: u32) -> bool{
             if value < currangeend{
                 
                 return(true);
-                
             }
-            
-            
         }
-        
-        
     }
     
     return(false);
@@ -77,18 +72,12 @@ fn is_in_range_f32(ranges: Vec< (f32,f32) >, value: f32) -> bool{
                 
                 return(true);
                 
-            }
-            
-            
+            }   
         }
-        
-        
     }
     
+
     return(false);
-    
-    
-    
 }
 
 
@@ -221,7 +210,6 @@ impl TurnManager{
     }
     
     
-    
     //upkeep the struct
     //should be called after every tick
     //and after every change
@@ -246,8 +234,6 @@ impl TurnManager{
         
         
     }
-    
-    
     
     
     //progress timewards
@@ -351,7 +337,5 @@ impl TurnManager{
         
         
     }
-    
-    
-    
+
 }

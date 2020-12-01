@@ -52,14 +52,12 @@ impl CardsInterface{
 
     }
     
-
     //get the card by ID and panic if it doesnt have it
     pub fn get_card_unsafe(&self, cardid: u16) -> Card{
 
         self.cards.get(&cardid).unwrap().clone()
 
     }
-
 
     pub fn get_all_card_ids(&self) -> Vec<u16>{
 
@@ -74,7 +72,7 @@ impl CardsInterface{
 
     }
     
-    pub fn get_cards_in_hand(&self, playerid: u8) -> Vec<Card>{
+    pub fn get_cards_in_hand(&self, playerid: u8) -> Vec<u16>{
 
         let handcardids = self.hands.get(&playerid).unwrap();
 
@@ -83,20 +81,14 @@ impl CardsInterface{
 
         for cardid in handcardids{
 
-            let card = self.get_card_unsafe(*cardid);
-
-            hand.push(card);
+            hand.push(*cardid);
 
         }
 
 
-
         return hand;
-
-        
         
     }
-    
     
     pub fn get_cards_in_game(&self) -> Option< (Vec<Card>, Vec<Card>, Vec<Card>) >{
         
@@ -117,7 +109,6 @@ impl CardsInterface{
         }
 
     }
-
 
     //get the player to try to play a card in the game
     //return if we successful
@@ -171,7 +162,6 @@ impl CardsInterface{
 
     }
 
-
     //remove this card from that players hand
     //if that player has that card in hand (should I panic if they dont?)
     pub fn remove_card_from_hand(&mut self, playerid: u8, cardid: u16){
@@ -192,9 +182,7 @@ impl CardsInterface{
 
 
 
-    }
-
-    
+    }    
         
     //start a poker game with the given players
     pub fn start_poker_game(&mut self, player1: u8, player2:u8){
@@ -212,11 +200,9 @@ impl CardsInterface{
         
     }
     
-
     pub fn start_blackjack_game(&mut self, player1: u8, player2:u8){
         self.cardgame = Some( CardGame::new_blackjack() );
     }
-
 
     //does a game exist, and is this player allowed to play a card in it?
     pub fn is_player_allowed_to_play_card(&self, playerid: u8) -> bool{
@@ -230,7 +216,6 @@ impl CardsInterface{
 
         return false;
     }
-
 
     pub fn does_player_own_card(&self, playerid: u8, cardid: u16) ->  bool{
 
@@ -262,7 +247,6 @@ impl CardsInterface{
 
 
     }
-
 
     //generate a new card and give it to this player
     //give this player a random card

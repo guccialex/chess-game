@@ -117,31 +117,25 @@ impl BoardGame{
         
         //create the 4 invisible walls bordering the game
         {
-            
-            
             let physicalid = boardgame.physicsengine.add_object();
             boardgame.physicsengine.set_position( &physicalid,  (0.0,0.0,-5.0) );
             boardgame.physicsengine.make_static(&physicalid);
             boardgame.physicsengine.set_shape(&physicalid, ShapeIDtoConvexHull::horizontalwall() );
-            
             
             let physicalid = boardgame.physicsengine.add_object();
             boardgame.physicsengine.set_position( &physicalid,  (0.0,0.0,5.0) );
             boardgame.physicsengine.make_static(&physicalid);
             boardgame.physicsengine.set_shape(&physicalid, ShapeIDtoConvexHull::horizontalwall() );
             
-            
             let physicalid = boardgame.physicsengine.add_object();
             boardgame.physicsengine.set_position( &physicalid,  (-5.0,0.0,0.0) );
             boardgame.physicsengine.make_static(&physicalid);
             boardgame.physicsengine.set_shape(&physicalid, ShapeIDtoConvexHull::verticalwall() );
             
-            
             let physicalid = boardgame.physicsengine.add_object();
             boardgame.physicsengine.set_position( &physicalid,  (5.0,0.0,0.0) );
             boardgame.physicsengine.make_static(&physicalid);
             boardgame.physicsengine.set_shape(&physicalid, ShapeIDtoConvexHull::verticalwall() );
-            
         }
         
         
@@ -163,7 +157,7 @@ impl BoardGame{
                     
                     
                     let ypos = 0.0;
-                    let (xpos, zpos) = convert_id_pos_to_physical_pos( (x, z) ); 
+                    let (xpos, zpos) = convert_board_square_pos_to_physical_pos( (x, z) ); 
                     
                     boardgame.physicsengine.set_position( &physicalid, ( xpos , ypos ,zpos  ) );
                     boardgame.physicsengine.toggle_gravity( &physicalid, false);
@@ -184,18 +178,44 @@ impl BoardGame{
             
         }
         
-        
-        
-        
+    
         boardgame
-        
     }
+
+    
+    
+    //is this board game object a square
+    pub fn is_board_game_object_square(&self, objectid: u16) -> bool{
+
+        for (_, bsid) in &self.boardsquares{
+
+            if &objectid == bsid{
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    //is this board game object a piece
+    pub fn is_board_game_object_piece(&self, objectid: u16) -> bool{
+
+        if self.pieces.contains(&objectid){
+            return true;
+        }
+
+        return false;
+
+    }
+
+
     
     
     
     pub fn new_piece(&mut self, pos:(u8,u8) ) -> u16{
         
-        let pos = convert_id_pos_to_physical_pos( pos );
+        let pos = convert_board_square_pos_to_physical_pos( pos );
         let shape = ShapeIDtoConvexHull::shapeidtoconvexhull(&2);
         
         let pieceid = self.physicsengine.add_object();
@@ -234,7 +254,6 @@ impl BoardGame{
                 //slide to the center of a piece
                 let slidemission = Mission::make_slide_mission( relativepos);
                 
-                
                 //put that mission into the lists of future missions
                 self.futuremissions.push( (0, pieceid, slidemission) );
             }
@@ -243,20 +262,20 @@ impl BoardGame{
             //make the missions that drop the pieces that its passing over
             {
                 
-                let mut curboardsquare = boardsquare;
+                let mut curboardsquarepos = self.get_pos_of_boardsquare(boardsquare).unwrap();
+
                 let mut stepnumber = 0;            
                 //how long into the future to drop the piece
                 let mut curdroptick = 0;
                 
                 
-                while let Some(boardsquareid) = self.get_id_of_boardsquare( curboardsquare ){
+                while let Some(boardsquareid) = self.get_id_of_boardsquare_pos( curboardsquarepos ){
                     
                     self.set_future_drop_and_raise(curdroptick, boardsquareid);
                     
                     //this should be a function that handles the "out of range" case
-                    curboardsquare = ((curboardsquare.0 as i32 + slidestepchange.0) as u8 , (curboardsquare.1 as i32 + slidestepchange.1) as u8);
-                    
-                    
+                    curboardsquarepos = ((curboardsquarepos.0 as i32 + slidestepchange.0) as u8 , (curboardsquarepos.1 as i32 + slidestepchange.1) as u8);
+
                     stepnumber += 1;
                     
                     curdroptick += (10.0 * ((slidestepchange.0 as f32).powf(2.0) + (slidestepchange.1 as f32).powf(2.0)).sqrt()) as u32;
@@ -264,19 +283,14 @@ impl BoardGame{
                     if stepnumber as u8 > slidedistance{
                         break;
                     }
-                    
-                    
+
                 }
-                
-                
             }
-            
-            
         };
-        
-        
     }
     
+
+
     fn set_future_drop_and_raise(&mut self, ticks: u32, id: u16){
         
         let liftanddropmission = Mission::make_drop_and_raise();
@@ -285,16 +299,11 @@ impl BoardGame{
         
     }
     
-    pub fn set_long_boardsquare_drop(&mut self, length: u32, boardsquarepos: (u8,u8)){
+    pub fn set_long_boardsquare_drop(&mut self, length: u32, boardsquare: u16){
         
-        if let Some(bsid) = self.get_id_of_boardsquare(boardsquarepos){
+        let longliftanddropmission = Mission::make_lengthed_drop_and_raise(length);
             
-            let longliftanddropmission = Mission::make_lengthed_drop_and_raise(length);
-            
-            self.futuremissions.push(  (0, bsid , longliftanddropmission)  );    
-            
-        }
-        
+        self.futuremissions.push(  (0, boardsquare , longliftanddropmission)  );    
         
     }
     
@@ -328,28 +337,21 @@ impl BoardGame{
             
             //create the mission for the piece its landing on
             {
-                
                 let piecexpos = self.physicsengine.get_translation(&pieceid).0 + relativepos.0;
                 let piecezpos = self.physicsengine.get_translation(&pieceid).2 + relativepos.1;
                 
-                if let Some(bspos) = convert_physical_pos_to_id_pos(piecexpos, piecezpos){
+                if let Some(bspos) = convert_physical_pos_to_board_square_pos(piecexpos, piecezpos){
                     
-                    if let Some(bsid) = self.get_id_of_boardsquare(bspos){
+                    if let Some(bsid) = self.get_id_of_boardsquare_pos(bspos){
                         
                         self.set_future_drop_and_raise(0, bsid);
-                        
                     }
                 }
-                
-                
             }
-            
-            
         }
-        
     }
-    
-    
+
+
     pub fn tick(&mut self){
         
         
@@ -387,9 +389,6 @@ impl BoardGame{
                 
             });
             
-            
-            
-            
         }
         
         
@@ -400,8 +399,6 @@ impl BoardGame{
         
         //for each mission
         for (physicalid, mission) in self.idtomission.iter_mut(){
-            
-            
             
             //if there is an impulse
             if mission.is_current_impulse(){
@@ -414,7 +411,6 @@ impl BoardGame{
                 self.physicsengine.apply_delta_impulse(physicalid, currentimpulse);
                 
             }
-            
             
             if mission.is_current_position_change(){          
                 
@@ -429,7 +425,6 @@ impl BoardGame{
                 self.physicsengine.make_static_for_tick(physicalid);
                 
             }
-            
             
             
             //then tick the mission
@@ -453,10 +448,8 @@ impl BoardGame{
         
         //tick the physics world
         self.physicsengine.tick();
-        
-        
     }
-    
+
     
     pub fn get_translation(&self, id: u16) -> (f32,f32,f32){
         
@@ -471,11 +464,10 @@ impl BoardGame{
     }
     
     
-    //get  all the pieces that are on this board  square
-    pub fn get_pieces_on_board_square(&self, boardsquareid: &(u8,u8)) -> HashSet<u16>{
+    //get all the pieces that are on this board square
+    pub fn get_pieces_on_board_square(&self, boardsquareid: u16) -> HashSet<u16>{
         
         let mut toreturn = HashSet::new();
-        
         
         //for each piece
         for physicalid in self.pieces.iter(){
@@ -485,15 +477,12 @@ impl BoardGame{
                 
                 //if the board square this piece is on is the one thats requested
                 //add it to the hashset being returned
-                if boardsquareid == &curpieceboardsquareid {
+                if boardsquareid == curpieceboardsquareid {
                     
                     toreturn.insert( *physicalid );
-                    
                 }
-                
             }
         }
-        
         
         toreturn
         
@@ -520,15 +509,10 @@ impl BoardGame{
 
 
         toreturn
-    }
-
-
-    
-    
-    
+    }    
     
     //get the id of the boardsquare by its position
-    fn get_id_of_boardsquare(&self, pos: (u8,u8) ) -> Option<u16>{
+    pub fn get_id_of_boardsquare_pos(&self, pos: (u8,u8) ) -> Option<u16>{
         
         if let Some(bsid) = self.boardsquares.get(&pos){
             
@@ -541,52 +525,65 @@ impl BoardGame{
         
     }
     
-    //get the board square that a certain piece is on
-    pub fn get_board_square_piece_is_on(&self, pieceid: u16) -> Option<(u8,u8)>{
-        
+    //get the position of the boardsquare by its id
+    pub fn get_pos_of_boardsquare(&self, id: u16) -> Option<(u8,u8)>{
+
+
+        for (curpos, curid) in &self.boardsquares{
+
+            if id == *curid{
+                return Some(*curpos);
+            }
+
+        }
+
+        return None;
+
+
+    }
+
+    //get the id of the board square that a certain piece is on
+    pub fn get_board_square_piece_is_on(&self, pieceid: u16) -> Option<u16>{
         //get its position
         let (mut xpos, mut ypos, mut zpos) = self.physicsengine.get_translation(&pieceid);
         
         
         //if its yposition is below zero, its not considered "on" any particular board square
         if ypos < -2.0{
-            
             return None ;
-            
         };
         
         
-        return convert_physical_pos_to_id_pos(xpos, zpos);
-    }
+        if let Some(bspos) = convert_physical_pos_to_board_square_pos(xpos, zpos){
+
+            return self.get_id_of_boardsquare_pos(bspos);
+        }
+        else{
+            return None;
+        }
     
+    }
+
     //get a pieces offset on the square its on
     fn piece_on_square_offset(&self, id: u16) -> Option<(f32,f32)>{
         
-        
         if let Some(bsid) = self.get_board_square_piece_is_on(id){
             
+            let bspos = self.get_pos_of_boardsquare(bsid).unwrap();
             
-            let physicalbs = convert_id_pos_to_physical_pos(bsid);
+            let physicalbs = convert_board_square_pos_to_physical_pos(bspos);
             
             //get the pieces x and z position and subtract the position of the piece its on from it
             let xoffset = self.physicsengine.get_translation(&id).0 - physicalbs.0;
-            let yoffset = self.physicsengine.get_translation(&id).0 - physicalbs.0;
+            let yoffset = self.physicsengine.get_translation(&id).2 - physicalbs.1;
             
             return Some( (xoffset, yoffset) );
-            
         }
         else{
-            
             return None;
         }
         
-        
-        
     }
-    
-    
-    
-    
     
     //an associated function to prevent borrowing errors, might not want an associated function for other purposes
     //set a mission only if there are no other missions on the object currently
@@ -606,28 +603,10 @@ impl BoardGame{
             
             return(true);
         }
-        
-        
     }
     
     
-    
-    
-    
-    
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -810,10 +789,7 @@ impl ShapeIDtoConvexHull{
 
 //convert  the object center to what board square its on
 //and if it isnt on any board square, return None
-fn convert_physical_pos_to_id_pos( xpos: f32, zpos: f32 ) -> Option<(u8,u8)>{
-    
-    
-    //println!("x and y {:?}", (xpos, zpos));
+fn convert_physical_pos_to_board_square_pos( xpos: f32, zpos: f32 ) -> Option<(u8,u8)>{
     
     //add 4 to the center of it
     let newxpos = xpos + 4.0;
@@ -825,7 +801,6 @@ fn convert_physical_pos_to_id_pos( xpos: f32, zpos: f32 ) -> Option<(u8,u8)>{
     let intzpos = newzpos.floor() as i32;
     
     
-    
     //if its in range, return those integers, otherwise return none
     if intxpos >= 0 && intxpos <= 7{
         
@@ -833,9 +808,8 @@ fn convert_physical_pos_to_id_pos( xpos: f32, zpos: f32 ) -> Option<(u8,u8)>{
             
             //return the board square id
             return Some(  (intxpos as u8, intzpos as u8)  )  ;
-            
+
         };
-        
     };
     
     
@@ -846,8 +820,7 @@ fn convert_physical_pos_to_id_pos( xpos: f32, zpos: f32 ) -> Option<(u8,u8)>{
 
 
 //convert the id of a board square, to the position at the center of that board square
-fn convert_id_pos_to_physical_pos( boardsquare:(u8,u8) ) -> (f32,f32) {
-    
+fn convert_board_square_pos_to_physical_pos( boardsquare:(u8,u8) ) -> (f32,f32) {
     
     let mut xpos = boardsquare.0 as f32;
     let mut zpos = boardsquare.1 as f32;
@@ -858,7 +831,6 @@ fn convert_id_pos_to_physical_pos( boardsquare:(u8,u8) ) -> (f32,f32) {
     zpos = zpos - 3.5;
     
     (xpos, zpos)
-    
 }
 
 
@@ -925,7 +897,6 @@ impl Mission{
         
         
         toreturn
-        
     }
     
     pub fn make_lift_mission(relativepos: (f32,f32)) -> Mission{
@@ -969,16 +940,10 @@ impl Mission{
             
         }
         
-        
-        
-        
-        
-        
     }
     
     //make a slide mission given the relative position for the piece to slide to
     pub fn make_slide_mission(relativepos: (f32,f32)) -> Mission{
-        
         
         let mut positionchanges = Vec::new();
         
@@ -1005,8 +970,6 @@ impl Mission{
             positionchanges: positionchanges,
             
         }
-        
-        
     }
     
     //a drop and raise mission for a board square
@@ -1052,7 +1015,6 @@ impl Mission{
             
         }
         
-        
     }
     
     
@@ -1096,8 +1058,6 @@ impl Mission{
             
         }
         
-        
-        
     }
     
     
@@ -1107,8 +1067,6 @@ impl Mission{
         
         
         //for every one of the position changes in the list
-        
-        
         for (starttick, endtick, vector) in &self.positionchanges{
             
             if  self.currenttick >= *starttick {
@@ -1123,8 +1081,8 @@ impl Mission{
         
         
         return(false);
-        
     }
+
     
     pub fn is_current_impulse(&self) -> bool{
         

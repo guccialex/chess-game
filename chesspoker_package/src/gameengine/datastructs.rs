@@ -21,8 +21,6 @@ pub struct AllowedActions{
     //is it allowed to capture an opponents piece when sliding there
     slidedirection: HashSet<( u8, u8, bool, bool )>,
     
-    
-    
     //what relative positions can it move to
     //does it have to capture an opponents piece to move there
     //can it capture an opponents piece by moving there

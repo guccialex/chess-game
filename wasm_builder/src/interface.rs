@@ -1,13 +1,13 @@
 use physicsengine::PlayerInput;
-use physicsengine::PieceAction;
 use physicsengine::Card;
 
 use std::collections::HashMap;
 
 use physicsengine::MainGame;
 
+use physicsengine::PieceAction;
 
-use physicsengine::GameData;
+
 
 
 
@@ -52,78 +52,7 @@ impl LocalGameInterface{
         
     }
     
-    //when a message is received on the javascript side
-    //get it and send it directly here
-    //to be used as an update on the state of the game
-    pub fn receive_game_state_data(&mut self, websocketdata: GameData) {
-        
-        self.thegame.set_game_information(websocketdata);
-        
-    }
     
-    
-    //given an object
-    //get the list of other objects that can be clicked on when this object is selected
-    pub  fn get_this_objects_selectable_objects(&self, objectid: ObjectType ) -> Vec<ObjectType>{
-        
-        let mut toreturn = Vec::new();
-        
-        
-        //if the object is a piece
-        if let ObjectType::piece(pieceid) = objectid{
-            
-            //get the board squares reachable by the piece
-            let (pieceids, squareids) = self.thegame.get_pieces_and_squares_reachable_by_piece(&pieceid);
-            
-            for (boardsquareidx, boardsquareidy) in squareids{
-                let objectid = ObjectType::boardsquare(boardsquareidx, boardsquareidy);
-                toreturn.push(objectid);
-            };
-
-            for pieceid in pieceids{
-            
-                let objectid = ObjectType::piece(pieceid);
-                toreturn.push(objectid);
-            
-            }
-
-            
-        }
-        //if the object is a card
-        else if let ObjectType::card(cardid) = objectid{
-            
-            //get the actions allowed by the card
-            let (pieceids, boardsquareids) = self.thegame.get_pieces_and_squares_actable_by_card( self.playerid, cardid );
-            
-            for pieceid in pieceids{
-                
-                let objectid = ObjectType::piece(pieceid);
-                toreturn.push(objectid);
-                
-                
-            }
-            
-            for boardsquareid in boardsquareids{
-                
-                let objectid = ObjectType::boardsquare(boardsquareid.0 , boardsquareid.1 );
-                toreturn.push(objectid);
-                
-            }
-            
-            
-        }
-        //if the object is a board square
-        else if let ObjectType::boardsquare(bsidx, bsidy) = objectid{
-            
-            //dont do anything to fill the list to return
-            //because no actions can be performed by a board square
-            
-        }
-        
-        
-        return toreturn;
-        
-    }
     
     
     //gets a map of every valid player input for this given object
@@ -136,58 +65,60 @@ impl LocalGameInterface{
         //if the object is a piece
         if let ObjectType::piece(pieceid) = objectid{
             
-            
             //get the actions allowed by the piece
-            let (_, actionsallowedbypiece) = self.thegame.get_actions_allowed_by_piece(&pieceid);
-            
+            let actionsandobjects = self.thegame.get_actions_allowed_by_piece(pieceid);
             
             //for every action allowed, get the objectid of the board square and the piece id associated it can capture
-            for (action, boardsquare, pieces) in actionsallowedbypiece{
+            for (action, objectids) in actionsandobjects.1{
                 
-                //for the board squares
-                let objectid = ObjectType::boardsquare(boardsquare.0, boardsquare.1);
-                let playerinput = PlayerInput::pieceaction( pieceid, action );
-                toreturn.insert(  objectid, playerinput.clone() );
-                
-                
-                //and for every piece
-                for pieceid in pieces{
-                    
-                    let objectid = ObjectType::piece(pieceid);
-                    toreturn.insert( objectid, playerinput.clone() );
-                    
+                let input = PlayerInput::pieceaction(pieceid, action);
+
+                //for every object id
+                for objectid in objectids{
+
+                    let objecttype;
+
+                    //if the object is a piece
+                    if self.thegame.is_board_game_object_piece(objectid){
+
+                        objecttype = ObjectType::piece(objectid);
+                    }
+                    else if self.thegame.is_board_game_object_square(objectid){
+
+                        objecttype = ObjectType::boardsquare(objectid);
+                    }
+                    else{
+                        panic!("apparently its neither boardsquare or piece");
+                    }
+
+                    toreturn.insert( objecttype, input.clone() );
                 }
-                
-                
+
             }
-            
-            
             
         }
         //if the object is a card
         else if let ObjectType::card(cardid) = objectid{
             
             //get the pieces and squares actable by the card
-            let (pieceinputs, boardsquareinputs) = self.thegame.get_piece_and_square_actions_allowed_by_card(self.playerid, cardid);
+            let idtoinput = self.thegame.get_boardobject_actions_allowed_by_card(self.playerid, cardid);
 
-            //panic!("the inputs allowed{:?}", boardsquareinputs);
             
-            //for each piece and board square, add it to the return list
-            for (pieceid, input) in pieceinputs{
-                
-                toreturn.insert( ObjectType::piece(pieceid), input );
-                
-            }
-            for ((bsidx, bsidy), input) in boardsquareinputs{
-                
-                toreturn.insert( ObjectType::boardsquare(bsidx , bsidy ), input );
-                
+            for (id, input) in idtoinput{
+
+                if self.thegame.is_board_game_object_piece(id){
+                    toreturn.insert( ObjectType::piece(id), input );
+                }
+                else if self.thegame.is_board_game_object_square(id){
+                    toreturn.insert( ObjectType::boardsquare(id), input );
+                }
+
             }
             
             
         }
         //if the object is a board square
-        else if let ObjectType::boardsquare(bsidx, bsidy) = objectid{
+        else if let ObjectType::boardsquare(id) = objectid{
             
             //dont do anything to fill the list to return
             //because no actions can be performed by a board square
@@ -198,6 +129,21 @@ impl LocalGameInterface{
         toreturn
     }
     
+
+    pub fn get_this_objects_selectable_objects(&self, objectid: ObjectType) -> Vec<ObjectType>{
+
+        let objecttoinput = self.get_inputs_of_object(objectid);
+
+        let mut toreturn = Vec::new();
+
+        for (objectid, input) in objecttoinput{
+
+            toreturn.push(objectid);
+        };
+
+        toreturn
+
+    }
     
     
     
@@ -213,7 +159,6 @@ impl LocalGameInterface{
         
         //if there is a player input that lets object1 perform some action on object 2
         if let Some(playerinput) = objecttoinput.get(&object2){
-
             
             //send that input to the game and return true
             self.thegame.receive_input( self.playerid, playerinput.clone());
@@ -229,7 +174,7 @@ impl LocalGameInterface{
     }
     
     
-    pub fn try_to_flick_piece(&mut self, pieceid: u32, direction: f32, force: f32 ) -> bool{
+    pub fn try_to_flick_piece(&mut self, pieceid: u16, direction: f32, force: f32 ) {
         
         
         let flickaction = PieceAction::flick(direction, force);
@@ -239,15 +184,12 @@ impl LocalGameInterface{
         //give the flick input to the game
         self.thegame.receive_input(self.playerid, flickinput);
         
-        true
-        
         
     }
     
     
     //try to play the selected card for its effect on the game board
-    pub fn try_to_play_card_on_game_board(&mut self, cardid: u16){
-        
+    pub fn try_to_play_card(&mut self, cardid: u16){
         
         let input = PlayerInput::playcardonboard(cardid);
         
@@ -255,19 +197,7 @@ impl LocalGameInterface{
         
     }
     
-    
-    //try to play the selected card for its effect on the card board
-    pub fn try_to_play_card_on_card_board(&mut self, cardid: u16){
 
-        let input = PlayerInput::playcardonboard(cardid);
-        
-        self.thegame.receive_input( self.playerid, input);
-        
-    }
-    
-    
-    
-    
     
     
     //get the appearance of this object
@@ -277,12 +207,13 @@ impl LocalGameInterface{
         if let ObjectType::card(cardid) = objectid{
             
             //if i can get the card from this players perspective
-            let card = self.thegame.get_card(&cardid, &self.playerid);
+            let card = self.thegame.get_card_by_id(cardid);
             
             //get the player whos hand it is in 
-            let ownersid = self.thegame.get_card_owner(&cardid);
+            let ownersid = self.thegame.get_card_owner(cardid);
+
             //get its index in that players hand
-            let handposition = self.thegame.get_card_position_in_hand(&cardid);
+            let handposition = self.thegame.get_card_position_in_hand(cardid);
             
             
             let objectname = objecttype_to_objectname(objectid);
@@ -299,19 +230,14 @@ impl LocalGameInterface{
             
             
             if ownersid == 1{
-                
                 zpos = -5.0;
             }
             if ownersid == 2{
-                
                 zpos = 5.0;
-                
-                
             }
             
             
             let toreturn = ObjectAppearance{
-                
                 
                 //the name of the object
                 objectname: objectname,
@@ -319,7 +245,7 @@ impl LocalGameInterface{
                 //the appearanceid
                 appearanceid: appearanceid,
                 
-                
+
                 //the position
                 xposition: xpos,
                 yposition: ypos,
@@ -331,42 +257,22 @@ impl LocalGameInterface{
                 zrotation: zrot,
                 
                 
-                
-                
-                
                 isselected: false,
-                
                 ishighlighted: false,
                 
                 
             };
             
-            return( toreturn );
-            
-            
-            
-            
-            
+
+            return toreturn ;
             
         }
         else if let ObjectType::piece(pieceid) = objectid{
             
             
-            //get its position
-            let (xpos, ypos, zpos) = self.thegame.get_piece_translation( pieceid);
-            //get its isometry
-            let (xrot, yrot, zrot) = self.thegame.get_piece_rotation( pieceid);
+            let (xpos, ypos, zpos) = self.thegame.get_board_game_object_translation( pieceid );
+            let (xrot, yrot, zrot) = self.thegame.get_board_game_object_rotation( pieceid );
             
-            //get its appearance id
-            
-            //starting with 2 is black
-            //starting with 3 is white
-            //1 pawn
-            //2 knight
-            //3 bishop
-            //4 rook
-            //5 queen
-            //6 king
             let appearanceid = 10;
             
             //and its name
@@ -389,23 +295,21 @@ impl LocalGameInterface{
                 ishighlighted: false,
             };
             
-            return(toreturn);
+            return toreturn;
             
             
             
             
         }
-        else if let ObjectType::boardsquare(boardsquareidx, boardsquareidy) = objectid{
+        else if let ObjectType::boardsquare(bsid) = objectid{
             
             //get its position
-            let (xpos, ypos, zpos) = self.thegame.get_board_square_translation( &(boardsquareidx, boardsquareidy) );
-            let (xrot, yrot, zrot) = self.thegame.get_board_square_rotation( &(boardsquareidx, boardsquareidy) );
+            let (xpos, ypos, zpos) = self.thegame.get_board_game_object_translation( bsid );
+            let (xrot, yrot, zrot) = self.thegame.get_board_game_object_rotation( bsid );
             
             //if board square id x + id y is even
-            let iseven = (boardsquareidx + boardsquareidy) % 2;
-            
+            let iseven = 0;
             let appearanceid = 20 + iseven;
-            
             
             
             let objectname = objecttype_to_objectname(objectid);
@@ -425,57 +329,66 @@ impl LocalGameInterface{
                 isselected: false,
                 ishighlighted: false,
             };
+
             
-            return(toreturn);
-            
-            
+            return toreturn;
             
             
         }
         else{
-            
             panic!("why isnt the object id matching with an object of any of these types?");
-            
         };
-        
     }
     
     
     //get a list of each object in the game by id (objecttype)
+    //every piece, board square, and card
     fn get_objects(&self) -> Vec<ObjectType>{
         
-        let pieceids = self.get_piece_ids();
-        let boardsquareids = self.get_board_square_ids();
-        
+        let boardobjectids = self.thegame.get_board_game_object_ids();
+        let cardobjectids = self.thegame.get_cards_in_hands_ids();
+
         let mut toreturn = Vec::new();
         
         
-        for curpieceid in pieceids{
-            let objectid = ObjectType::piece(curpieceid);
-            toreturn.push(objectid);
+        for boardobjectid in boardobjectids{
+
+            //get if this is a card or a boardsquare
+            if self.thegame.is_board_game_object_piece(boardobjectid){
+                let objectid = ObjectType::piece(boardobjectid);
+
+                toreturn.push(objectid);
+            }
+            else if self.thegame.is_board_game_object_square(boardobjectid){
+                let objectid = ObjectType::boardsquare(boardobjectid);
+
+                toreturn.push(objectid);
+            };
+
+
         };
-        for (curboardsquareidx, curboardsquareidy) in boardsquareids{
-            let objectid = ObjectType::boardsquare(curboardsquareidx, curboardsquareidy);
+
+        for cardobjectid in cardobjectids{
+            let objectid = ObjectType::card(cardobjectid);
+
             toreturn.push(objectid);
         };
 
-        
-        
+
         
         toreturn
-        
     }
     
     
     //get an objects flat position on the plane
     pub fn get_object_flat_plane_position(&self, objectid: ObjectType) -> (f32,f32){
         
-        if let ObjectType::piece(pieceid) = objectid{
+        if let ObjectType::piece(objectid) = objectid{
             
             //get its position
-            let (xpos, ypos, zpos) = self.thegame.get_piece_translation( pieceid);
+            let (xpos, ypos, zpos) = self.thegame.get_board_game_object_translation(objectid);
             
-            return(  (xpos,zpos ) );
+            return  (xpos,zpos ) ;
             
             
         }
@@ -487,17 +400,12 @@ impl LocalGameInterface{
     }
     
     
-    
-    
     fn get_appearance_id_of_card(card: &Card) -> u32{
-        
         
         //giving a card of every suit and value a unique ID
         let toreturn =  100 + 4 * card.numbervalue() + card.suitvalue();
         
-        
         toreturn as u32
-        
     }
     
     
@@ -713,22 +621,11 @@ impl LocalGameInterface{
             
             //add the card board
             toreturn.add_object(cardboard);
-            
-            
-            
         }
-        
-        
-        
-        
+     
         toreturn
-        
     }
-    
-    
-    
-    
-    
+
 }
 
 
@@ -741,8 +638,8 @@ impl LocalGameInterface{
 pub enum ObjectType{
     
     card(u16),
-    boardsquare(u8,u8),
-    piece(u32),
+    boardsquare(u16),
+    piece(u16),
     
 }
 
@@ -861,10 +758,10 @@ pub fn objectname_to_objecttype(objectname: String) -> Option<ObjectType> {
         
         //get the rest of the name and try to convert it to an int
         let stringpieceid = objectname[1..].to_string();
-        let intpieceid = stringpieceid.parse::<u32>().unwrap();
+        let intpieceid = stringpieceid.parse::<u16>().unwrap();
         let toreturn = ObjectType::piece(intpieceid);
         
-        return(Some (toreturn) );
+        return Some (toreturn) ;
         
         
         
@@ -878,27 +775,24 @@ pub fn objectname_to_objecttype(objectname: String) -> Option<ObjectType> {
         let intcardid = stringcardid.parse::<u16>().unwrap();
         let toreturn = ObjectType::card(intcardid);
         
-        return(Some (toreturn));
+        return Some (toreturn);
         
         
     }
     //if the first character of the objects name is "B"
     else if objectname.chars().nth(0).unwrap() == 'B'{
         
-        //turn the second character into an id and the third character into an id
-        let boardsquarexid = objectname.chars().nth(1).unwrap().to_digit(10).unwrap();
-        let boardsquareyid = objectname.chars().nth(2).unwrap().to_digit(10).unwrap();
+        //get the rest of the name and try to convert it to an int
+        let bsid = objectname[1..].to_string();
+        let intbsid = bsid.parse::<u16>().unwrap();
+        let toreturn = ObjectType::boardsquare(intbsid);
         
-        let toreturn = ObjectType::boardsquare(boardsquarexid as u8, boardsquareyid as u8);
-        
-        return(Some (toreturn));
+        return Some (toreturn);
         
     }
     else{
         
-        //panic!("cant convert this object name to an object type");
-        
-        return(None);
+        return None;
         
     }
     
@@ -911,19 +805,19 @@ pub fn objecttype_to_objectname(inputobjecttype: ObjectType) -> String {
     if let ObjectType::piece(pieceid) = inputobjecttype{
         
         let toreturn = "P".to_string() + &pieceid.to_string();
-        return(toreturn);
+        return toreturn ;
         
     }
-    else if let ObjectType::boardsquare(boardsquareidx, boardsquareidy) = inputobjecttype{
+    else if let ObjectType::boardsquare(boardsquareid) = inputobjecttype{
         
-        let toreturn = "B".to_string() + &boardsquareidx.to_string() + &boardsquareidy.to_string();
-        return(toreturn);
+        let toreturn = "B".to_string() + &boardsquareid.to_string();
+        return toreturn ;
         
     }
     else if let ObjectType::card(cardid) = inputobjecttype{
         
         let toreturn = "C".to_string() + &cardid.to_string();
-        return(toreturn);
+        return toreturn ;
         
     }
     else{

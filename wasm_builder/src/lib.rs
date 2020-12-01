@@ -47,8 +47,6 @@ use interface::objecttype_to_objectname;
 use interface::objectname_to_board;
 
 
-use physicsengine::GameData;
-
 
 
 
@@ -81,9 +79,10 @@ pub struct FullGame{
     
     
     dragged: Option<Dragged>,
-    
-    
+
 }
+
+
 
 #[wasm_bindgen]
 impl FullGame{
@@ -93,21 +92,14 @@ impl FullGame{
         //set the panic hook so i get real error reporting
         panic::set_hook(Box::new(console_error_panic_hook::hook));
         
-        
-        
         FullGame{
             
             localgame: LocalGameInterface::new(playerid),
             queuedoutgoingsocketmessages: Vec::new(),
             selectedobject: None,
-            
             gameappearancetoappend: Vec::new(),
-            
             dragged: None,
-            
         }
-        
-        
         
     }
     
@@ -116,6 +108,7 @@ impl FullGame{
     //give this wasm struct a message from the server
     pub fn get_incoming_socket_message(&mut self, message: String){
         
+        /*
         //if it is a "gamedata" struct
         if let Ok(gamedata) = serde_json::from_str::<GameData>( &message ){
             
@@ -123,14 +116,14 @@ impl FullGame{
             self.localgame.receive_game_state_data(gamedata);
             
         }
-        
-        
+        */
     }
+
     
     //if there is an outgoing socket message to pop
     pub fn is_outgoing_socket_message_queued(&self) -> bool{
         
-        (! self.queuedoutgoingsocketmessages.is_empty())
+        !self.queuedoutgoingsocketmessages.is_empty()
     }
     
     pub fn pop_outgoing_socket_message(&mut self) -> String{
@@ -142,7 +135,6 @@ impl FullGame{
     
     pub fn tick(&mut self){
         
-        
         //tick
         self.localgame.tick();
         
@@ -150,7 +142,6 @@ impl FullGame{
         //which should just be the input of the player, the player actions
         //the same ones that the local game received
         //or should this just be done on the "inputs"
-        
     }
     
     
@@ -165,28 +156,23 @@ impl FullGame{
         
         //the list of objects that can be selectable with the currently selected object
         let mut highlightedobjects = Vec::new();
+        
         if let Some(selectedobject) = self.selectedobject{
             highlightedobjects = self.localgame.get_this_objects_selectable_objects(selectedobject);
         }
-        
         
         
         //set those objects to highlighted in the struct being returned
         for highlightedobject in highlightedobjects{
             
             let highlightedobjectname = objecttype_to_objectname(highlightedobject);
-            
             toreturn.make_object_highlighted(highlightedobjectname);
         }
-        
         
         
         //append the "gameappearancetoappend" to the appearance data being returned
         toreturn.append_object_list( self.gameappearancetoappend.clone() );
 
-
-
-        
         
         //turn it into a json object and return as a jsvalue
         JsValue::from_serde( &toreturn ).unwrap()
@@ -284,11 +270,6 @@ impl FullGame{
 
                 
             }
-            
-            //if it cant, it could be a card in a game, which wouldnt be interactable by the player
-            
-            
-            
             
         }        
         
@@ -446,13 +427,13 @@ impl FullGame{
                     //if its over 1, send a mission to play the card over the game board
                     else if boardover == 1{
 
-                        self.localgame.try_to_play_card_on_game_board(cardid);
+                        self.localgame.try_to_play_card(cardid);
 
                     }
                     //if its over 2, send a mission to play the card over the card board
                     else if boardover == 2{
 
-                        self.localgame.try_to_play_card_on_card_board(cardid);
+                        self.localgame.try_to_play_card(cardid);
 
                     }
                     else{
@@ -485,6 +466,8 @@ impl FullGame{
     
     
 }
+
+
 
 
 

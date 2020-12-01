@@ -1,9 +1,6 @@
 
 
-use physicsengine::GameInterface;
-
-use physicsengine::PlayerInput;
-use physicsengine::PieceAction;
+use physicsengine::MainGame;
 
 
 use physicsengine::GameToConnectTo;
@@ -31,7 +28,6 @@ use std::collections::HashSet;
 use tungstenite::{connect, Message};
 
 
-use crossbeam::atomic::AtomicCell;
 
 use url::Url;
 use  std::sync::Mutex;
@@ -211,7 +207,7 @@ fn handle_connection(mut stream: TcpStream, game: Arc< Mutex< Game >>){
 //a single game
 struct Game{
     
-    thegame: GameInterface,
+    thegame: MainGame,
     
     //if everything about the game is valid enough for it to tick
     gameon: bool,
@@ -235,7 +231,7 @@ impl Game{
         
         Game{
             
-            thegame: GameInterface::new_2_player_game(),
+            thegame: MainGame::new_two_player(),
             
             gameon: false,
             
@@ -327,13 +323,13 @@ impl Game{
             //send the states of the game through the websocket
             
             {
-                let gamestatestringto1 = self.thegame.get_game_information_string(&1);
+                let gamestatestringto1 = self.thegame.get_game_information_string(1);
                 let player1msg = Message::text(gamestatestringto1);
                 self.player1websocket.as_mut().unwrap().write_message(player1msg).unwrap();
                 
                 
                 
-                let gamestatestringto2 = self.thegame.get_game_information_string(&2);
+                let gamestatestringto2 = self.thegame.get_game_information_string(2);
                 let player2msg = Message::text(gamestatestringto2);
                 self.player2websocket.as_mut().unwrap().write_message(player2msg).unwrap();
             }

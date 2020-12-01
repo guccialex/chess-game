@@ -1,7 +1,7 @@
 mod gameengine;
 
 use gameengine::GameEngine;
-use gameengine::PieceAction;
+pub use gameengine::PieceAction;
 
 
 use std::collections::HashSet;
@@ -28,8 +28,6 @@ pub use datastructs::TurnManager;
 mod cardstructs;
 pub use cardstructs::Card;
 use cardstructs::CardEffect;
-use cardstructs::CardValue;
-use cardstructs::CardSuit;
 use cardstructs::CardsInterface;
 
 
@@ -105,6 +103,12 @@ impl MainGame{
         
     }
     
+
+    pub fn get_game_information_string(&self, playerid: u8) -> String{
+
+        "somestring".to_string()
+
+    }
     
     
     
@@ -114,119 +118,112 @@ impl MainGame{
         
         self.cards.get_all_card_ids()
     }
-    
     pub fn get_card_by_id(&self, cardid: u16) -> Card{
         
         self.cards.get_card_unsafe(cardid)
     }
-    
+    pub fn get_card_owner(&self, cardid: u16) -> u8{
+
+        if self.cards.does_player_own_card(1, cardid){
+            return 1;
+        }
+        else if self.cards.does_player_own_card(2, cardid){
+            return 2;
+        }
+        else{
+            panic!("well apparently nobody owns the card");
+        }
+    }
+    pub fn get_card_position_in_hand(&self, cardid: u16) -> u8{
+
+        //get the owner of the card
+        let owner = self.get_card_owner(cardid);
+
+        //get the hand of that player
+        let ownershand = self.cards.get_cards_in_hand(owner);
+
+        //get the position of this card in the hand
+        let mut curpos = 0;
+
+        for curcardid in ownershand{
+
+            if curcardid == cardid{
+                break;
+            }
+
+            curpos += 1;
+        }
+
+        return curpos;
+    }
     pub fn get_cards_in_game(&self) -> Option< (Vec<Card>, Vec<Card>, Vec<Card>) >{
         
         self.cards.get_cards_in_game()
     }
     
+
+
+
+    pub fn get_board_game_object_ids(&self) -> Vec<u16>{
+        self.boardgame.get_object_ids()
+    }
+    pub fn get_board_game_object_translation(&self, objectid: u16) -> (f32,f32,f32){
+        self.boardgame.get_object_translation(objectid)
+    }
+    pub fn get_board_game_object_rotation(&self, objectid: u16) -> (f32,f32,f32){
+        self.boardgame.get_object_rotation(objectid)
+    }
+
+    //is this board game object a square
+    pub fn is_board_game_object_square(&self, objectid: u16) -> bool{
+        self.boardgame.is_board_game_object_square(objectid)
+    }
+    
+    //is this board game object a piece
+    pub fn is_board_game_object_piece(&self, objectid: u16) -> bool{
+        self.boardgame.is_board_game_object_piece(objectid)
+    }
+
     
     
     
-    //given the card and player id, get the actions allowed to be performed on what pieces and board squares
-    pub fn get_piece_and_square_actions_allowed_by_card(&self,playerid: u8, cardid: u16 ) -> ( Vec<(u32, PlayerInput)>, Vec<((u8,u8), PlayerInput)> ){
+
+    //get the objects on the board that that the card can interact with, and the associated input for it
+    pub fn get_boardobject_actions_allowed_by_card(&self, playerid: u8, cardid: u16) -> HashMap<u16, PlayerInput> {
         
         let card = self.cards.get_card_unsafe(cardid);
         
+        //get every possible input
+        //then if its allowed
         
-        //get every possible piece and card input
-        //if its allowed, push it to the list of cards and squares to return
-        let mut allboardinputs = Vec::new();
-        let mut allpieceinputs: Vec<(u32, PlayerInput)> = Vec::new();
-        
-        
-        let mut allowedboardinputs = Vec::new();
-        let mut allowedpieceinputs = Vec::new();
+        let mut allowedinputs = HashMap::new();
+
         
         //if this card can drop or raise a square
         if card.effect == CardEffect::dropsquare || card.effect == CardEffect::raisesquare{
             
-            //push every board square and input into the list of all board inputs
-            for x in 0..8{
-                for y in 0..8{
-                    
-                    let boardsquareid = (x,y);
-                    
-                    let playerinput = PlayerInput::playcardonsquare( cardid, boardsquareid );
-                    
-                    allboardinputs.push( (boardsquareid, playerinput) );
-                    
-                }
+            //for every board square
+            for boardsquareid in self.boardgame.get_squares(){
+
+                let input = PlayerInput::playcardonsquare(cardid, boardsquareid);
+
+                allowedinputs.insert( boardsquareid, input );
             }
-            
-            
-            for (boardsquareid, playerinput) in allboardinputs{
-                
-                let isvalid = self.is_input_valid(playerid, &playerinput);
-                
-                if isvalid{
-                    allowedboardinputs.push( (boardsquareid, playerinput) );
-                }
-                
-                
-            }
-            
-            
         }
         
         
-        
-        return ( allowedpieceinputs , allowedboardinputs );
-        
+        return allowedinputs;
     }
-    
 
-    pub fn get_pieces_and_squares_actable_by_card(&self, playerid: u8, cardid: u16) -> ( Vec<u32>, Vec<(u8,u8)> ){
-        
-        let mut toreturn = (Vec::new(), Vec::new());
-        
-        let (pieceinput, bsinput) = self.get_piece_and_square_actions_allowed_by_card( playerid, cardid);
-        
-        for (pieceid, _) in pieceinput{
-            toreturn.0.push(pieceid);
-        };
-        
-        for (bsid, _) in bsinput{
-            toreturn.1.push(bsid);
-        };
-        
-        toreturn
-        
-    }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    fn get_if_piece_can_be_flicked(&self, pieceid: &u32) -> bool{
-        
-        true
-        
-    }
-    
-    
-    pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec<(PieceAction, (u8,u8) , HashSet<u16> )>){
+
+    //the actions allowed by the piece and the objects it captures or lands on
+    pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec<(PieceAction, Vec<u16> )>){
         
         //get the actions allowed by the piece
         //if the owner is allowed to perform piece actions right now
         self.boardgame.get_actions_allowed_by_piece(pieceid)
         
     }
-    
-    
-    
-    
-    
     
     
     
@@ -424,9 +421,6 @@ impl MainGame{
         panic!(" why isnt this case dealt with? ");
         
     }
-    
-    
-    
     //can this card be played alone
     fn is_play_card_on_board_action_valid(&self, playerid: &u8, cardid: &u16) -> bool{
         
@@ -453,14 +447,14 @@ impl MainGame{
         
     }
     //if this card can be played on this piece 
-    fn is_play_card_on_piece_action_valid(&self, playerid: &u8, cardid: &u16, pieceid: &u32) -> bool{
+    fn is_play_card_on_piece_action_valid(&self, playerid: &u8, cardid: &u16, pieceid: &u16) -> bool{
         
         
         return false;
         
     }   
     //if this card can be played on this boardsquare
-    fn is_play_card_on_square_action_valid(&self, playerid: &u8, cardid: &u16, boardsquareid: &(u8,u8) ) -> bool{
+    fn is_play_card_on_square_action_valid(&self, playerid: &u8, cardid: &u16, boardsquareid: &u16 ) -> bool{
         
         
         //get if this card has an effect that can be played on a board square
@@ -485,9 +479,6 @@ impl MainGame{
         true
         
     }
-    
-    
-    
     //only called when the player is the one who owns the piece
     fn is_piece_action_valid(&self, playerid: &u8, pieceid: &u16,  pieceaction: &PieceAction) -> bool{
         
@@ -535,13 +526,9 @@ impl MainGame{
         
     }
     
-    
-    
-    
-    
-    
-    
-    
+
+
+
     //perform an input that is valid, and it is the turn of the player
     fn perform_input(&mut self, playerid: &u8 ,playerinput: &PlayerInput) {
         
@@ -589,15 +576,6 @@ impl MainGame{
         
     }
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
     //start a blackjack game with the given players
     fn start_blackjack_game(&mut self, player1: u8, player2:u8){
         
@@ -615,13 +593,6 @@ impl MainGame{
     
     
 }
-
-
-
-
-
-
-
 
 
 

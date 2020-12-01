@@ -79,6 +79,20 @@ impl GameEngine{
         gameengine
         
     }
+
+
+
+    //is this board game object a square
+    pub fn is_board_game_object_square(&self, objectid: u16) -> bool{
+        self.boardgame.is_board_game_object_square(objectid)
+    }
+    //is this board game object a piece
+    pub fn is_board_game_object_piece(&self, objectid: u16) -> bool{
+        self.boardgame.is_board_game_object_piece(objectid)
+    }
+
+
+
     
     pub fn get_owner_of_piece(& self, pieceid: u16) -> u8{
         
@@ -90,13 +104,10 @@ impl GameEngine{
                     
                     return player;
                 }
-                
             }
-            
         }
         
         panic!("cant find the owner of the piece");
-        
     }
     
     
@@ -106,12 +117,10 @@ impl GameEngine{
         
         let mut toreturn = Vec::new();
         
-        for (action, boardpos, pieces) in actionsandpositionallowed.1{
+        for (action, objectid) in actionsandpositionallowed.1{
             
             toreturn.push(action);
-            
         };
-        
         
         
         toreturn
@@ -120,32 +129,32 @@ impl GameEngine{
     
     
     //return if it can be flicked
-    //then each action its allowed to do, where that action takes it, and what pieces will be captured
-    pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> ( bool, Vec<(PieceAction, (u8,u8) , HashSet<u16> )>){
+    //then return every action it can perform
+    //and the objects that action captures or lands on
+    pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec<( PieceAction, Vec<u16> )>){
         
+        let mut validpieceactions: Vec<( PieceAction )> = Vec::new();
         
-        let mut toreturn: Vec<(PieceAction, (u8,u8), HashSet<u16>)> = Vec::new();
-        
-        
-        //get the allowed actions of the piece
+        //get the struct of allowed actions for the piece
         let allowedactions = self.pieceallowedactions.get(&pieceid).unwrap();
+
+        //and for each action, get the pieces and board square ids it interacts with and return it
+        let mut toreturn: Vec<( PieceAction, Vec<u16> )> = Vec::new();
+
         
-        
-        //if the piece is on a board square
-        if let Some(boardsquarepos) = self.boardgame.get_board_square_piece_is_on(pieceid){
-            
+        //get if the actions are actually valid
+        if let Some(boardsquareid) = self.boardgame.get_board_square_piece_is_on(pieceid){
+
+            let boardsquarepos = self.boardgame.get_pos_of_boardsquare(boardsquareid).unwrap();
             
             //get the owner of this piece
             let ownerofpiece = self.get_owner_of_piece(pieceid);
-            
             //get the facing direction of the owner
             let ownerdirection = self.playertodirection.get(&ownerofpiece).unwrap();
             
-            
-            
+
             //get the slide actions
             let slide_actions = allowedactions.get_allowed_slide_actions(*ownerdirection);
-            
             //get the lift and move actions
             let lift_and_move_actions = allowedactions.get_allowed_lift_and_move(*ownerdirection);
             
@@ -159,11 +168,13 @@ impl GameEngine{
                 //the action representing this
                 let mut action = PieceAction::slide(*direction, stepnumber);
                 
-
                 //if that board square exists
                 while let Some(cursquarepos) = self.get_square_pos_that_action_takes_piece_at_pos(boardsquarepos, action.clone()){
+
+                    //the current square id
+                    let cursquareid = self.boardgame.get_id_of_boardsquare_pos(cursquarepos).unwrap();
                     
-                    let piecesonboardsquare = self.boardgame.get_pieces_on_board_square(&cursquarepos);
+                    let piecesonboardsquare = self.boardgame.get_pieces_on_board_square(cursquareid);
                     
                     //for each piece on the board square, get if it only has opponents pieces on it (includes being empty)
                     let mut onlyopponentspieces = true;
@@ -181,7 +192,7 @@ impl GameEngine{
                     //if this is an empty board square, and im not forced to capture to move, add this
                     if piecesonboardsquare.is_empty(){
                         if ! hastocapture{
-                            toreturn.push( (action.clone(), cursquarepos, piecesonboardsquare.clone()) );
+                            validpieceactions.push(action);
                         }
                     }
                     //if this board square has pieces
@@ -190,8 +201,8 @@ impl GameEngine{
                         if onlyopponentspieces{
                             //if im allowed to capture, add this
                             if *cancapture{
-                                
-                                toreturn.push((action.clone(), cursquarepos, piecesonboardsquare.clone()));
+
+                                validpieceactions.push(action);
                             }
                         }
                     }
@@ -209,13 +220,11 @@ impl GameEngine{
                     //and update the action
                     action = PieceAction::slide(*direction, stepnumber);
                 }
-                
-                
-                
             }
             
-            
-            
+
+
+
             //for each position it can be lifted and moved to
             for (currelativeposition, hastocapture, cancapture ) in lift_and_move_actions.iter(){
                 
@@ -226,44 +235,78 @@ impl GameEngine{
                 let maybeendpos = self.get_square_pos_that_action_takes_piece_at_pos( currentboardsquare, lift_action_to_get_here.clone());
                 
                 if let Some(endpos) = maybeendpos{
+
+                    let endid = self.boardgame.get_id_of_boardsquare_pos(endpos).unwrap();
+
                     
                     //if this board square does not have any of my pieces on it
-                    let piecesonboardsquare = self.boardgame.get_pieces_on_board_square( & currentboardsquare );
+                    let piecesonboardsquare = self.boardgame.get_pieces_on_board_square( endid );
                     
                     //for each piece on the board square, get if it only has opponents pieces on it (includes being empty)
                     let mut onlyopponentspieces = true;
-                    
                     for otherpieceid in piecesonboardsquare.iter(){
-                        
                         let ownerofotherpiece = self.get_owner_of_piece( *otherpieceid);
                         if ownerofotherpiece == ownerofpiece{   
                             onlyopponentspieces = false;
                         }
                     }
+
+
+
+
+                    let mut objectsinteractedwith = Vec::new();
+
+                    objectsinteractedwith.push(endid);
+
+
                     
                     //if this is an empty board square, and im not forced to capture to move, add this
                     if piecesonboardsquare.is_empty(){
+
                         if ! hastocapture{
-                            toreturn.push( (lift_action_to_get_here.clone(), currentboardsquare, piecesonboardsquare) );
+                            validpieceactions.push(lift_action_to_get_here);
                         }
+
                     }
                     else{
                         //if this square has a piece and only has opponents pieces, and im allowed to capture, add this
                         if onlyopponentspieces{
                             if *cancapture{
-                                toreturn.push((lift_action_to_get_here.clone(), currentboardsquare, piecesonboardsquare));
+                                validpieceactions.push(lift_action_to_get_here);
                             }
                         }   
                     }
+
+
+
                 }
             }
 
+
+
+
+
+            for action in validpieceactions{
+
+                //get the square that this action takes the piece
+                let squarepos = self.get_square_pos_that_action_takes_piece_at_pos(boardsquarepos, action.clone()).unwrap();
+
+                let squareid = self.boardgame.get_id_of_boardsquare_pos(squarepos).unwrap();
+
+                let mut interactableobjects = Vec::new();
+
+                interactableobjects.push(squareid);
+
+                toreturn.push( (action.clone(), interactableobjects) );
+    
+            }
+
+
         };
-        
-        
-        
+
+
+
         (true, toreturn)
-        
     }
     
     
@@ -273,21 +316,18 @@ impl GameEngine{
     fn init_chess_game(&mut self){
         
         self.create_pawn( (1,1), 1);
-       
     }
+
+
     //create a pawn, at this position, with this owner
     fn create_pawn(&mut self, pos: (u8,u8), owner: u8){
         
         let pieceid = self.boardgame.new_piece(pos);
         let pieceallowedactions = AllowedActions::get_unmoved_pawn();
         
-        
         self.playertopiece.get_mut(&owner).unwrap().insert(pieceid);
         self.pieceallowedactions.insert(pieceid, pieceallowedactions);
-        
     }
-    
-    
     
     
     
@@ -295,12 +335,9 @@ impl GameEngine{
     //if it is a position within the bounds, and none if its out of bounds
     pub fn get_square_pos_that_action_takes_piece_at_pos(&self, piecepos: (u8,u8), action: PieceAction) -> Option<(u8,u8)>{
         
-        
         let intpiecepos = (piecepos.0 as i32, piecepos.1 as i32);
         
-        
         if let PieceAction::liftandmove( relativepos ) = action{
-            
             
             let newpos = (intpiecepos.0 + relativepos.0 , intpiecepos.1 + relativepos.1);
             
@@ -322,7 +359,6 @@ impl GameEngine{
             
             let relativepos = (xstep * distance as i32, zstep * distance as i32);
             
-            
             let newpos = (intpiecepos.0 + relativepos.0 , intpiecepos.1 + relativepos.1);
             
             //if the new pos is out of range, return none
@@ -338,28 +374,17 @@ impl GameEngine{
             
         } 
         else{
-            
-            
             return None;
-            
         }
         
-        
-        
+
     }
     
-    
-    
-    
-    
-    
-    
+
     
     //get the list of every object in the physical engine
     pub fn get_object_ids(&self) -> Vec<u16>{
-        
         self.boardgame.get_object_ids()
-        
     }    
     
     pub fn get_object_translation(&self, gameobjectid: u16) -> (f32,f32,f32){
@@ -370,14 +395,36 @@ impl GameEngine{
         self.boardgame.get_rotation(gameobjectid)
     }
     
-    
-    
     pub fn tick(&mut self){
-        
         self.boardgame.tick();
-        
     }
     
+
+    //get the id of every board square in the game
+    pub fn get_squares(&self) -> Vec<u16>{
+
+
+        //get the position of every board square in the game
+        let mut boardsquareposs: Vec<(u8,u8)> = Vec::new();
+        for x in 0..8{
+            for y in 0..8{
+                boardsquareposs.push( (x,y) );
+            }
+        }
+
+        let mut toreturn = Vec::new();
+
+        //for every board square pos get its id
+        for boardsquarepos in boardsquareposs{
+
+            let bsid = self.boardgame.get_id_of_boardsquare_pos(boardsquarepos).unwrap();
+
+            toreturn.push( bsid );
+        }
+
+
+        return Vec::new();
+    }
     
 }
 
