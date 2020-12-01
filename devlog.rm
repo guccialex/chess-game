@@ -1,0 +1,13 @@
+
+nov 30th:
+
+I've restructured the entire chesspokerpackage and pushed a commit indicating that it compiles now, like its the first of the long arduous steps
+of weeding out the errors that prevents it from the next step of actually rendering something
+but damn
+it actually runs before the restructuring, with some issues, but it even lets me play cards to the board
+
+man, i really like rust
+
+the "if it compiles it works"
+
+is fucking true in a way unlike in any other language
