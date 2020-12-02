@@ -53,6 +53,33 @@ impl LocalGameInterface{
     }
     
     
+    //returns true if i am the owner of this object, false otherwise
+    pub fn do_i_own_object(&self, object: ObjectType) -> bool{
+        
+        
+        if self.does_object_still_exist(object){
+            
+            if let ObjectType::card(cardid) = object{
+                
+                if self.playerid == self.thegame.get_card_owner(cardid){
+                    return true;
+                }
+            }
+            else if let ObjectType::piece(pieceid) = object{
+                
+                if self.playerid == self.thegame.get_board_game_object_owner(pieceid){
+                    return true;
+                }
+            }
+            
+        }
+        
+        
+        
+        return false;
+        
+    }
+    
     
     
     //gets a map of every valid player input for this given object
@@ -72,28 +99,28 @@ impl LocalGameInterface{
             for (action, objectids) in actionsandobjects.1{
                 
                 let input = PlayerInput::pieceaction(pieceid, action);
-
+                
                 //for every object id
                 for objectid in objectids{
-
+                    
                     let objecttype;
-
+                    
                     //if the object is a piece
                     if self.thegame.is_board_game_object_piece(objectid){
-
+                        
                         objecttype = ObjectType::piece(objectid);
                     }
                     else if self.thegame.is_board_game_object_square(objectid){
-
+                        
                         objecttype = ObjectType::boardsquare(objectid);
                     }
                     else{
                         panic!("apparently its neither boardsquare or piece");
                     }
-
+                    
                     toreturn.insert( objecttype, input.clone() );
                 }
-
+                
             }
             
         }
@@ -102,17 +129,17 @@ impl LocalGameInterface{
             
             //get the pieces and squares actable by the card
             let idtoinput = self.thegame.get_boardobject_actions_allowed_by_card(self.playerid, cardid);
-
+            
             
             for (id, input) in idtoinput{
-
+                
                 if self.thegame.is_board_game_object_piece(id){
                     toreturn.insert( ObjectType::piece(id), input );
                 }
                 else if self.thegame.is_board_game_object_square(id){
                     toreturn.insert( ObjectType::boardsquare(id), input );
                 }
-
+                
             }
             
             
@@ -129,20 +156,19 @@ impl LocalGameInterface{
         toreturn
     }
     
-
+    
     pub fn get_this_objects_selectable_objects(&self, objectid: ObjectType) -> Vec<ObjectType>{
-
+        
         let objecttoinput = self.get_inputs_of_object(objectid);
-
+        
         let mut toreturn = Vec::new();
-
+        
         for (objectid, input) in objecttoinput{
-
             toreturn.push(objectid);
         };
-
+        
         toreturn
-
+        
     }
     
     
@@ -155,7 +181,7 @@ impl LocalGameInterface{
     pub fn try_to_perform_action(&mut self, object1: ObjectType, object2: ObjectType) -> bool{
         
         let objecttoinput = self.get_inputs_of_object(object1);
-
+        
         
         //if there is a player input that lets object1 perform some action on object 2
         if let Some(playerinput) = objecttoinput.get(&object2){
@@ -198,6 +224,14 @@ impl LocalGameInterface{
     }
     
 
+    pub fn try_to_draw_card(&mut self){
+
+        let input = PlayerInput::drawcard;
+
+        self.thegame.receive_input(self.playerid, input);
+
+    }
+    
     
     
     //get the appearance of this object
@@ -206,14 +240,18 @@ impl LocalGameInterface{
         //if its a card
         if let ObjectType::card(cardid) = objectid{
             
+            
             //if i can get the card from this players perspective
             let card = self.thegame.get_card_by_id(cardid);
             
-            //get the player whos hand it is in 
-            let ownersid = self.thegame.get_card_owner(cardid);
-
+            
             //get its index in that players hand
             let handposition = self.thegame.get_card_position_in_hand(cardid);
+            
+            //get the player whos hand it is in 
+            let ownersid = self.thegame.get_card_owner(cardid);
+            
+            
             
             
             let objectname = objecttype_to_objectname(objectid);
@@ -245,7 +283,7 @@ impl LocalGameInterface{
                 //the appearanceid
                 appearanceid: appearanceid,
                 
-
+                
                 //the position
                 xposition: xpos,
                 yposition: ypos,
@@ -263,7 +301,7 @@ impl LocalGameInterface{
                 
             };
             
-
+            
             return toreturn ;
             
         }
@@ -329,7 +367,7 @@ impl LocalGameInterface{
                 isselected: false,
                 ishighlighted: false,
             };
-
+            
             
             return toreturn;
             
@@ -347,34 +385,34 @@ impl LocalGameInterface{
         
         let boardobjectids = self.thegame.get_board_game_object_ids();
         let cardobjectids = self.thegame.get_cards_in_hands_ids();
-
+        
         let mut toreturn = Vec::new();
         
         
         for boardobjectid in boardobjectids{
-
+            
             //get if this is a card or a boardsquare
             if self.thegame.is_board_game_object_piece(boardobjectid){
                 let objectid = ObjectType::piece(boardobjectid);
-
+                
                 toreturn.push(objectid);
             }
             else if self.thegame.is_board_game_object_square(boardobjectid){
                 let objectid = ObjectType::boardsquare(boardobjectid);
-
+                
                 toreturn.push(objectid);
             };
-
-
+            
+            
         };
-
+        
         for cardobjectid in cardobjectids{
             let objectid = ObjectType::card(cardobjectid);
-
+            
             toreturn.push(objectid);
         };
-
-
+        
+        
         
         toreturn
     }
@@ -501,7 +539,7 @@ impl LocalGameInterface{
             }
             
             
-
+            
             let mut xpositioninsection = 0.0;
             
             for card in player2hand{
@@ -551,6 +589,29 @@ impl LocalGameInterface{
     }
     
     
+    //returns whether this object exists in the game
+    fn does_object_still_exist(&self, object: ObjectType) -> bool{
+        
+        if let ObjectType::piece(pieceid) = object{
+            if self.thegame.get_board_game_object_ids().contains(&pieceid){
+                return true;
+            }
+            else{
+                return false;
+            }
+        }
+        else if let ObjectType::card(cardid) = object{
+            if self.thegame.get_cards_in_hands_ids().contains(&cardid){
+                return true;
+            }
+            else{
+                return false;
+            }
+        }
+        else{
+            return true ;
+        };
+    }
     
     
     pub fn get_full_appearance_state(&self) -> FullAppearanceState{
@@ -622,10 +683,65 @@ impl LocalGameInterface{
             //add the card board
             toreturn.add_object(cardboard);
         }
-     
+        
+        
+        //add the deck appearance
+        let deckappearance = ObjectAppearance{
+            xposition: -7.0,
+            yposition: 0.0,
+            zposition: 0.0,
+            xrotation: 0.0,
+            yrotation: 0.0,
+            zrotation: 0.0,
+            objectname: "deck".to_string(),
+            appearanceid: 300,
+            isselected: false,
+            ishighlighted: false,
+        };
+
+        toreturn.add_object(deckappearance);
+
+
+        //add the appearance of the timer for the player and the opponent
+        let player1timeleft = self.thegame.get_players_turn_ticks_left(1);
+        let player2timeleft = self.thegame.get_players_turn_ticks_left(2);
+        
+        let player1timer = ObjectAppearance{
+            xposition: -7.0,
+            yposition: 0.0,
+            zposition: -3.0,
+            xrotation: 0.0,
+            yrotation: 0.0,
+            zrotation: 0.0,
+            objectname: "player1timer".to_string(),
+            appearanceid: 400 + player1timeleft%100,
+            isselected: false,
+            ishighlighted: false,
+        };
+        toreturn.add_object(player1timer);
+
+
+
+        let player2timer = ObjectAppearance{
+            xposition: -7.0,
+            yposition: 0.0,
+            zposition: 3.0,
+            xrotation: 0.0,
+            yrotation: 0.0,
+            zrotation: 0.0,
+            objectname: "player2timer".to_string(),
+            appearanceid: 400 + player2timeleft%100,
+            isselected: false,
+            ishighlighted: false,
+        };
+        toreturn.add_object(player2timer);
+
+
+
+        
         toreturn
     }
-
+    
 }
 
 
@@ -705,10 +821,8 @@ impl FullAppearanceState{
         FullAppearanceState{
             cameraposition: None,
             objects: Vec::new(),
-        }
-        
+        }   
     }
-    
     
     fn add_object(&mut self, objectappearance: ObjectAppearance){
         
@@ -731,6 +845,20 @@ impl FullAppearanceState{
         
     }
     
+    pub fn make_object_selected(&mut self, objectname: String){
+        
+        for curobject in self.objects.iter_mut(){
+            
+            if curobject.objectname == objectname{
+                
+                curobject.isselected = true;
+                
+            }
+        }
+        
+        
+        
+    }
     
     pub fn append_object_list(&mut self, objectlist: Vec<ObjectAppearance>){
         
@@ -849,7 +977,7 @@ pub fn objectname_to_board(objectname: String) -> u32{
     }
     //if its a card in a game
     if objectname.chars().nth(0).unwrap() == 'G'{
-
+        
         return 2;
     }
     //if its a card in a hand or outside a game

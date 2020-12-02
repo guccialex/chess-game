@@ -32,6 +32,9 @@ pub enum PlayerInput{
     
     //perform an action on a piece
     pieceaction(u16, PieceAction),
+
+    //draw card from the deck
+    drawcard,
     
 }
 
@@ -179,9 +182,13 @@ pub struct TurnManager{
     //the playerid, the ticks until their turn, and then how long that turn is
     //becomes the queuedturns when queuedturns is empty
     basequeue: Vec< (u8, u32, u32) >,
-    
-    
+
+
+    //the total amount of time a player has left
+    playertimeleft: HashMap<u8, i32>,
 }
+
+
 
 impl TurnManager{
     
@@ -190,23 +197,23 @@ impl TurnManager{
         let mut toreturn = TurnManager{
             
             queuedturns: Vec::new(),
-            
             basequeue: Vec::new(),
-            
+            playertimeleft: HashMap::new(),
         };
-        
+
         
         //set up the basequeue
         //with player 1 and player 2
-        toreturn.basequeue.push(  (player1, 0, 10)  );
-        toreturn.basequeue.push(  (player2, 10, 20)  );
+        toreturn.basequeue.push(  (player1, 0, 60)  );
+        toreturn.basequeue.push(  (player2, 60, 60)  );
         
+        toreturn.playertimeleft.insert( player1, 1800 * 5);
+        toreturn.playertimeleft.insert( player2, 1800 * 5);
+
+
         toreturn.tick();
         
-        
         toreturn
-        
-        
     }
     
     
@@ -237,7 +244,7 @@ impl TurnManager{
     
     
     //progress timewards
-    pub fn tick(&mut self) {        
+    pub fn tick(&mut self) {
         
         
         //tick each item in queued turns
@@ -246,23 +253,31 @@ impl TurnManager{
             //decrease ticks until, unless its zero
             //then tick down turnlength
             if *ticksuntil > 0{
-                
                 *ticksuntil = *ticksuntil -1;
             }
             else{
-                
                 *turnlength = *turnlength -1;
                 
             }
-            
-            
         }
+
+
+        let activeplayers = self.get_current_players();
+
+        //if it is currently the players turn
+        //tick the amount of time they have left down
+        for (player, timeleft) in self.playertimeleft.iter_mut(){
+
+            //if the player is active, tick his timeleft down
+            if activeplayers.contains(player){
+                
+                *timeleft = *timeleft - 1;
+            }
+        }
+
         
         //perform a timeless upkeep
-        self.timeless_upkeep();
-        
-        //panic!("this is whos turn it is")
-        
+        self.timeless_upkeep();        
         
         
     }
@@ -295,7 +310,6 @@ impl TurnManager{
         
     }
     
-    
     //this player took a turn action
     pub fn player_took_action(&mut self, playerid: u8){
         
@@ -310,7 +324,6 @@ impl TurnManager{
         
         
     }
-    
     
     //get a set of players who currently have a turn
     pub fn get_current_players(&self) -> HashSet<u8>{
@@ -336,6 +349,71 @@ impl TurnManager{
         
         
         
+    }
+
+    //if it is this players turn, is it the last tick they have for their turn?
+    pub fn is_it_this_players_turns_last_tick(&self, playerid: u8) -> bool{
+
+        for (queuedplayer, ticksuntil, turnlength) in self.queuedturns.iter(){
+
+            if queuedplayer == &playerid{
+
+                if *turnlength <= 1{
+                    return true;
+                }
+            }
+        };
+
+        false    
+    }
+
+
+    //if it is this players turn, return how many ticks they have left in their turn
+    pub fn get_ticks_left_for_player(&self, playerid: u8) -> Option<u32>{
+
+        for (queuedplayer, ticksuntil, turnlength) in self.queuedturns.iter(){
+
+            if queuedplayer == &playerid{
+
+                if ticksuntil == &0{
+                    return Some(*turnlength);
+                }
+            }
+        };
+
+        None
+    }
+
+
+}
+
+
+
+
+pub struct GameSettings{
+
+
+    //the amount of cards players draw at the start of their turn
+    cardsdrawnatstartofturn: u8,
+
+    //how many cards are drawn by 
+    //if 0 it means the player cant draw
+    cardsdrawnbyaction: u8,
+
+
+
+}
+
+
+impl GameSettings{
+
+    pub fn new() -> GameSettings{
+
+        GameSettings{
+            cardsdrawnatstartofturn: 0,
+            cardsdrawnbyaction: 0,
+        }
+
     }
 
 }

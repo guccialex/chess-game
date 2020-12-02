@@ -292,66 +292,61 @@ class GameApperance{
                 if (objectdata.appearanceid == 10){
                     
                     objectmesh = BABYLON.MeshBuilder.CreateCylinder(objectname, {height: 0.5, diameter: 0.7 }, this.scene);
-                    
-                    //using imported mesh
-                    /*
-                    
-                    let tempscene = this.scene;
-                    
-                    BABYLON.SceneLoader.ImportMesh("", "./", "classic_king_nosupport.stl", this.scene, function (meshes) {
-                        
-                        meshes[0].scaling.x = 0.025;
-                        meshes[0].scaling.y = 0.025;
-                        meshes[0].scaling.z = 0.025;
-                        
-                        
-                        meshes[0].material = new BABYLON.StandardMaterial("bs_mat", tempscene);
-                        meshes[0].material.diffuseColor = BABYLON.Color3.Green();
-                        
-                        
-                        //get the old object with the old object name
-                        //get rid of it
-                        tempscene.getMeshByName(objectname).dispose();
-                        
-                        
-                        
-                        //and set this as the new object with that name
-                        meshes[0].name = objectname;
-                        
-                        
-                    });
-                    
-                    */
-                    
-                    
+                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
+                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
                     
                 }
                 else if (objectdata.appearanceid == 20 || objectdata.appearanceid == 21){
                     
                     objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 0.999, width: 0.999, depth: 1.00 }, this.scene);
+                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
+                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
                     
                 }
                 //50 is a pool queue
                 else if (objectdata.appearanceid == 50){
                     
                     objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 0.20, width: 0.20, depth: 1.98 }, this.scene);
+                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
+                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
                     
                 }
                 //100 to 200 is cards
                 else if (objectdata.appearanceid  >= 100 && objectdata.appearanceid  <= 200 ){
 
-                    //ratio of 2.5 to 3.5 for width and depth for cards
-                    
-                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 0.2, width: 1.6, depth: 2.24 }, this.scene);
-                    
-                    
+                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 0.07, width: 2.24, depth: 1.6 }, this.scene);
+
+                    console.log(objectdata.appearanceid);
+
+                    var myMaterial = new BABYLON.StandardMaterial("myMaterial", this.scene);
+                    myMaterial.diffuseColor = BABYLON.Color3.Red();
+                    let cardnumber = pad((objectdata.appearanceid - 100), 3); 
+                    let cardartname = "cardart/card_"  + cardnumber + ".jpg";
+                    myMaterial.diffuseTexture = new BABYLON.Texture(cardartname, this.scene);
+                    objectmesh.material = myMaterial;
+
                 }
                 //201 is a flat board for the cards
                 else if (objectdata.appearanceid  == 201){
 
-                    console.log("got the board object");
-
                     objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 0.5, width: 8.0, depth: 8.0 }, this.scene);
+                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
+                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
+
+                }
+                else if (objectdata.appearanceid  == 300){
+
+                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 0.7, width: 1.6, depth: 2.24 }, this.scene);
+                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
+                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
+
+                }
+                //the appearance between 400 and 500 is the timer and the ticks left on it
+                else if (objectdata.appearanceid >= 400 && objectdata.appearanceid < 500){
+                    
+                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 1.0, width: 1.0, depth: 1.0 }, this.scene);
+                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
+                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
 
                 }
                 else{
@@ -359,12 +354,12 @@ class GameApperance{
                     console.log("the other objectcolour seems to be" + objectdata.appearanceid );
                     
                     objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 0.95, width: 0.95, depth: 0.95 }, this.scene);
+                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
+                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
                     
                 }
                 
                 
-                objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
-                objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
                 
                 
                 console.log("its a new object after all");
@@ -382,6 +377,7 @@ class GameApperance{
             //otherwise set its colour to its default colour
             else{
                 
+
                 if (objectdata.appearanceid == 10){
                     objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
                 }
@@ -394,10 +390,22 @@ class GameApperance{
                 else if (objectdata.appearanceid == 50){
                     objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
                 }
-                else{
-                    objectmesh.material.diffuseColor = BABYLON.Color3.Green();
+                else if (objectdata.appearanceid  >= 100 && objectdata.appearanceid  <= 200){
+                    objectmesh.material.diffuseColor = BABYLON.Color3.White();
                 }
-                
+                else if (objectdata.appearanceid == 300){
+                    objectmesh.material.diffuseColor = BABYLON.Color3.Red();
+                }
+                else if (objectdata.appearanceid >= 400 && objectdata.appearanceid < 500){
+
+                    objectmesh.material.diffuseColor = BABYLON.Color3.Purple();
+
+                    objectmesh.scaling.y = (objectmesh.scaling.y*0.7) + ((objectdata.appearanceid - 400) / 10)*0.3;
+
+                }
+                else{
+                    objectmesh.material.diffuseColor = BABYLON.Color3.Blue();
+                }
                 
                 
             }
@@ -411,7 +419,11 @@ class GameApperance{
             objectmesh.rotation.x = objectdata.xrotation;
             objectmesh.rotation.y = objectdata.yrotation;
             objectmesh.rotation.z = objectdata.zrotation;
-            
+
+            //
+            if (objectdata.appearanceid  >= 100 && objectdata.appearanceid  <= 200){
+                objectmesh.rotation.y = 3.1415/2;
+            }
             
             
             
@@ -433,11 +445,13 @@ class GameApperance{
             //otherwise remove it
             else{
                 
-                //IF it is not also named "plane"
-                if (mesh.name != "plane"){
+                if (mesh.name == "plane" || mesh.name == "myMaterial"){
+                }
+                else{
+
+                    console.log("im disposing of", mesh.name);
                     mesh.dispose();
                 }
-                
                 
             }
             
@@ -456,6 +470,12 @@ class GameApperance{
     
 }
 
+
+function pad(n, width, z) {
+    z = z || '0';
+    n = n + '';
+    return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+}
 
 
 

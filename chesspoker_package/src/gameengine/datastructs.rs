@@ -4,8 +4,156 @@ use std::collections::HashSet;
 use ncollide3d::shape::ConvexHull;
 
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum PieceAction{
+    
+    flick(f32, f32),
+    
+    liftandmove( (i8,i8) ),
+    
+    //what direction, and how many steps
+    slide( u8, u8 ),
+    
+}
 
 
+
+//a struct that has the information about the piece
+//what type of piece it is
+//what actions its allowed to perform
+pub struct PieceData{
+
+    //the name of the piece
+    typename: String,
+
+    allowedactions: AllowedActions,
+
+    //if the piece can castle
+    cancastle: bool,
+
+    canenpassant: bool,
+
+    //if the piece has performed an action
+    hasperformedaction: bool,
+
+    canflick: bool,
+
+}
+
+
+impl PieceData{
+
+    pub fn new() -> PieceData{
+
+        PieceData{
+            typename: "none".to_string(),
+            allowedactions: AllowedActions::new_all_unallowed(),
+            cancastle: false,
+            canenpassant: false,
+            hasperformedaction: false,
+            canflick: true,
+        }
+    }
+
+
+    //set selfs actions to be those of a pawn
+    pub fn set_pawn(&mut self){
+
+        if self.hasperformedaction {
+            self.allowedactions = AllowedActions::get_moved_pawn();
+        }
+        else{
+            self.allowedactions = AllowedActions::get_unmoved_pawn();
+        }
+
+        self.typename = "pawn".to_string();
+
+
+    }
+
+    pub fn set_knight(&mut self){
+        self.allowedactions = AllowedActions::get_knight();
+
+        self.typename = "knight".to_string();
+    }
+
+    pub fn set_king(&mut self){
+        self.allowedactions = AllowedActions::get_king();
+
+        self.typename = "king".to_string();
+    }
+
+    pub fn set_queen(&mut self){
+        self.allowedactions = AllowedActions::get_queen();
+
+        self.typename = "queen".to_string();
+    }
+
+    pub fn set_bishop(&mut self){
+        self.allowedactions = AllowedActions::get_bishop();
+
+        self.typename = "bishop".to_string();
+    }
+
+    pub fn set_rook(&mut self){
+        self.allowedactions = AllowedActions::get_rook();
+
+        self.typename = "rook".to_string();
+
+        self.cancastle = true;
+    }
+
+
+    pub fn canflick(&self) -> bool{
+        self.canflick
+    }
+
+
+    //the piece action, if it has to capture, and if it can capture
+    pub fn get_piece_actions(&self, ownerdirection: u8) -> Vec<(PieceAction,bool,bool)>{
+
+        let mut toreturn = Vec::new();
+
+        let liftandmoveactions = self.allowedactions.get_allowed_lift_and_move(ownerdirection);
+
+        for (relativepos, hastocapture, cancapture) in liftandmoveactions{
+
+            let action = PieceAction::liftandmove(relativepos);
+
+            toreturn.push ( (action, hastocapture, cancapture) );
+        };
+
+
+        let slideactions = self.allowedactions.get_allowed_slide_actions(ownerdirection);
+
+
+        for (direction, distance, hastocapture, cancapture) in slideactions{
+
+            //for every step, from 1 up to and including the total distance
+            for curdistance in 1..distance+1{
+
+                let action = PieceAction::slide(direction, curdistance);
+
+                toreturn.push( (action, hastocapture, cancapture) );
+            };
+        };
+
+
+        toreturn
+    }
+
+    pub fn moved_piece(&mut self){
+
+        self.hasperformedaction = true;
+
+        if self.typename == "pawn"{
+            self.allowedactions = AllowedActions::get_moved_pawn();
+        }
+
+    }
+
+
+}
 
 
 
@@ -33,6 +181,17 @@ pub struct AllowedActions{
 
 impl AllowedActions{
     
+
+    fn new_all_unallowed() -> AllowedActions{
+
+        AllowedActions{
+            slidedirection: HashSet::new(),
+            liftandmove: HashSet::new(),
+        }
+
+    }
+
+
     pub fn get_allowed_slide_actions(&self, ownerdirection: u8) -> HashSet<( u8, u8, bool, bool )>{
 
 
@@ -80,7 +239,7 @@ impl AllowedActions{
     }
     
     //get the allowed actions of a pawn that has not moved yet
-    pub fn get_unmoved_pawn() -> AllowedActions{
+    fn get_unmoved_pawn() -> AllowedActions{
         
         
         let mut slidedirection = HashSet::new();
@@ -106,7 +265,7 @@ impl AllowedActions{
     }
 
     //get the allowed actions of a pawn that has been moved
-    pub fn get_moved_pawn() -> AllowedActions{
+    fn get_moved_pawn() -> AllowedActions{
         
         let mut slidedirection = HashSet::new();
         
@@ -131,7 +290,7 @@ impl AllowedActions{
         
     }
 
-    pub fn get_knight() -> AllowedActions{
+    fn get_knight() -> AllowedActions{
 
 
         let mut slidedirection = HashSet::new();
@@ -160,7 +319,7 @@ impl AllowedActions{
 
     }
 
-    pub fn get_bishop() -> AllowedActions{
+    fn get_bishop() -> AllowedActions{
 
 
 
@@ -187,7 +346,7 @@ impl AllowedActions{
 
     }
 
-    pub fn get_rook() -> AllowedActions{
+    fn get_rook() -> AllowedActions{
 
 
 
@@ -214,7 +373,7 @@ impl AllowedActions{
 
     }
     
-    pub fn get_queen() -> AllowedActions{
+    fn get_queen() -> AllowedActions{
 
 
 
@@ -247,7 +406,7 @@ impl AllowedActions{
 
     }
 
-    pub fn get_king() -> AllowedActions{
+    fn get_king() -> AllowedActions{
 
 
 
@@ -289,7 +448,7 @@ impl AllowedActions{
 
 
 
-fn players_perspective_to_objective_perspective_slide(playerdirection: &u8, slidedirection: &u8) -> u8{
+pub fn players_perspective_to_objective_perspective_slide(playerdirection: &u8, slidedirection: &u8) -> u8{
 
     let slidedirection = *slidedirection as i32;
 
@@ -305,7 +464,7 @@ fn players_perspective_to_objective_perspective_slide(playerdirection: &u8, slid
 
 
 //if the object cant be rotated and still represented as an i8, return none
-fn players_perspective_to_objective_perspective_lift(playerdirection: &u8, relativepos: &(i8,i8)) -> Option<(i8,i8)>{
+pub fn players_perspective_to_objective_perspective_lift(playerdirection: &u8, relativepos: &(i8,i8)) -> Option<(i8,i8)>{
     
     let angleasradians = *playerdirection as f32;
     let angleasradians = angleasradians / 8.0 ;
@@ -365,7 +524,7 @@ use nalgebra::Vector3;
 
 
 
-pub fn slide_id_to_direction_change_from_objective_perspective(slideid: u8) -> (i32,i32){
+pub fn slide_id_to_direction_change_from_objective_perspective(slideid: u8) -> (i8,i8){
     
     
     

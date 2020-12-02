@@ -51,12 +51,49 @@ impl CardsInterface{
 
 
     }
+
+
+    //this player draws a card
+    pub fn draw_card(&mut self, playerid: u8) -> u16{
+
+        //draw a card from the deck, if there is no card in the deck
+        //create a random card in the deck then draw
+
+        if self.deck.is_empty(){
+
+            let cardid = self.totalcards;
+            self.totalcards += 1;
+
+            let newcard = Card::new_random_card();
+
+            self.cards.insert( cardid, newcard );
+            self.deck.push(cardid);
+        }
+
+        
+        if let Some(cardid) = self.deck.pop(){
+
+            self.hands.get_mut(&playerid).unwrap().push(cardid);
+
+            return cardid;
+        }
+
+        panic!("why no card returned?");
+
+    }
+
+
+    pub fn does_card_exist(&self, cardid: u16 ) -> bool{
+
+        return  self.cards.contains_key(&cardid)  ;
+
+    }
+    
     
     //get the card by ID and panic if it doesnt have it
     pub fn get_card_unsafe(&self, cardid: u16) -> Card{
 
         self.cards.get(&cardid).unwrap().clone()
-
     }
 
     pub fn get_all_card_ids(&self) -> Vec<u16>{
@@ -122,44 +159,13 @@ impl CardsInterface{
             //play the card in the game
             cardgame.play_card(playerid, card);
 
+            self.remove_card_from_hand(playerid, cardid);
 
-            //and remove it from the players hand
-            //(and, unimplemented, remove it from the list of cards)
-            let muthand = self.hands.get_mut(&playerid).unwrap();
-
-            let mut removedcard = false;
-        
-            //remove the card from the players hand
-            muthand.retain(|cardidinhand| {
-                
-                let delete = {
-                    cardid == *cardidinhand
-                };
-
-
-                //if this card is being deleted from the hand
-                if (delete == false){
-                    removedcard = true;
-                }
-                
-                !delete
-            });
-
-
-            //if an element was removed, a card was played, and so
-            //return true, otherwise return false
-            if removedcard{
-
-                return(false);
-            };
+            return true;
     
-
         };
 
-
-
         false
-
     }
 
     //remove this card from that players hand
@@ -180,9 +186,9 @@ impl CardsInterface{
             !delete
         });
 
+        self.cards.remove(&cardid);
+    }
 
-
-    }    
         
     //start a poker game with the given players
     pub fn start_poker_game(&mut self, player1: u8, player2:u8){
@@ -208,14 +214,22 @@ impl CardsInterface{
     pub fn is_player_allowed_to_play_card(&self, playerid: u8) -> bool{
 
         if let Some(cardgame) = & self.cardgame{
-
             return cardgame.is_player_allowed_to_play_card(playerid) ;
-
         };
-
 
         return false;
     }
+
+    pub fn is_player_forced_to_play_card(&self, playerid: u8) -> bool{
+
+        if let Some(cardgame) = & self.cardgame{
+            return cardgame.must_player_play_card(playerid);
+        };
+
+        return false;
+    }
+
+
 
     pub fn does_player_own_card(&self, playerid: u8, cardid: u16) ->  bool{
 
@@ -263,6 +277,17 @@ impl CardsInterface{
         self.hands.get_mut(&playerid).unwrap().push(cardid);
         
     }
+
+
+
+    //if a player has won the card game, end the game
+    //get the cards, and give them to the winning player
+    pub fn tick(&mut self){
+
+
+    }
+
+
     
 }
 
@@ -372,6 +397,8 @@ impl CardGame{
         
         
     }
+
+
     
     //used for displaying the cards
     //get the list of the cards ina  players hand from a certain players perspective
@@ -461,8 +488,6 @@ impl CardGame{
     //does this player NEED to play a card?
     pub fn must_player_play_card(&self, playerid: u8) -> bool{
         
-        
-        
         //if this is blackjack and the player has less than 2 cards
         if self.blackjackorpoker == true{
             
@@ -483,7 +508,6 @@ impl CardGame{
             }
             
         }
-        
         
         
         //otherwise its false
@@ -1003,7 +1027,7 @@ impl Card{
         Card{
             value: CardValue::ace,
             suit: CardSuit::spades,
-            effect: CardEffect::dropsquare,
+            effect: CardEffect::raisesquare,
             isunknown: false
         }
 

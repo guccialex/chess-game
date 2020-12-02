@@ -75,7 +75,7 @@ impl PhysicsEngine{
         
 
         //increase gravity so stuff drops quicker
-        let mechanical_world = DefaultMechanicalWorld::new(Vector3::new((0.0), (-50.00), (0.0)));
+        let mechanical_world = DefaultMechanicalWorld::new(Vector3::new(0.0, -70.00, 0.0));
         let geometrical_world = DefaultGeometricalWorld::new();
         let mut bodies = DefaultBodySet::<f32>::new();
         let mut colliders = DefaultColliderSet::<f32>::new();
@@ -301,10 +301,6 @@ impl PhysicsEngine{
         
         //return the objects this sensor intersects with
         contacts
-        
-        
-        
-        
     }
     
 
@@ -318,8 +314,6 @@ impl PhysicsEngine{
 
     //apply a change of position to an object
     pub fn apply_delta_position(&mut self, ID: &u16, deltapos: Vector3<f32> ){
-        
-        
         
         let rbhandle = self.bodyhandles.get(&ID).unwrap();
         let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
@@ -336,10 +330,6 @@ impl PhysicsEngine{
         
         
         rigidbody.set_position(newisometry);
-        
-        
-        
-        
     }
     
     //apply a impulse force to an object
@@ -351,8 +341,6 @@ impl PhysicsEngine{
         
         
         rigidbody.apply_force(0, &impulse , ForceType::Impulse, true);
-        
-        
     }
     
     
@@ -387,9 +375,6 @@ impl PhysicsEngine{
         let translation = rigidbody.position().translation;
         
         (translation.x, translation.y, translation.z)
-        
-        
-        
     }
 
     //get the translation of an object

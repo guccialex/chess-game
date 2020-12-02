@@ -22,7 +22,7 @@ pub use datastructs::PlayerInput;
 
 pub use datastructs::TurnManager;
 
-
+use datastructs::GameSettings;
 
 
 mod cardstructs;
@@ -40,13 +40,10 @@ use cardstructs::CardsInterface;
 
 pub struct MainGame{
     
-    
     totalplayers: u8,
     
     //the list of players
     players: HashSet<u8>,
-    
-    
     
     //the board game engine
     boardgame: GameEngine,
@@ -54,17 +51,13 @@ pub struct MainGame{
     //the card interface
     cards: CardsInterface,
     
-    
-    
-    
     //the manager for who has a turn turn currently is
     turnmanager: TurnManager,
-    
-    
     
     //the last input of each player
     queuedinputs: HashMap<u8, Option<PlayerInput>>,
     
+    gamesettings: GameSettings,
     
     
 }
@@ -84,6 +77,7 @@ impl MainGame{
             turnmanager: TurnManager::new_two_player(1, 2),            
             boardgame: GameEngine::new(1,2),
             queuedinputs: HashMap::new(),
+            gamesettings: GameSettings::new(),
             
         };
         
@@ -103,27 +97,54 @@ impl MainGame{
         
     }
     
-
-
     pub fn get_game_information_string(&self, playerid: u8) -> String{
-
+        
         "somestring".to_string()
+        
+    }
+    
+
+    //get if it is the players turn, and if it is, how many ticks they have left in their turn
+    //0 means it is not their turn
+    pub fn get_players_turn_ticks_left(&self, playerid: u8) -> u32{
+
+        if let Some(ticksleft) = self.turnmanager.get_ticks_left_for_player(playerid){
+            return ticksleft;
+        }
+        else{
+            return 0;
+        }
 
     }
+
+    
+    
     
     
     //card getter functions
     //get player 1 and 2s hand as a list of ids
+    //the interface shouldnt need knowledge about any cards
+    //anywhere but the hands
     pub fn get_cards_in_hands_ids(&self) -> Vec<u16>{
         
-        self.cards.get_all_card_ids()
+        let mut toreturn = Vec::new();
+        
+        for cardid in self.cards.get_cards_in_hand(1){
+            toreturn.push(cardid);
+        }
+        
+        for cardid in self.cards.get_cards_in_hand(2){
+            toreturn.push(cardid);
+        }
+        
+        toreturn
     }
     pub fn get_card_by_id(&self, cardid: u16) -> Card{
         
         self.cards.get_card_unsafe(cardid)
     }
     pub fn get_card_owner(&self, cardid: u16) -> u8{
-
+        
         if self.cards.does_player_own_card(1, cardid){
             return 1;
         }
@@ -135,25 +156,25 @@ impl MainGame{
         }
     }
     pub fn get_card_position_in_hand(&self, cardid: u16) -> u8{
-
+        
         //get the owner of the card
         let owner = self.get_card_owner(cardid);
-
+        
         //get the hand of that player
         let ownershand = self.cards.get_cards_in_hand(owner);
-
+        
         //get the position of this card in the hand
         let mut curpos = 0;
-
+        
         for curcardid in ownershand{
-
+            
             if curcardid == cardid{
                 break;
             }
-
+            
             curpos += 1;
         }
-
+        
         return curpos;
     }
     pub fn get_cards_in_game(&self) -> Option< (Vec<Card>, Vec<Card>, Vec<Card>) >{
@@ -161,9 +182,9 @@ impl MainGame{
         self.cards.get_cards_in_game()
     }
     
-
-
-
+    
+    
+    
     pub fn get_board_game_object_ids(&self) -> Vec<u16>{
         self.boardgame.get_object_ids()
     }
@@ -173,56 +194,78 @@ impl MainGame{
     pub fn get_board_game_object_rotation(&self, objectid: u16) -> (f32,f32,f32){
         self.boardgame.get_object_rotation(objectid)
     }
-
+    
+    
     //is this board game object a square
     pub fn is_board_game_object_square(&self, objectid: u16) -> bool{
         self.boardgame.is_board_game_object_square(objectid)
     }
-    
     //is this board game object a piece
     pub fn is_board_game_object_piece(&self, objectid: u16) -> bool{
         self.boardgame.is_board_game_object_piece(objectid)
     }
-
+    
+    
+    pub fn get_board_game_object_owner(&self, objectid: u16) -> u8{
+        
+        self.boardgame.get_owner_of_piece(objectid)
+        
+    }
     
     
     
-
+    
+    
     //get the objects on the board that that the card can interact with, and the associated input for it
     pub fn get_boardobject_actions_allowed_by_card(&self, playerid: u8, cardid: u16) -> HashMap<u16, PlayerInput> {
         
-        let card = self.cards.get_card_unsafe(cardid);
-        
-        //get every possible input
-        //then if its allowed
-        
-        let mut allowedinputs = HashMap::new();
-
-        
-        //if this card can drop or raise a square
-        if card.effect == CardEffect::dropsquare || card.effect == CardEffect::raisesquare{
+        //first, does the card exist
+        if self.cards.does_card_exist(cardid){
             
-            //for every board square
-            for boardsquareid in self.boardgame.get_squares(){
+            let card = self.cards.get_card_unsafe(cardid);
+            
+            let mut allowedinputs = HashMap::new();
+            
+            
+            //if this card can drop or raise a square
+            if card.effect == CardEffect::dropsquare || card.effect == CardEffect::raisesquare{
+                
+                //for every board square
+                for boardsquareid in self.boardgame.get_empty_squares(){
 
-                let input = PlayerInput::playcardonsquare(cardid, boardsquareid);
-
-                allowedinputs.insert( boardsquareid, input );
+                    //if that square is empty
+                    
+                    let input = PlayerInput::playcardonsquare(cardid, boardsquareid);
+                    
+                    allowedinputs.insert( boardsquareid, input );
+                }
+                
             }
+            
+            return allowedinputs;
         }
         
-        
-        return allowedinputs;
+        return HashMap::new();
     }
-
-
+    
+    
     //the actions allowed by the piece and the objects it captures or lands on
     pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec<(PieceAction, Vec<u16> )>){
         
-        //get the actions allowed by the piece
-        //if the owner is allowed to perform piece actions right now
-        self.boardgame.get_actions_allowed_by_piece(pieceid)
+        let mut toreturn = Vec::new();
         
+        //get the actions allowed by the piece
+        let (canflick, actions) = self.boardgame.get_actions_allowed_by_piece(pieceid);
+        
+        //get the pieces targeted by every action
+        for action in actions{
+            
+            let objects = self.boardgame.get_objects_targeted_by_action(pieceid, action.clone());
+            
+            toreturn.push( (action, objects) );
+        }
+        
+        (canflick, toreturn)
     }
     
     
@@ -231,18 +274,13 @@ impl MainGame{
     //return whether this input is valid for this player to have queued
     pub fn receive_input(&mut self, playerid: u8, input: PlayerInput) -> bool{        
         
-        
-        
         //get if the input is valid for this player
         if  self.is_input_valid(playerid, &input ) {
             
-            self.queuedinputs.insert(playerid, Some(input));
-            
+            self.queuedinputs.insert(playerid, Some(input));    
             return true ;
-            
         }
         else{
-            
             
             return false ;
         };
@@ -254,11 +292,8 @@ impl MainGame{
     //get what pieces are captures in the game engine and remove them from here
     pub fn tick(&mut self){
         
-        
         //get each player whos turn it currently is
         let currentturnplayers = self.turnmanager.get_current_players();
-        
-        
         
         
         for playerid in currentturnplayers.clone(){
@@ -277,44 +312,153 @@ impl MainGame{
                 if self.is_input_valid(playerid, &playerinput){
                     
                     self.perform_input(&playerid, &playerinput.clone());
-                    
                     actionwastaken = true;
                     
                 }
                 else{
-                    actionwastaken = false;
+                    
+                    actionwastaken = false;                    
+                    
+                    
                 }
                 
                 
+            }
+            //if this is the last tick before their turn ends
+            else if self.turnmanager.is_it_this_players_turns_last_tick(playerid){
+                
+                //if they have to play a card
+                if self.player_must_play_card_on_cardgame(playerid){
+                    
+                    let cardid = self.cards.draw_card(playerid);
+                    self.cards.play_card(playerid, cardid);
+                }
+                //if they dont, just make them take a draw action
+                else {
+                    self.cards.draw_card(playerid);
+                    
+                }
+                actionwastaken = true;
             }
             
             
             
             //if an action was taken, let the turnmanager know that that player took their turn
-            if (actionwastaken){
+            if actionwastaken{    
                 self.turnmanager.player_took_action(playerid);
                 
                 //and clear queud inputs
                 self.queuedinputs.insert(playerid, None);
             }
-            
-            
+
             
         }
-        
-        
+
+
+        //check the card game if a player has won, and if they have, give them all the cards
+        //do this by ticking the card interface
+        self.cards.tick();
         
         //let the turn manager know that a tick has happeneds
         self.turnmanager.tick();
         
         //tick the physical game engine
         self.boardgame.tick();
-        
     }
     
     
+    /*
+    both players start on the board with a chess background
+    
+    moving pieces back and forth
+    
+    they have a clock on the left of them with the total amount of time each player has left
+    
+    when one players total amount of time left dips below a minute
+    the other player gets a card, or gets the ability to draw (2) cards at the cost of losing a turn
     
     
+    maybe some cards in the deck, when drawn, get played automatically to change the game state
+    the jokers
+    
+    
+    and it is these cards that change the game state to make it different
+    
+    the point of drawing cards is to make the losing player introduce variance into the game to maybe not lose
+    
+    like, the ideal strategy would be like, if you think your current chance to win is like 30%, drawing a card
+    you would hopefully increase your chances to win, but not above 50% on average
+    tool for the losing player to introduce variant as i said
+    
+    you cant win just by drawing cards, they just help you win how you actually win
+    
+    like the ideal strategy isnt to be a mad man and keep drawing, because you dont win
+    your opponent still wins, you can bs it away
+    
+    but if you just play well, and want to tryhard, you arent unaffected by the fact that the losing player can draw
+    game state changing cards
+    
+    and a part of this, is that in the preffered game mode, the player cant draw cards before either some amount of turns pass
+    or some amount of their or their opponents time passes
+    
+    since the player who is losing wants to introduce variance, its funny that they also get teh change to introduce variance as an
+    added bonus if they draw a joker, that 
+    
+    i think the hands of both players should be shown
+    just so theres more to think about
+    and more to plan ahead about, without feeling like whatever you do is completely worthless when they pop out
+    something you cant plan around
+    
+    
+    cards:
+    drop a board square for like a minutes long time
+    get two extra turns after your opponents next next turn
+    turn your opponents pieces into checkers pieces (you start winning, so your opponent draws to increase their favours)
+    all pawns turn into queens
+    other pieces can move any distance or capture from any distance
+    if you capture your opponents king, you win
+    start a blackjack game
+    start a poker game
+    discard the opponents hand
+    
+    
+    when drawn:
+    shuffle 10 more jokers into the deck
+    current player takes an extra turn, opponent takes an extra, then curr again, then opp again
+    both players now draw a card at the start of their turn
+    turn each piece into a pool ball owned by their respective player
+    turn each piece into a checkers piece
+    both players amount of time per turn and total time is cut in half
+    add 5 pieces to both players sides
+    both players play with their hands revealed
+    shake the board around a bit
+    
+    
+    
+    
+    I think i figured it
+    
+    if you play a blackjack game and the opponent has no cards
+    their next turn is spent drawing a card from their deck and putting it on the board
+    both makes them take a turn at a possibly unideal time
+    and makes them still put stuff up for stakes
+    
+    
+    
+    
+    win conditions:
+    no time
+    no pieces
+    (no cards)
+    */
+    
+    
+    
+    //if theres a cardgame going on , and this player has to play a card on it
+    fn player_must_play_card_on_cardgame(&self, playerid: u8) -> bool{
+        
+        self.cards.is_player_forced_to_play_card(playerid)
+    }
     
     
     
@@ -384,13 +528,32 @@ impl MainGame{
             if let PlayerInput::pieceaction(pieceid, _ ) = input.clone(){
                 
                 let owner = self.boardgame.get_owner_of_piece( (pieceid as u16) );
-                if &owner == &playerid{
+                if &owner != &playerid{
                     return false;
                 }
             }
             
         }
         
+        
+        //if the player has to play a card on the board
+        //and this isnt an input to play a card on the board
+        {
+            
+            if self.player_must_play_card_on_cardgame(playerid){
+                
+                if let PlayerInput::playcardonboard(cardid) = input {
+                    return self.is_play_card_on_board_action_valid(&playerid, cardid) ;
+                }
+                else{
+                    return false;
+                };
+                
+                
+            };
+            
+            
+        }
         
         
         
@@ -415,33 +578,40 @@ impl MainGame{
         else if let PlayerInput::pieceaction(pieceid, pieceaction) = input.clone(){
             return self.is_piece_action_valid( &playerid, &(pieceid as u16), &pieceaction);
         }
+        //if its a draw action
+        else if let PlayerInput::drawcard = input{
+            return true
+        }
         
         
         //if any of the cases are missed
         panic!(" why isnt this case dealt with? ");
         
     }
+    
     //can this card be played alone
     fn is_play_card_on_board_action_valid(&self, playerid: &u8, cardid: &u16) -> bool{
         
-        
-        if self.cards.is_player_allowed_to_play_card(*playerid) {
-            return(true);
+        //first, does the card exist
+        if self.cards.does_card_exist(*cardid){
+            
+            if self.cards.is_player_allowed_to_play_card(*playerid) {
+                return true;
+            }
+            
+            let cardeffect = self.cards.get_card_unsafe( *cardid).effect;
+            
+            
+            //if the card effect is to make a blackjack game
+            if cardeffect == CardEffect::blackjackgame{
+                return true;
+            }
+            
+            //if the card effect is to make a poker game
+            if cardeffect == CardEffect::pokergame{
+                return true;
+            }
         }
-        
-        let cardeffect = self.cards.get_card_unsafe( *cardid).effect;
-        
-        
-        //if the card effect is to make a blackjack game
-        if cardeffect == CardEffect::blackjackgame{
-            return true;
-        }
-        
-        //if the card effect is to make a poker game
-        if cardeffect == CardEffect::pokergame{
-            return true;
-        }
-        
         
         return false;
         
@@ -456,27 +626,32 @@ impl MainGame{
     //if this card can be played on this boardsquare
     fn is_play_card_on_square_action_valid(&self, playerid: &u8, cardid: &u16, boardsquareid: &u16 ) -> bool{
         
-        
-        //get if this card has an effect that can be played on a board square
-        let cardeffect = self.cards.get_card_unsafe(*cardid).effect.clone();
-        
-        
-        //if its a drops a board square
-        if cardeffect == CardEffect::dropsquare{
-            //see if thats a board square valid to be dropped
-            return(true);
+        //first, does the card exist
+        if self.cards.does_card_exist(*cardid){
+            
+            //get if this card has an effect that can be played on a board square
+            let cardeffect = self.cards.get_card_unsafe(*cardid).effect.clone();
+            
+            
+            //if its a drops a board square
+            if cardeffect == CardEffect::dropsquare{
+                //see if thats a board square valid to be dropped
+                return(true);
+            }
+            
+            //if its trying to lift a board square
+            if cardeffect == CardEffect::raisesquare{
+                //see if thats a board square valid to be raised
+                return(true);
+            }
+            
+            
         }
         
         
-        //if its trying to lift a board square
-        if cardeffect == CardEffect::raisesquare{
-            //see if thats a board square valid to be raised
-            return(true);
-        }
         
         
-        
-        true
+        false
         
     }
     //only called when the player is the one who owns the piece
@@ -487,7 +662,7 @@ impl MainGame{
         if  let PieceAction::slide(_,_) = pieceaction{
             
             //get the slide and lift actions allowed for the piece
-            let allowedactions = self.boardgame.get_slide_and_lift_actions_allowed_for_piece(*pieceid);
+            let allowedactions = self.boardgame.get_actions_allowed_by_piece(*pieceid).1;
             
             //if the action is one of the allowed actions, then, yea, its good
             if allowedactions.contains(pieceaction){
@@ -503,7 +678,7 @@ impl MainGame{
         else if let PieceAction::liftandmove( _ ) = pieceaction{
             
             //get the slide and lift actions allowed for the piece
-            let allowedactions = self.boardgame.get_slide_and_lift_actions_allowed_for_piece(*pieceid);
+            let allowedactions = self.boardgame.get_actions_allowed_by_piece(*pieceid).1;
             
             //if the action is one of the allowed actions, then, yea, its good
             if allowedactions.contains(pieceaction){
@@ -516,8 +691,10 @@ impl MainGame{
         }
         else if let PieceAction::flick(direction, force) = pieceaction{            
             
-            //and return it
-            return true;
+            //get the slide and lift actions allowed for the piece
+            let canflick = self.boardgame.get_actions_allowed_by_piece(*pieceid).0;
+            
+            return canflick;
             
         }
         
@@ -526,39 +703,21 @@ impl MainGame{
         
     }
     
-
-
-
+    
+    
+    
     //perform an input that is valid, and it is the turn of the player
-    fn perform_input(&mut self, playerid: &u8 ,playerinput: &PlayerInput) {
+    fn perform_input(&mut self, playerid: &u8, playerinput: &PlayerInput) {
         
         
         if let PlayerInput::pieceaction(pieceid, pieceaction) = playerinput {
-            
-            
-            if let PieceAction::liftandmove(relativeposition) = pieceaction{
-                
-                
-                
-            }
-            else if let PieceAction::slide(slidedirection, slidedistance) = pieceaction{
-                
-                
-                
-                
-            }
-            else if let PieceAction::flick(direction, force) = pieceaction{
-                
-                
-                
-            }
-            
-            
+            self.boardgame.perform_action( *playerid, *pieceid, pieceaction.clone() );
         }
         
         //or if the input is a card action
         else if let PlayerInput::playcardonboard(cardid) = playerinput{
             
+            self.cards.play_card(*playerid, *cardid);
             
         }
         
@@ -570,11 +729,36 @@ impl MainGame{
         
         else if let PlayerInput::playcardonsquare(cardid, squareid) = playerinput{
             
-        };
+            //get the effect of the card
+            let effect = self.cards.get_card_unsafe(*cardid).effect;
+            
+            //if the effect is raise
+            if let CardEffect::raisesquare = effect{
+                
+                self.boardgame.raise_square(*squareid);
+            }
+            //if the effect is drop
+            else if let CardEffect::dropsquare = effect{
+                
+                //perform a long drop on the boardsquare
+                self.boardgame.drop_square(*squareid);
+            }
+            
+            
+            //remove the card from the hand
+            self.cards.remove_card_from_hand(*playerid, *cardid);
+            
+        }
+        else if let PlayerInput::drawcard = playerinput{
+            
+            self.cards.draw_card(*playerid);
+        }
         
         
         
     }
+    
+    
     
     //start a blackjack game with the given players
     fn start_blackjack_game(&mut self, player1: u8, player2:u8){

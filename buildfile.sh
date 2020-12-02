@@ -1,13 +1,13 @@
 #!/bin/bash
 
 
+#delete the previous chesscheckersgame folder in the server public
+rm express_server/public/chesscheckersgame/ -r
 
-
-cd express_server
-cd public
-rm chesscheckersgame -r
-
-
+#delete the old wasm files
+rm chesscheckersgame/wasmfiles/ -r
+#and remake the empty directory
+mkdir chesscheckersgame/wasmfiles
 
 #build the chesspoker package
 cd chesspoker_package

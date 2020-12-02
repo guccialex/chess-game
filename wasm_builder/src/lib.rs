@@ -79,7 +79,7 @@ pub struct FullGame{
     
     
     dragged: Option<Dragged>,
-
+    
 }
 
 
@@ -118,7 +118,7 @@ impl FullGame{
         }
         */
     }
-
+    
     
     //if there is an outgoing socket message to pop
     pub fn is_outgoing_socket_message_queued(&self) -> bool{
@@ -159,12 +159,12 @@ impl FullGame{
         
         if let Some(selectedobject) = self.selectedobject{
             highlightedobjects = self.localgame.get_this_objects_selectable_objects(selectedobject);
+            toreturn.make_object_selected( objecttype_to_objectname(selectedobject) );
         }
         
         
         //set those objects to highlighted in the struct being returned
         for highlightedobject in highlightedobjects{
-            
             let highlightedobjectname = objecttype_to_objectname(highlightedobject);
             toreturn.make_object_highlighted(highlightedobjectname);
         }
@@ -172,7 +172,7 @@ impl FullGame{
         
         //append the "gameappearancetoappend" to the appearance data being returned
         toreturn.append_object_list( self.gameappearancetoappend.clone() );
-
+        
         
         //turn it into a json object and return as a jsvalue
         JsValue::from_serde( &toreturn ).unwrap()
@@ -208,27 +208,18 @@ impl FullGame{
         }
         
     }
-
+    
     pub fn get_selected_object_name(&self) -> Option<String>{
-
-
+        
         if let Some(selectedobject) =self.selectedobject{
-
             return Some( objecttype_to_objectname(selectedobject) ) ;
-
         }
         else{
-
             return None;
         }
-
-
     }
     
-    
-    
-    
-    
+
     //player input functions
     
     
@@ -244,36 +235,36 @@ impl FullGame{
         else{
             
             //if it can be converted from an object name to an objecttype
-            if let Some(pickedobject) = objectname_to_objecttype(objectname){
-                
+            if let Some(pickedobject) = objectname_to_objecttype(objectname.clone()){
                 
                 //if the selected object is currently none
-                //set that object to be the selected one
                 if self.selectedobject == None{
-                    self.selectedobject = Some( pickedobject );
+                    
+                    //if the picked object is owned by me
+                    if self.localgame.do_i_own_object(pickedobject){
+                        
+                        //set that object to be the selected one
+                        self.selectedobject = Some( pickedobject );
+                    }
                 }
                 //if theres an object already selected
                 else if let Some(currentlyselectedobject) = self.selectedobject{
-                    
                     
                     //get if the new object selected can form an action with the selected one
                     //if it can, send that action as input to the game
                     //and set selected to be none
                     self.localgame.try_to_perform_action(currentlyselectedobject, pickedobject);
-                    
-                    
-                    //if the newly picked object cant make an action with the selected one
-                    //then just set the newly picked object as the selected
-                    self.selectedobject = Some( pickedobject );
-                    
-                }
 
-                
+                    self.selectedobject = None;
+                }
             }
-            
+            //if its name is "deck" create a draw action
+            else if objectname == "deck"{
+
+                self.localgame.try_to_draw_card();
+            }
+
         }        
-        
-        
     }
     
     //if the mouse is being dragged
@@ -281,12 +272,9 @@ impl FullGame{
     //and how far its being dragged
     //maybe i should be getting the objectname its over, and converting the name of the object its over into the board its over here hmmmm
     pub fn drag_selected_object(&mut self, relativedistancex: f32, relativedistancey: f32, objectovername: String ){
-       
         
         //get the board the cursor is over by what object the object being hovered over is on
         let boardover = objectname_to_board(objectovername);
-
-        
         
         //if an object is selected
         if let Some(selectedobject) = self.selectedobject{
@@ -294,22 +282,17 @@ impl FullGame{
             //if the selected object is a piece
             if let ObjectType::piece(pieceid) = selectedobject{
                 
-                
-                
                 //get the position of the selected piece
                 let selectedposition = self.localgame.get_object_flat_plane_position(selectedobject);
                 
-                
                 //the distance plus the length of half the cue
                 let mut curtotaldistance = (relativedistancex * relativedistancex + relativedistancey * relativedistancey).sqrt();
-                
                 
                 //if the distance of the que is farther or closer than it should be, change the scalar to render it within range
                 let mut distancescalar = 1.0;
                 
                 //if the distance of the que is less than 2 units away from the piece, make it two units away
                 if curtotaldistance <= 1.0{
-                    
                     distancescalar = 1.0 / curtotaldistance ;
                 }
                 
@@ -330,30 +313,22 @@ impl FullGame{
                 
                 let xrotation = relativedistancex.atan2(relativedistancey);
                 
-                
-                
+
                 //this is the appearance to the game state that will be appended to what is returned 
                 //by the "get appearance data"
-                
                 
                 let dragindicatorappearance = ObjectAppearance{
                     
                     objectname: "dragindicator".to_string(),
-                    
                     appearanceid: 50,
-                    
                     xposition: selectedposition.0 + xdistancefromselected,
                     yposition: 0.8,
                     zposition: selectedposition.1 + zdistancefromselected,
-                    
                     xrotation: 0.0,
                     yrotation: xrotation,
                     zrotation: 0.0,
-                    
-                    
                     isselected: false,
                     ishighlighted: false,
-                    
                 };
                 
                 
@@ -371,18 +346,11 @@ impl FullGame{
                     self.dragged = Some( Dragged::piece(-xrotation - (3.14159 / 2.0), (curtotaldistance - 1.0) * 1.0) );
                     
                 }
-                
-                
-                
-                
             }
             
             //if the object is a card (in the hand)
             else if let ObjectType::card(cardid) = selectedobject{
-                
                 self.dragged = Some ( Dragged::card( (relativedistancex, relativedistancex), boardover) );
-                
-                
             }
             
             
@@ -397,7 +365,7 @@ impl FullGame{
         
         //if there is an object being dragged
         if let Some( dragged ) = self.dragged.clone() {
-
+            
             
             
             //if its a piece being dragged
@@ -405,46 +373,46 @@ impl FullGame{
                 
                 //if there is an object selected and it (what is being dragged) is a piece
                 if let Some(ObjectType::piece(pieceid)) = self.selectedobject{
-
+                    
                     //try to flick that piece
                     self.localgame.try_to_flick_piece(pieceid, flickx, flicky);
-
+                    
                 }
                 
             }
-
+            
             //if its a card being dragged
             else if let Dragged::card( relativepos, boardover ) = dragged{
-
+                
                 
                 //if there is an object selected and it (what is being dragged) is a card                
                 if let Some(ObjectType::card(cardid)) = self.selectedobject{
-
-
+                    
+                    
                     //if its over 0, dont do anything
                     if boardover == 0{
                     }
                     //if its over 1, send a mission to play the card over the game board
                     else if boardover == 1{
-
+                        
                         self.localgame.try_to_play_card(cardid);
-
+                        
                     }
                     //if its over 2, send a mission to play the card over the card board
                     else if boardover == 2{
-
+                        
                         self.localgame.try_to_play_card(cardid);
-
+                        
                     }
                     else{
                         panic!("Why does boardover have a value other than 1,2,3 ?");
                     }
-
-
-
+                    
+                    
+                    
                 }
-
-
+                
+                
                 
             }
             

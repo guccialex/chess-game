@@ -86,11 +86,11 @@ pub struct BoardGame{
     
     //the missions that are yet to occur
     futuremissions: Vec<(u32, u16, Mission)>,
-
-
+    
+    
     physicalidtoshapeid: HashMap< u16, u32>,
-
-
+    
+    
     
     
 }
@@ -178,38 +178,38 @@ impl BoardGame{
             
         }
         
-    
+        
         boardgame
     }
-
+    
     
     
     //is this board game object a square
     pub fn is_board_game_object_square(&self, objectid: u16) -> bool{
-
+        
         for (_, bsid) in &self.boardsquares{
-
+            
             if &objectid == bsid{
-
+                
                 return true;
             }
         }
-
+        
         return false;
     }
-
+    
     //is this board game object a piece
     pub fn is_board_game_object_piece(&self, objectid: u16) -> bool{
-
+        
         if self.pieces.contains(&objectid){
             return true;
         }
-
+        
         return false;
-
+        
     }
-
-
+    
+    
     
     
     
@@ -235,27 +235,27 @@ impl BoardGame{
     
     
     
-    pub fn slide_piece(&mut self, pieceid: u16, slidestepchange: (i32,i32), slidedistance: u8){
+    pub fn slide_piece(&mut self, pieceid: u16, slidestepchange: (i8,i8), slidedistance: u8){
         
         
         //get the board square this piece is on
         if let Some(boardsquare) = self.get_board_square_piece_is_on(pieceid){
             
-            
             //make the slide mission want to go to the middle of the square its going to
             {
-                let mut relativepos = ((slidestepchange.0 * slidedistance as i32) as f32, (slidestepchange.1 * slidedistance as i32) as f32);
-                
-                let pieceoffset = self.piece_on_square_offset(pieceid).unwrap();
-                
+                let mut relativepos = ((slidestepchange.0 as f32 * slidedistance as f32), (slidestepchange.1 as f32 * slidedistance as f32));
+
+                let pieceoffset = self.piece_on_square_offset(pieceid, boardsquare);
+
                 relativepos.0 = relativepos.0 - pieceoffset.0;
                 relativepos.1 = relativepos.1 - pieceoffset.1;
+                
                 
                 //slide to the center of a piece
                 let slidemission = Mission::make_slide_mission( relativepos);
                 
                 //put that mission into the lists of future missions
-                self.futuremissions.push( (0, pieceid, slidemission) );
+                self.futuremissions.push( (30, pieceid, slidemission) );
             }
             
             
@@ -263,19 +263,19 @@ impl BoardGame{
             {
                 
                 let mut curboardsquarepos = self.get_pos_of_boardsquare(boardsquare).unwrap();
-
-                let mut stepnumber = 0;            
+                curboardsquarepos = ((curboardsquarepos.0 as i8 + slidestepchange.0) as u8 , (curboardsquarepos.1 as i8 + slidestepchange.1) as u8);
+                
+                let mut stepnumber = 1;            
                 //how long into the future to drop the piece
-                let mut curdroptick = 0;
+                let mut curdroptick = 10;
                 
                 
                 while let Some(boardsquareid) = self.get_id_of_boardsquare_pos( curboardsquarepos ){
                     
                     self.set_future_drop_and_raise(curdroptick, boardsquareid);
                     
-                    //this should be a function that handles the "out of range" case
-                    curboardsquarepos = ((curboardsquarepos.0 as i32 + slidestepchange.0) as u8 , (curboardsquarepos.1 as i32 + slidestepchange.1) as u8);
-
+                    curboardsquarepos = ((curboardsquarepos.0 as i8 + slidestepchange.0) as u8 , (curboardsquarepos.1 as i8 + slidestepchange.1) as u8);
+                    
                     stepnumber += 1;
                     
                     curdroptick += (10.0 * ((slidestepchange.0 as f32).powf(2.0) + (slidestepchange.1 as f32).powf(2.0)).sqrt()) as u32;
@@ -283,14 +283,15 @@ impl BoardGame{
                     if stepnumber as u8 > slidedistance{
                         break;
                     }
-
                 }
+                
             }
+            
         };
     }
     
-
-
+    
+    
     fn set_future_drop_and_raise(&mut self, ticks: u32, id: u16){
         
         let liftanddropmission = Mission::make_drop_and_raise();
@@ -302,9 +303,19 @@ impl BoardGame{
     pub fn set_long_boardsquare_drop(&mut self, length: u32, boardsquare: u16){
         
         let longliftanddropmission = Mission::make_lengthed_drop_and_raise(length);
-            
+        
         self.futuremissions.push(  (0, boardsquare , longliftanddropmission)  );    
         
+    }
+
+    pub fn set_long_boardsquare_raise(&mut self, length: u32, boardsquare: u16){
+
+
+        let longraisemission = Mission::make_lengthed_raise(length);
+        
+        self.futuremissions.push(  (0, boardsquare , longraisemission)  );    
+
+
     }
     
     //flick a piece in a direction (radians), with a force
@@ -322,8 +333,11 @@ impl BoardGame{
     pub fn lift_and_move_piece_to(&mut self, pieceid: u16, mut relativepos: (f32,f32)){
         
         
-        //get the difference between this piece and the center of the board square its on
-        if let Some(offset) = self.piece_on_square_offset(pieceid){
+        //get the board square this piece is on
+        if let Some(boardsquare) = self.get_board_square_piece_is_on(pieceid){
+            
+            //get the difference between this piece and the center of the board square its on
+            let offset = self.piece_on_square_offset(pieceid, boardsquare);
             
             //create the mission for the piece
             {
@@ -348,26 +362,41 @@ impl BoardGame{
                     }
                 }
             }
+            
         }
+        
+        
     }
-
-
+    
+    
     pub fn tick(&mut self){
         
         
         //the future missions
         {
             
+            
+            
             //tick the missions down and start it if the tick is 0
             for thing in self.futuremissions.iter_mut(){
                 
                 let (tick, objectid, mission) = thing;
                 
-                //tick it
-                *tick = *tick - 1;
-                
                 //if its time to start the mission, just start it by putting it in the list of missions 
-                if *tick <= 0{
+                //if its less than zero, or if its overloaded
+                if *tick <= 0 || *tick >= 1000000000{ 
+                    BoardGame::associated_set_mission( &mut self.idtomission, *objectid, mission.clone());
+                }
+                
+                //subtract 1 from it
+                //in a roundabout way becauese unsigned integer subtraction is sending me
+                let temp = *tick as i32;
+                let temp = temp - 1;
+                let temp = temp as u32;
+                *tick = temp;
+                
+                
+                if *tick <= 0 || *tick >= 1000000000{ 
                     BoardGame::associated_set_mission( &mut self.idtomission, *objectid, mission.clone());
                 }
                 
@@ -378,7 +407,9 @@ impl BoardGame{
             self.futuremissions.retain(|(tick, objectid, mission)|{            
                 
                 //if the tick is 0 or less
-                if tick <= &0{
+                if *tick <= 0 || *tick >= 1000000000{
+                    
+                    //panic!("being removed before started, tick{:?}", tick);
                     //remove it
                     return(false);
                 }
@@ -449,7 +480,7 @@ impl BoardGame{
         //tick the physics world
         self.physicsengine.tick();
     }
-
+    
     
     pub fn get_translation(&self, id: u16) -> (f32,f32,f32){
         
@@ -490,24 +521,24 @@ impl BoardGame{
     
     
     
-
+    
     //get the id of every object
     pub fn get_object_ids(&self) -> Vec<u16>{
-
+        
         let mut toreturn = Vec::new();
-
+        
         for curid in &self.pieces{
-
+            
             toreturn.push(*curid);
-
+            
         };
-
+        
         for (curpos, curid) in &self.boardsquares{
-
+            
             toreturn.push(*curid);
         } 
-
-
+        
+        
         toreturn
     }    
     
@@ -527,21 +558,21 @@ impl BoardGame{
     
     //get the position of the boardsquare by its id
     pub fn get_pos_of_boardsquare(&self, id: u16) -> Option<(u8,u8)>{
-
-
+        
+        
         for (curpos, curid) in &self.boardsquares{
-
+            
             if id == *curid{
                 return Some(*curpos);
             }
-
+            
         }
-
+        
         return None;
-
-
+        
+        
     }
-
+    
     //get the id of the board square that a certain piece is on
     pub fn get_board_square_piece_is_on(&self, pieceid: u16) -> Option<u16>{
         //get its position
@@ -555,34 +586,27 @@ impl BoardGame{
         
         
         if let Some(bspos) = convert_physical_pos_to_board_square_pos(xpos, zpos){
-
+            
             return self.get_id_of_boardsquare_pos(bspos);
         }
         else{
             return None;
         }
-    
+        
     }
-
+    
     //get a pieces offset on the square its on
-    fn piece_on_square_offset(&self, id: u16) -> Option<(f32,f32)>{
+    fn piece_on_square_offset(&self, id: u16, square: u16) -> (f32,f32){
         
-        if let Some(bsid) = self.get_board_square_piece_is_on(id){
-            
-            let bspos = self.get_pos_of_boardsquare(bsid).unwrap();
-            
-            let physicalbs = convert_board_square_pos_to_physical_pos(bspos);
-            
-            //get the pieces x and z position and subtract the position of the piece its on from it
-            let xoffset = self.physicsengine.get_translation(&id).0 - physicalbs.0;
-            let yoffset = self.physicsengine.get_translation(&id).2 - physicalbs.1;
-            
-            return Some( (xoffset, yoffset) );
-        }
-        else{
-            return None;
-        }
+        let physicalbs = self.physicsengine.get_translation(&square);
         
+        //get the pieces x and z position and subtract the position of the piece its on from it
+        let xoffset = self.physicsengine.get_translation(&id).0 - physicalbs.0;
+        let zoffset = self.physicsengine.get_translation(&id).2 - physicalbs.2;
+
+        return ( 0.0, 0.0 );
+        
+        return (xoffset, zoffset);
     }
     
     //an associated function to prevent borrowing errors, might not want an associated function for other purposes
@@ -808,7 +832,7 @@ fn convert_physical_pos_to_board_square_pos( xpos: f32, zpos: f32 ) -> Option<(u
             
             //return the board square id
             return Some(  (intxpos as u8, intzpos as u8)  )  ;
-
+            
         };
     };
     
@@ -954,7 +978,7 @@ impl Mission{
         //the timesteps at which the states change
         let ticks = (slidedistance as u32 * 10);
         //how long to wait before starting the movement
-        let waitbefore = 24;
+        let waitbefore = 0;
         
         
         let xchangepertick = relativepos.0 / (ticks) as f32;
@@ -982,8 +1006,8 @@ impl Mission{
         let enddrop = 10;
         let restoretime = 12;
         let kickerstart = 14;
-        let kickerend = 18;
-        let kickerrestore = 20;
+        let kickerend = 17;
+        let kickerrestore = 18;
         
         
         
@@ -1004,7 +1028,7 @@ impl Mission{
         let kickup = (kickerstart, kickerend, Vector3::new(0.0, 0.2, 0.0));
         positionchanges.push(kickup);
         
-        let kickrestore = ( kickerend, kickerrestore, Vector3::new(0.0, -0.4, 0.0) );
+        let kickrestore = ( kickerend, kickerrestore, Vector3::new(0.0, -0.6, 0.0) );
         positionchanges.push(kickrestore);
         
         
@@ -1027,7 +1051,7 @@ impl Mission{
         let enddrop = 5;
         let endleft = 10;
         let waitstillend = 10 + ticks;
-        let restoreend = 10 + ticks + 10;
+        let restoreend = 10 + ticks + 5;
         
         
         
@@ -1035,12 +1059,11 @@ impl Mission{
         positionchanges.push(dropphysics);
         
         //shoot the object to the left so nothing can stay on it
-        let leftphysics = (enddrop, waitstillend, Vector3::new(-1.0, 0.0, 0.0) );
+        let leftphysics = (enddrop, endleft, Vector3::new(-1.0, 0.0, 0.0) );
         positionchanges.push(leftphysics);
-        
-        
-        //shoot the object to the left so nothing can stay on it
-        let waitphysics = (enddrop, waitstillend, Vector3::new(0.0, 0.0, 0.0) );
+
+
+        let waitphysics = (endleft, waitstillend, Vector3::new(0.0, 0.0, 0.0) );
         positionchanges.push(waitphysics);
         
         
@@ -1055,9 +1078,43 @@ impl Mission{
             currenttick: 0,
             impulses: Vec::new(),
             positionchanges: positionchanges,
-            
         }
         
+    }
+
+    pub fn make_lengthed_raise(ticks: u32) -> Mission{
+
+        let mut positionchanges = Vec::new();
+        
+        
+        //when the object stops dropping
+        let endraise = 5;
+        let wait = 5 + ticks;
+        let restore = 5 + ticks + 5;
+        
+        
+        
+        let raisephysics = (0, endraise, Vector3::new(0.0, 0.2, 0.0) );
+        positionchanges.push(raisephysics);
+        
+
+        let waitphysics = (endraise, wait, Vector3::new(0.0, 0.0, 0.0) );
+        positionchanges.push(waitphysics);
+        
+        
+        //return the piece back to its original position
+        let restorephysics = (wait, restore, Vector3::new(0.0, -0.2, 0.0) );
+        positionchanges.push(restorephysics);
+        
+        
+        
+        Mission{
+            currenttick: 0,
+            impulses: Vec::new(),
+            positionchanges: positionchanges,
+        }
+
+
     }
     
     
@@ -1082,7 +1139,7 @@ impl Mission{
         
         return(false);
     }
-
+    
     
     pub fn is_current_impulse(&self) -> bool{
         
