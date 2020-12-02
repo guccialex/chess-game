@@ -7,3 +7,6 @@
 
 /wasm_builder/pkg/
 /wasm_builder/target/
+
+
+/express_server/public/chesscheckersgame/
