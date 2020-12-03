@@ -153,6 +153,11 @@ impl PieceData{
     }
 
 
+    pub fn get_type_name(&self) -> String{
+        self.typename.clone()
+    }
+
+
 }
 
 

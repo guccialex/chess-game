@@ -249,14 +249,25 @@ class GameApperance{
         //create the plane
         let mesh = BABYLON.MeshBuilder.CreateBox("plane", {height: 0.008, width: 100.98, depth: 100.08 }, this.scene);
         mesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
-        mesh.material.alpha = 0.05;
+        mesh.material.alpha = 0.25;
         mesh.material.diffuseColor = BABYLON.Color3.Gray();
         mesh.position.y = 1.1;
         
         
         
+        var skybox = BABYLON.Mesh.CreateBox("skybox", 500.0, this.scene);
+        var skyboxMaterial = new BABYLON.StandardMaterial("skybox", this.scene);
+        skyboxMaterial.backFaceCulling = false;
+        skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("skybox/skybox", this.scene);
+        skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+        skyboxMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0);
+        skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+        skyboxMaterial.disableLighting = true;
+        skybox.material = skyboxMaterial;
+        
+        this.scene.freezeActiveMeshes();
+        
     }
-    
     
     
     //render the scene using the appearance data
@@ -266,172 +277,120 @@ class GameApperance{
         let objectspassedtorender = [];
         
         
+        
         //for each object in the appearance data
         for (let objectdata of appearancedata.objects){
             
-            //console.log(objectdata);
-            
             
             //get the name of the object
-            let objectname = objectdata.objectname;
+            let objectname = objectdata.name;
             
             //get the mesh if it exists
             let objectmesh = this.scene.getMeshByName(objectname);
-            
-            for (const mesh of this.scene.meshes) {
-                if (mesh.name === objectname) {
-                    
-                    objectmesh = mesh;
-                }
-            }
             
             
             //if the mesh doesnt exist, create it
             if (objectmesh == null){
                 
-                if (objectdata.appearanceid == 10){
+                //the type of mesh it is
+                let cubedata = objectdata.mesh.Cube;
+                let cylinderdata = objectdata.mesh.Cylinder;
+                let timerdata = objectdata.mesh.Timer;
+                
+                if (cubedata != null){
                     
-                    objectmesh = BABYLON.MeshBuilder.CreateCylinder(objectname, {height: 0.5, diameter: 0.7 }, this.scene);
+                    let options = {
+                        height : cubedata.dimensions[0],
+                        width  : cubedata.dimensions[1],
+                        depth  : cubedata.dimensions[2],
+                    };
+                    
+                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectdata.name, options, this.scene);
                     objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
-                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
+                    
+                    //if this has a mesh
+                    if (cubedata.texture != null){
+                        objectmesh.material.ambientTexture = new BABYLON.Texture(cubedata.texture, this.scene);
+                    }
                     
                 }
-                else if (objectdata.appearanceid == 20 || objectdata.appearanceid == 21){
+                else if (cylinderdata != null){
                     
-                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 0.999, width: 0.999, depth: 1.00 }, this.scene);
+                    let options = {
+                        height : cylinderdata.dimensions[0],
+                        diameter  : cylinderdata.dimensions[1],
+                    };
+                    
+                    objectmesh = BABYLON.MeshBuilder.CreateCylinder(objectdata.name, options, this.scene);
                     objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
-                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
                     
-                }
-                //50 is a pool queue
-                else if (objectdata.appearanceid == 50){
+                    //if this has a mesh
+                    if (cylinderdata.texture != null){
                     
-                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 0.20, width: 0.20, depth: 1.98 }, this.scene);
-                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
-                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
-                    
-                }
-                //100 to 200 is cards
-                else if (objectdata.appearanceid  >= 100 && objectdata.appearanceid  <= 200 ){
-
-                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 0.07, width: 2.24, depth: 1.6 }, this.scene);
-
-                    console.log(objectdata.appearanceid);
-
-                    var myMaterial = new BABYLON.StandardMaterial("myMaterial", this.scene);
-                    myMaterial.diffuseColor = BABYLON.Color3.Red();
-                    let cardnumber = pad((objectdata.appearanceid - 100), 3); 
-                    let cardartname = "cardart/card_"  + cardnumber + ".jpg";
-                    myMaterial.diffuseTexture = new BABYLON.Texture(cardartname, this.scene);
-                    objectmesh.material = myMaterial;
+                        objectmesh.material.ambientTexture = new BABYLON.Texture(cylinderdata.texture, this.scene);
+                    }
 
                 }
-                //201 is a flat board for the cards
-                else if (objectdata.appearanceid  == 201){
-
-                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 0.5, width: 8.0, depth: 8.0 }, this.scene);
-                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
-                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
-
-                }
-                else if (objectdata.appearanceid  == 300){
-
-                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 0.7, width: 1.6, depth: 2.24 }, this.scene);
-                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
-                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
-
-                }
-                //the appearance between 400 and 500 is the timer and the ticks left on it
-                else if (objectdata.appearanceid >= 400 && objectdata.appearanceid < 500){
+                else if (timerdata != null){
                     
-                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 1.0, width: 1.0, depth: 1.0 }, this.scene);
+                    let options = {
+                        height : 1,
+                        width  : 1,
+                        depth  : 1,
+                    };
+                    
+                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectdata.name, options, this.scene);
                     objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
-                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
-
+                    
                 }
                 else{
-                    
-                    console.log("the other objectcolour seems to be" + objectdata.appearanceid );
-                    
-                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, {height: 0.95, width: 0.95, depth: 0.95 }, this.scene);
-                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
-                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
-                    
+                    console.log("THIS CARD DOESNT HAVE A MESH");
                 }
                 
-                
-                
-                
-                console.log("its a new object after all");
             }
             
             
-            //if it selected, set its colour to yellow
-            if ( objectdata.isselected == true ){
-                objectmesh.material.diffuseColor = BABYLON.Color3.Yellow();
-            }
-            //if its highlighted set its colour to green
-            else if ( objectdata.ishighlighted == true ){
-                objectmesh.material.diffuseColor = BABYLON.Color3.Green();
-            }
-            //otherwise set its colour to its default colour
-            else{
-                
-
-                if (objectdata.appearanceid == 10){
-                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
-                }
-                else if (objectdata.appearanceid == 20){
-                    objectmesh.material.diffuseColor = BABYLON.Color3.White();
-                }
-                else if (objectdata.appearanceid == 21){
-                    objectmesh.material.diffuseColor = BABYLON.Color3.Black();
-                }
-                else if (objectdata.appearanceid == 50){
-                    objectmesh.material.diffuseColor = BABYLON.Color3.Gray();
-                }
-                else if (objectdata.appearanceid  >= 100 && objectdata.appearanceid  <= 200){
-                    objectmesh.material.diffuseColor = BABYLON.Color3.White();
-                }
-                else if (objectdata.appearanceid == 300){
-                    objectmesh.material.diffuseColor = BABYLON.Color3.Red();
-                }
-                else if (objectdata.appearanceid >= 400 && objectdata.appearanceid < 500){
-
-                    objectmesh.material.diffuseColor = BABYLON.Color3.Purple();
-
-                    objectmesh.scaling.y = (objectmesh.scaling.y*0.7) + ((objectdata.appearanceid - 400) / 10)*0.3;
-
-                }
-                else{
-                    objectmesh.material.diffuseColor = BABYLON.Color3.Blue();
-                }
-                
-                
-            }
             
             
             //set its position and rotation values
-            objectmesh.position.x = objectdata.xposition;
-            objectmesh.position.y = objectdata.yposition;
-            objectmesh.position.z = objectdata.zposition;
+            /*
+            objectmesh.position.x = objectdata.position[0];
+            objectmesh.position.y = objectdata.position[1];
+            objectmesh.position.z = objectdata.position[2];
+            */
             
-            objectmesh.rotation.x = objectdata.xrotation;
-            objectmesh.rotation.y = objectdata.yrotation;
-            objectmesh.rotation.z = objectdata.zrotation;
-
-            //
-            if (objectdata.appearanceid  >= 100 && objectdata.appearanceid  <= 200){
-                objectmesh.rotation.y = 3.1415/2;
+            objectmesh.position.x = (objectmesh.position.x * 0.5) + (objectdata.position[0] * 0.5);
+            objectmesh.position.y = (objectmesh.position.y * 0.5) + (objectdata.position[1] * 0.5);
+            objectmesh.position.z = (objectmesh.position.z * 0.5) + (objectdata.position[2] * 0.5);
+            
+            
+            objectmesh.rotation.x = objectdata.rotation[0];
+            objectmesh.rotation.y = objectdata.rotation[1];
+            objectmesh.rotation.z = objectdata.rotation[2];
+            
+            
+            objectmesh.material.diffuseColor = new BABYLON.Color3( objectdata.colour[0] / 255, objectdata.colour[1] / 255, objectdata.colour[2] /255);
+            
+            
+            
+            let timerdata = objectdata.mesh.Timer;
+            
+            //if its a timer, scale it according to the time left
+            if (timerdata != null){
+                
+                objectmesh.position.x = objectdata.position[0];
+                objectmesh.position.y = objectdata.position[1];
+                objectmesh.position.z = objectdata.position[2];
+                
+                objectmesh.scaling = new BABYLON.Vector3(1, timerdata.ticksleft / 10, 1);
+                objectmesh.position.y = objectmesh.position.y + timerdata.ticksleft / 20 ;
+                
             }
             
             
-            
             objectspassedtorender.push(objectname);
-            
-            
-            
         }
+        
         
         
         //and each object that wasn't passed in for this tick, remove it from the list of meshes
@@ -442,32 +401,38 @@ class GameApperance{
             if (objectspassedtorender.includes(mesh.name)) {
                 //do nothing            
             }
-            //otherwise remove it
             else{
                 
-                if (mesh.name == "plane" || mesh.name == "myMaterial"){
+                if (mesh.name == "plane" || mesh.name == "myMaterial" || mesh.name == "skybox"){
                 }
-                else{
-
+                else{    
                     console.log("im disposing of", mesh.name);
                     mesh.dispose();
                 }
                 
             }
-            
         }
         
         
-        
+        //FOR SOME REASON
+        //WHICH THE KNOWLEDGE OF HAS BEEN GIFTED ONTO ME PURELY BY LUCK
+        //I HAVE FOUND THIS TO BE THE SOLUTION TO THE FACT THAT NEW OBJECTS ADDED TO THE SCENE
+        //WOULD BE ADDED AND THEIR MESHES AND SHIT ADDED
+        //BUT WOULDNT ACTUALLY APPEAR
+        //WHEN I DISPOSE OF A MESH, IT FOR WHATEVER REASON UPDATES THE SCENE SO THAT IT BECOMES VISIBLE
+        //AT LEAST NOW I HAVE ENOUGH IN THE JS SIDE THAT I DONT HAVE TO DEAL WITH THIS
+        //THIS IS WHY I HATE JAVASCRIPT
+        //THE LIBRARIES ARE JUST WORSE
+        //AND EVERY OBJECT HAS LIKE 200 PROPERTIES AND METHODS
+        //cant stress how annoying and pointless things like this are that i seem to only encounter in js
+        let objectmesh = BABYLON.MeshBuilder.CreateBox("benis", {}, this.scene);
+        objectmesh.dispose();
         
         
         this.scene.render();
         
         
-        
-        
     }
-    
 }
 
 
@@ -497,13 +462,11 @@ class GameInterface{
         this.wasmgame = FullGame.new(1);
         
         
-        
         //if an object is being dragged (if the camera movement is disabled)
         this.draggingobject = false;
         
         //what the position of the pointer is on the y=1.5 plane when i start dragging
         this.draggingstartingposition = null;
-        
         
     }
     
@@ -531,7 +494,6 @@ class GameInterface{
     
     tick() {
         
-        
         //tick the internal game
         this.wasmgame.tick();
         
@@ -548,14 +510,12 @@ class GameInterface{
             this.socket.send( this.wasmgame.pop_outgoing_socket_message() );
         }
         
-        
     }
     
     
     
     //when a player clicks
     mouseup(){
-        
         
         //reenable the cameras ability to move
         this.gameappearance.camera.inputs.attached["mousewheel"].wheelPrecision = 10;
@@ -579,15 +539,14 @@ class GameInterface{
         
         //if a piece is currently being dragged, send that information to the wasmgame
         if (this.draggingobject){
-
             
-
+            
             let selectedobjectname = this.wasmgame.get_selected_object_name();
-
-            var objectunder = this.gameappearance.scene.pick(this.gameappearance.scene.pointerX, this.gameappearance.scene.pointerY, function(mesh) {
-        
-                return mesh.name != "plane" && mesh.name != "dragindicator" && mesh.name != selectedobjectname;  // the plane and drag indicator will not be pickable
             
+            var objectunder = this.gameappearance.scene.pick(this.gameappearance.scene.pointerX, this.gameappearance.scene.pointerY, function(mesh) {
+                
+                return mesh.name != "plane" && mesh.name != "dragindicator" && mesh.name != selectedobjectname;  // the plane and drag indicator will not be pickable
+                
             });
             
             
@@ -603,16 +562,16 @@ class GameInterface{
             let distancedraggedx = draggingcurposition[0] - this.draggingstartingposition[0];
             let distancedraggedz = draggingcurposition[1] - this.draggingstartingposition[1];
             
-
+            
             if (objectunder.pickedMesh ==  null){
-
+                
                 this.wasmgame.drag_selected_object(distancedraggedx, distancedraggedz, "");
-
+                
             }
             else{
-
+                
                 this.wasmgame.drag_selected_object(distancedraggedx, distancedraggedz, objectunder.pickedMesh.name);
-
+                
             }
             
             
@@ -628,17 +587,17 @@ class GameInterface{
         
         var pickResult = this.gameappearance.scene.pick(this.gameappearance.scene.pointerX, this.gameappearance.scene.pointerY, function(mesh) {
             
-            //let toreturn 
-            
             return mesh.name != "plane" && mesh.name != "dragindicator";  // the plane and drag indicator will not be pickable
         });
         
         
+        console.log(pickResult.pickedMesh.name);
+        
         
         //if a mesh has been clicked
         let clickedobject = pickResult.pickedMesh;
-
-
+        
+        
         
         
         
@@ -673,39 +632,25 @@ class GameInterface{
                     this.draggingstartingposition = [pickResult.pickedPoint.x, pickResult.pickedPoint.z];
                     
                     
-                    
                 }
                 //if its not already the selected object, or is not flickable
                 else{
-                    
                     this.wasmgame.click_object( clickedobjectname);
-                    
                 }
-                
-                
-                
             }
             //if the clicked object doesnt have a name, set the selected mesh to none
             else{
-                
                 this.wasmgame.click_object("");
             }
-            
-            
         }
         //if it wasnt, clear the selected object
         else{
-            
             this.wasmgame.click_object("");
-            
         }
         
         
         
     }
-    
-    
-    
     
     
     

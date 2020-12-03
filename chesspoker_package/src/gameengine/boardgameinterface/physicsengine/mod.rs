@@ -137,7 +137,7 @@ impl PhysicsEngine{
         
         // Build the collider.
         let co = ColliderDesc::new(cuboid.clone())
-        .density(1.0)
+        .density(5.0)
         .build(BodyPartHandle(rb_handle, 0));
         
         let colliderhandle = self.colliders.insert(co);

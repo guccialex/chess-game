@@ -204,12 +204,28 @@ impl MainGame{
     pub fn is_board_game_object_piece(&self, objectid: u16) -> bool{
         self.boardgame.is_board_game_object_piece(objectid)
     }
+
+    //get a string representing teh type of the piece
+    pub fn get_piece_type_name(&self, pieceid: u16) -> String{
+        self.boardgame.get_piece_type_name(pieceid)
+    }
     
     
     pub fn get_board_game_object_owner(&self, objectid: u16) -> u8{
         
         self.boardgame.get_owner_of_piece(objectid)
         
+    }
+
+    //true if its white false if its black
+    pub fn is_boardsquare_white(&self, boardsquareid: u16) -> bool{
+
+        self.boardgame.is_boardsquare_white(boardsquareid)
+    }
+
+    pub fn get_size_of_hand(&self, playerid: u8) -> u8{
+
+        self.cards.get_cards_in_hand(playerid).len() as u8
     }
     
     
@@ -330,8 +346,16 @@ impl MainGame{
                 //if they have to play a card
                 if self.player_must_play_card_on_cardgame(playerid){
                     
-                    let cardid = self.cards.draw_card(playerid);
-                    self.cards.play_card(playerid, cardid);
+                    //make the player draw a card
+                    self.cards.draw_card(playerid);
+                    
+                    //and make them play a card from their hand
+                    let handcardids = self.cards.get_cards_in_hand(playerid);
+                    for cardid in handcardids{
+                        self.cards.play_card(playerid, cardid);
+                        break;
+                    }
+                
                 }
                 //if they dont, just make them take a draw action
                 else {
@@ -450,6 +474,12 @@ impl MainGame{
     no time
     no pieces
     (no cards)
+
+
+
+
+    game begins
+    both players
     */
     
     
@@ -472,15 +502,6 @@ impl MainGame{
         let currentplayer = self.totalplayers + 1;
         
         self.players.insert(currentplayer);
-        
-        
-        //give that player a random card
-        self.cards.give_new_random_card(currentplayer);
-        self.cards.give_new_random_card(currentplayer);
-        self.cards.give_new_random_card(currentplayer);
-        self.cards.give_new_random_card(currentplayer);
-        
-        
         
         self.totalplayers += 1;
         

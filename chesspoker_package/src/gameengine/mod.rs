@@ -574,6 +574,35 @@ impl GameEngine{
     pub fn raise_square(&mut self, bsid: u16){
         self.boardgame.set_long_boardsquare_raise(500, bsid);
     }
+
+    pub fn is_boardsquare_white(&self, bsid: u16 ) -> bool{
+
+        let bspos = self.boardgame.get_pos_of_boardsquare(bsid).unwrap();
+
+        let bstotal = bspos.0 + bspos.1;
+
+        let evenness = bstotal % 2;
+
+
+        if evenness == 0{
+            return true;
+        }
+        else{
+            return false;
+        }
+
+
+    }
+
+
+    //get the name of the type of the piece
+    pub fn get_piece_type_name(&self, pieceid: u16) -> String{
+
+        let piecetypedata = self.piecetypedata.get(&pieceid).unwrap();
+
+        piecetypedata.get_type_name()
+
+    }
     
 }
 

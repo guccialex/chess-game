@@ -263,6 +263,10 @@ impl FullGame{
 
                 self.localgame.try_to_draw_card();
             }
+            else{
+
+                self.selectedobject = None;
+            }
 
         }        
     }
@@ -314,25 +318,11 @@ impl FullGame{
                 let xrotation = relativedistancex.atan2(relativedistancey);
                 
 
-                //this is the appearance to the game state that will be appended to what is returned 
-                //by the "get appearance data"
+
+                let position = (selectedposition.0 + xdistancefromselected, 0.8, selectedposition.1 + zdistancefromselected);
+                let rotation = (0.0, xrotation, 0.0);
                 
-                let dragindicatorappearance = ObjectAppearance{
-                    
-                    objectname: "dragindicator".to_string(),
-                    appearanceid: 50,
-                    xposition: selectedposition.0 + xdistancefromselected,
-                    yposition: 0.8,
-                    zposition: selectedposition.1 + zdistancefromselected,
-                    xrotation: 0.0,
-                    yrotation: xrotation,
-                    zrotation: 0.0,
-                    isselected: false,
-                    ishighlighted: false,
-                };
-                
-                
-                
+                let dragindicatorappearance = ObjectAppearance::new_cue(position, rotation);
                 self.gameappearancetoappend.push( dragindicatorappearance );
                 
                 
@@ -344,19 +334,16 @@ impl FullGame{
                     //not the distance the mouse is from the piece center
                     //ergo, the minus 1
                     self.dragged = Some( Dragged::piece(-xrotation - (3.14159 / 2.0), (curtotaldistance - 1.0) * 1.0) );
-                    
+
                 }
+                
             }
             
             //if the object is a card (in the hand)
             else if let ObjectType::card(cardid) = selectedobject{
                 self.dragged = Some ( Dragged::card( (relativedistancex, relativedistancex), boardover) );
             }
-            
-            
         }
-        
-        
     }
     
     
@@ -384,10 +371,8 @@ impl FullGame{
             //if its a card being dragged
             else if let Dragged::card( relativepos, boardover ) = dragged{
                 
-                
                 //if there is an object selected and it (what is being dragged) is a card                
                 if let Some(ObjectType::card(cardid)) = self.selectedobject{
-                    
                     
                     //if its over 0, dont do anything
                     if boardover == 0{
@@ -408,12 +393,8 @@ impl FullGame{
                         panic!("Why does boardover have a value other than 1,2,3 ?");
                     }
                     
-                    
-                    
                 }
-                
-                
-                
+
             }
             
             

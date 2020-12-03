@@ -13,6 +13,8 @@ pub struct CardsInterface{
     totalcards: u16,
 
     cards: HashMap<u16, Card>,
+
+    maxhandsize: usize,
     
     //the cards in the hand of each player
     hands: HashMap<u8, Vec<u16>>,
@@ -43,6 +45,8 @@ impl CardsInterface{
 
             hands: hands,
 
+            maxhandsize: 5,
+
             deck: Vec::new(),
 
             cardgame: None,
@@ -54,31 +58,36 @@ impl CardsInterface{
 
 
     //this player draws a card
-    pub fn draw_card(&mut self, playerid: u8) -> u16{
+    pub fn draw_card(&mut self, playerid: u8) -> Option<u16>{
 
-        //draw a card from the deck, if there is no card in the deck
-        //create a random card in the deck then draw
 
-        if self.deck.is_empty(){
+        //if this player still has room in their hand to draw cards
+        if self.get_cards_in_hand(playerid).len() < self.maxhandsize{
 
-            let cardid = self.totalcards;
-            self.totalcards += 1;
+            //draw a card from the deck, if there is no card in the deck
+            //create a random card in the deck then draw
+            if self.deck.is_empty(){
 
-            let newcard = Card::new_random_card();
+                let cardid = self.totalcards;
+                self.totalcards += 1;
+                let newcard = Card::new_random_card();
 
-            self.cards.insert( cardid, newcard );
-            self.deck.push(cardid);
-        }
-
+                self.cards.insert( cardid, newcard );
+                self.deck.push(cardid);
+            }
         
-        if let Some(cardid) = self.deck.pop(){
+            if let Some(cardid) = self.deck.pop(){
 
-            self.hands.get_mut(&playerid).unwrap().push(cardid);
+                self.hands.get_mut(&playerid).unwrap().push(cardid);
+                return Some(cardid);
+            }
 
-            return cardid;
+            panic!("why no card ppopped>?");
         }
+        else{
 
-        panic!("why no card returned?");
+            return None;
+        }
 
     }
 
