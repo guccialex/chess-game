@@ -869,8 +869,18 @@ impl FullAppearanceState{
         for curobject in self.objects.iter_mut(){
             
             if curobject.name == objectname{
-                
-                curobject.colour = (0,255,0);
+
+                let greencolourfloat = (0.0,255.0,0.0);
+                let colourfloat = (curobject.colour.0 as f32, curobject.colour.1 as f32, curobject.colour.2 as f32);
+
+
+                let mixedr = greencolourfloat.0 * 0.8 + colourfloat.0 * 0.2;
+                let mixedg = greencolourfloat.1 * 0.8 + colourfloat.1 * 0.2;
+                let mixedb = greencolourfloat.2 * 0.8 + colourfloat.2 * 0.2;
+
+                //make its colour closer to green
+                curobject.colour = (mixedr as u8, mixedg as u8, mixedb as u8);
+            
             }
         }
     }
@@ -881,7 +891,19 @@ impl FullAppearanceState{
             
             if curobject.name == objectname{
                 
-                curobject.colour = (255,255,0);
+                let yellowcolourfloat = (255.0,255.0,0.0);
+                let colourfloat = (curobject.colour.0 as f32, curobject.colour.1 as f32, curobject.colour.2 as f32);
+
+
+                let mixedr = yellowcolourfloat.0 * 0.8 + colourfloat.0 * 0.2;
+                let mixedg = yellowcolourfloat.1 * 0.8 + colourfloat.1 * 0.2;
+                let mixedb = yellowcolourfloat.2 * 0.8 + colourfloat.2 * 0.2;
+
+                //make its colour closer to green
+                curobject.colour = (mixedr as u8, mixedg as u8, mixedb as u8);
+
+
+
             }
         }
     }

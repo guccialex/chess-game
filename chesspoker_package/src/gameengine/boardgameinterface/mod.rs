@@ -208,8 +208,13 @@ impl BoardGame{
         return false;
         
     }
-    
-    
+
+
+    pub fn is_object_on_mission(&self, objectid: u16) -> bool{
+
+        self.idtomission.contains_key(&objectid)
+
+    }
     
     
     
@@ -998,6 +1003,8 @@ impl Mission{
     
     //a drop and raise mission for a board square
     pub fn make_drop_and_raise() -> Mission{
+
+        return ( Mission::make_drop_and_loop_around());
         
         let mut positionchanges = Vec::new();
         
@@ -1039,6 +1046,59 @@ impl Mission{
             
         }
         
+    }
+
+    //a mission for a boardsquare that drops it then makes it sink from the top back to teh bottom
+    pub fn make_drop_and_loop_around() -> Mission{
+
+
+        let mut positionchanges = Vec::new();
+        
+        
+        //the object stops dropping
+        //starts moving to the left
+        let enddrop = 3;
+
+        //the object stops moving to the left
+        //starts raising
+        let endleft = 6;
+
+        //the object raises up
+        let endraise = 9;
+
+        //the object comes back to where it was
+        let endright = 12;
+
+        //the object shoots back down into its original position
+        let endrestore = 18;
+        
+        
+        
+        let dropphysics = (0, enddrop, Vector3::new(0.0, -1.5, 0.0) );
+        positionchanges.push(dropphysics);
+        
+        let leftphysics = (enddrop, endleft, Vector3::new(-6.0, 0.0, 0.0) );
+        positionchanges.push(leftphysics);
+        
+        let raisephysics = (endleft, endraise, Vector3::new(0.0, 3.0, 0.0) );
+        positionchanges.push(raisephysics);
+        
+        let rightphysics = (endraise, endright, Vector3::new(6.0, 0.0, 0.0));
+        positionchanges.push(rightphysics);
+        
+        let restorephysics = ( endright, endrestore, Vector3::new(0.0, -0.75, 0.0) );
+        positionchanges.push(restorephysics);
+        
+        
+        Mission{
+            currenttick: 0,
+            impulses: Vec::new(),
+            positionchanges: positionchanges,
+            
+        }
+
+
+
     }
     
     

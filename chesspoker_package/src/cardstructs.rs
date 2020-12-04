@@ -12,6 +12,7 @@ pub struct CardsInterface{
 
     totalcards: u16,
 
+    //the cards in the hands, deck and 
     cards: HashMap<u16, Card>,
 
     maxhandsize: usize,
@@ -56,7 +57,6 @@ impl CardsInterface{
 
     }
 
-
     //this player draws a card
     pub fn draw_card(&mut self, playerid: u8) -> Option<u16>{
 
@@ -91,13 +91,11 @@ impl CardsInterface{
 
     }
 
-
     pub fn does_card_exist(&self, cardid: u16 ) -> bool{
 
         return  self.cards.contains_key(&cardid)  ;
 
     }
-    
     
     //get the card by ID and panic if it doesnt have it
     pub fn get_card_unsafe(&self, cardid: u16) -> Card{
@@ -136,6 +134,8 @@ impl CardsInterface{
         
     }
     
+
+    //get a list of the cards in the game by ID
     pub fn get_cards_in_game(&self) -> Option< (Vec<Card>, Vec<Card>, Vec<Card>) >{
         
         if let Some(cardgame) = &self.cardgame{
@@ -155,6 +155,9 @@ impl CardsInterface{
         }
 
     }
+
+
+
 
     //get the player to try to play a card in the game
     //return if we successful
@@ -293,6 +296,23 @@ impl CardsInterface{
     //get the cards, and give them to the winning player
     pub fn tick(&mut self){
 
+
+        //if theres a cardgame going on
+        if let Some(cardgame) = &mut self.cardgame{
+
+            //if the cardgame is finished
+            if cardgame.is_game_over(){
+
+                //get the winner
+                //get the cards
+                //put the cards into the game
+                //give the cards to the winner
+
+
+
+            }
+
+        }
 
     }
 

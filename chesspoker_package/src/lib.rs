@@ -247,7 +247,7 @@ impl MainGame{
             if card.effect == CardEffect::dropsquare || card.effect == CardEffect::raisesquare{
                 
                 //for every board square
-                for boardsquareid in self.boardgame.get_empty_squares(){
+                for boardsquareid in self.boardgame.get_empty_squares_not_on_mission(){
 
                     //if that square is empty
                     

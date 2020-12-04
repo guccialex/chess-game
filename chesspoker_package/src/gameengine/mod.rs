@@ -475,6 +475,9 @@ impl GameEngine{
     pub fn tick(&mut self){
         self.boardgame.tick();
     }
+
+
+
     
     //get the id of every board square in the game
     pub fn get_squares(&self) -> Vec<u16>{
@@ -501,7 +504,8 @@ impl GameEngine{
     
     
     //get the id of every board square without a piece on it
-    pub fn get_empty_squares(&self) -> Vec<u16>{
+    //and that arent on a mission currently
+    pub fn get_empty_squares_not_on_mission(&self) -> Vec<u16>{
         
         //get the position of every board square in the game
         let mut boardsquareposs: Vec<(u8,u8)> = Vec::new();
@@ -516,13 +520,19 @@ impl GameEngine{
         //for every board square pos get its id
         for boardsquarepos in boardsquareposs{
             let bsid = self.boardgame.get_id_of_boardsquare_pos(boardsquarepos).unwrap();
-
+            
             let piecesonboardsquare = self.boardgame.get_pieces_on_board_square(bsid);
-
+            //if it doesnt have anything on it
             if piecesonboardsquare.is_empty(){
-                toreturn.push( bsid );
+                
+                //if its not on a mission
+                if ! self.boardgame.is_object_on_mission(bsid){
+                    
+                    //then push it into the list of empty squares not on a mission
+                    toreturn.push( bsid );
+                    
+                }
             }
-
         }
         
         
@@ -530,8 +540,6 @@ impl GameEngine{
         
         
     }
-    
-    
     
     pub fn perform_action(&mut self, player: u8, piece: u16, pieceaction: PieceAction ){
         
@@ -566,7 +574,6 @@ impl GameEngine{
         
     }
     
-    
     pub fn drop_square(&mut self, bsid: u16){
         self.boardgame.set_long_boardsquare_drop(500, bsid);
     }
@@ -574,34 +581,33 @@ impl GameEngine{
     pub fn raise_square(&mut self, bsid: u16){
         self.boardgame.set_long_boardsquare_raise(500, bsid);
     }
-
+    
     pub fn is_boardsquare_white(&self, bsid: u16 ) -> bool{
-
+        
         let bspos = self.boardgame.get_pos_of_boardsquare(bsid).unwrap();
-
+        
         let bstotal = bspos.0 + bspos.1;
-
+        
         let evenness = bstotal % 2;
-
-
+        
+        
         if evenness == 0{
             return true;
         }
         else{
             return false;
         }
-
-
+        
+        
     }
-
-
+    
     //get the name of the type of the piece
     pub fn get_piece_type_name(&self, pieceid: u16) -> String{
-
+        
         let piecetypedata = self.piecetypedata.get(&pieceid).unwrap();
-
+        
         piecetypedata.get_type_name()
-
+        
     }
     
 }

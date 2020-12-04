@@ -231,8 +231,12 @@ class GameApperance{
         
         // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
         var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+        light.diffuse = new BABYLON.Color3(1.0, 1.0, 1.0);
+        light.specular = new BABYLON.Color3(0.0, 0.0, 0.0);
+        light.intensity = 2.5;
         
-        
+        //var light = new BABYLON.DirectionalLight("DirectionalLight", new BABYLON.Vector3(0, -1, 0), scene);
+        //light.intensity = 0.5;
         
         
         this.advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
@@ -249,13 +253,13 @@ class GameApperance{
         //create the plane
         let mesh = BABYLON.MeshBuilder.CreateBox("plane", {height: 0.008, width: 100.98, depth: 100.08 }, this.scene);
         mesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
-        mesh.material.alpha = 0.25;
+        mesh.material.alpha = 0.00;
         mesh.material.diffuseColor = BABYLON.Color3.Gray();
         mesh.position.y = 1.1;
         
         
         
-        var skybox = BABYLON.Mesh.CreateBox("skybox", 500.0, this.scene);
+        var skybox = BABYLON.Mesh.CreateBox("skybox", 5000.0, this.scene);
         var skyboxMaterial = new BABYLON.StandardMaterial("skybox", this.scene);
         skyboxMaterial.backFaceCulling = false;
         skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("skybox/skybox", this.scene);
@@ -359,10 +363,12 @@ class GameApperance{
             objectmesh.position.z = objectdata.position[2];
             */
             
-            objectmesh.position.x = (objectmesh.position.x * 0.5) + (objectdata.position[0] * 0.5);
-            objectmesh.position.y = (objectmesh.position.y * 0.5) + (objectdata.position[1] * 0.5);
-            objectmesh.position.z = (objectmesh.position.z * 0.5) + (objectdata.position[2] * 0.5);
             
+            objectmesh.position.x = (objectmesh.position.x * 0.3) + (objectdata.position[0] * 0.7);
+            objectmesh.position.y = (objectmesh.position.y * 0.3) + (objectdata.position[1] * 0.7);
+            objectmesh.position.z = (objectmesh.position.z * 0.3) + (objectdata.position[2] * 0.7);
+            
+
             
             objectmesh.rotation.x = objectdata.rotation[0];
             objectmesh.rotation.y = objectdata.rotation[1];
@@ -382,8 +388,8 @@ class GameApperance{
                 objectmesh.position.y = objectdata.position[1];
                 objectmesh.position.z = objectdata.position[2];
                 
-                objectmesh.scaling = new BABYLON.Vector3(1, timerdata.ticksleft / 10, 1);
-                objectmesh.position.y = objectmesh.position.y + timerdata.ticksleft / 20 ;
+                objectmesh.scaling = new BABYLON.Vector3(1, objectmesh.scaling.y / 2 + timerdata.ticksleft / 20, 1);
+                objectmesh.position.y = objectmesh.position.y + objectmesh.scaling.y / 2 ;
                 
             }
             
