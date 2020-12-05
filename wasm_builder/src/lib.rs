@@ -44,7 +44,6 @@ use interface::FullAppearanceState;
 use interface::ObjectAppearance;
 use interface::objectname_to_objecttype;
 use interface::objecttype_to_objectname;
-use interface::objectname_to_board;
 
 
 
@@ -149,7 +148,7 @@ impl FullGame{
     
     
     //return an object with the data of what the game should look like currently
-    pub fn get_appearance_data(&self) -> JsValue{
+    pub fn get_appearance_data(&mut self) -> JsValue{
         
         let mut toreturn = self.localgame.get_full_appearance_state();
         
@@ -278,7 +277,7 @@ impl FullGame{
     pub fn drag_selected_object(&mut self, relativedistancex: f32, relativedistancey: f32, objectovername: String ){
         
         //get the board the cursor is over by what object the object being hovered over is on
-        let boardover = objectname_to_board(objectovername);
+        let boardover = self.localgame.objectname_to_board(objectovername);
         
         //if an object is selected
         if let Some(selectedobject) = self.selectedobject{

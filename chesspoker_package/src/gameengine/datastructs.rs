@@ -104,6 +104,17 @@ impl PieceData{
     }
 
 
+    //get rid of its allowed actions and make it flickable
+    pub fn set_pool_ball(&mut self){
+
+        self.allowedactions = AllowedActions::new_all_unallowed();
+
+        self.typename = "poolball".to_string();
+
+        self.canflick = true;
+    }
+
+
     pub fn canflick(&self) -> bool{
         self.canflick
     }

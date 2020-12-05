@@ -204,8 +204,9 @@ impl TurnManager{
         
         //set up the basequeue
         //with player 1 and player 2
-        toreturn.basequeue.push(  (player1, 0, 60)  );
-        toreturn.basequeue.push(  (player2, 60, 60)  );
+        //a max of 60 seconds per turn
+        toreturn.basequeue.push(  (player1, 0, 1800)  );
+        toreturn.basequeue.push(  (player2, 1800, 1800)  );
         
         toreturn.playertimeleft.insert( player1, 1800 * 5);
         toreturn.playertimeleft.insert( player2, 1800 * 5);
@@ -220,7 +221,7 @@ impl TurnManager{
     //upkeep the struct
     //should be called after every tick
     //and after every change
-    pub fn timeless_upkeep(&mut self){
+    fn timeless_upkeep(&mut self){
         
         //if the queued turns is empty, make base queue the queued turns
         if self.queuedturns.is_empty(){
@@ -313,15 +314,15 @@ impl TurnManager{
     //this player took a turn action
     pub fn player_took_action(&mut self, playerid: u8){
         
-        //tick until it is no longer that players turn
-        
-        
+        //tick until it is no longer that players turn and dont
         while self.get_current_players().contains(&playerid) {
             
             self.tick();
             
+            //and add to that players total time to offset the tick that shouldnt be
+            //taking their total time down
+            *self.playertimeleft.get_mut(&playerid).unwrap() += 1;
         }
-        
         
     }
     
@@ -369,7 +370,7 @@ impl TurnManager{
 
 
     //if it is this players turn, return how many ticks they have left in their turn
-    pub fn get_ticks_left_for_player(&self, playerid: u8) -> Option<u32>{
+    pub fn get_ticks_left_for_players_turn(&self, playerid: u8) -> Option<u32>{
 
         for (queuedplayer, ticksuntil, turnlength) in self.queuedturns.iter(){
 
@@ -384,6 +385,22 @@ impl TurnManager{
         None
     }
 
+    //the total amount of ticks this player has left
+    pub fn get_players_total_ticks_left(&self, playerid: u8) -> u32{
+
+        if let Some(ticksleft) = self.playertimeleft.get(&playerid){
+
+            if ticksleft.is_negative(){
+                return 0;
+            }
+            else{
+                return *ticksleft as u32;
+            }
+
+        }
+        panic!("this player doesnt have a total ticks count");
+    }
+    
 
 }
 

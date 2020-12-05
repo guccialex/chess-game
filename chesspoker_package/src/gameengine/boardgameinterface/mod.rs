@@ -162,6 +162,7 @@ impl BoardGame{
                     boardgame.physicsengine.set_position( &physicalid, ( xpos , ypos ,zpos  ) );
                     boardgame.physicsengine.toggle_gravity( &physicalid, false);
                     boardgame.physicsengine.make_static(&physicalid);
+                    boardgame.physicsengine.set_materials(&physicalid, 0.2, 0.5);
                     
                     
                     
@@ -182,7 +183,32 @@ impl BoardGame{
         boardgame
     }
     
+
+    pub fn make_object_pool_ball(&mut self, objectid: &u16) {
+
+        if ! self.pieces.contains(objectid){
+
+            panic!("What else could this object be other than a piece?");
+        }
+
+        //make it a ball
+        self.physicsengine.set_shape_sphere(objectid, 0.7);
+
+        //move it up, or itll sink through the floor when ccd is on
+        self.physicsengine.apply_delta_position(objectid , Vector3::new(0.0, 1.0, 0.0));
+
+
+
+        //elasticity and friction
+        self.physicsengine.set_materials(objectid, 0.8, 40.4);
+
+        //unlock all the axis of rotation
+        self.physicsengine.set_kinematic_axis_of_rotation_locked( objectid, (false,false,false) );
+
+
+    }
     
+
     
     //is this board game object a square
     pub fn is_board_game_object_square(&self, objectid: u16) -> bool{
@@ -208,7 +234,6 @@ impl BoardGame{
         return false;
         
     }
-
 
     pub fn is_object_on_mission(&self, objectid: u16) -> bool{
 
@@ -1070,7 +1095,7 @@ impl Mission{
         let endright = 12;
 
         //the object shoots back down into its original position
-        let endrestore = 18;
+        let endrestore = 21;
         
         
         
@@ -1086,7 +1111,7 @@ impl Mission{
         let rightphysics = (endraise, endright, Vector3::new(6.0, 0.0, 0.0));
         positionchanges.push(rightphysics);
         
-        let restorephysics = ( endright, endrestore, Vector3::new(0.0, -0.75, 0.0) );
+        let restorephysics = ( endright, endrestore, Vector3::new(0.0, -0.50, 0.0) );
         positionchanges.push(restorephysics);
         
         

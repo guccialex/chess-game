@@ -9,12 +9,12 @@ use serde::{Serialize, Deserialize};
 #[derive(Clone, Serialize, Deserialize)]
 
 pub struct CardsInterface{
-
+    
     totalcards: u16,
-
+    
     //the cards in the hands, deck and 
     cards: HashMap<u16, Card>,
-
+    
     maxhandsize: usize,
     
     //the cards in the hand of each player
@@ -31,163 +31,257 @@ pub struct CardsInterface{
 
 
 impl CardsInterface{
-
+    
     pub fn new_two_player() -> CardsInterface{
-
+        
         let mut hands = HashMap::new();
-
+        
         hands.insert(1, Vec::new());
         hands.insert(2, Vec::new());
-
+        
         CardsInterface{
             totalcards: 0,
-
+            
             cards: HashMap::new(),
-
+            
             hands: hands,
-
+            
             maxhandsize: 5,
-
+            
             deck: Vec::new(),
-
+            
             cardgame: None,
         }
-
-
-
+        
+        
+        
     }
-
+    
     //this player draws a card
     pub fn draw_card(&mut self, playerid: u8) -> Option<u16>{
-
-
+        
+        
         //if this player still has room in their hand to draw cards
         if self.get_cards_in_hand(playerid).len() < self.maxhandsize{
-
+            
             //draw a card from the deck, if there is no card in the deck
             //create a random card in the deck then draw
             if self.deck.is_empty(){
-
+                
                 let cardid = self.totalcards;
                 self.totalcards += 1;
                 let newcard = Card::new_random_card();
-
+                
                 self.cards.insert( cardid, newcard );
                 self.deck.push(cardid);
             }
-        
+            
             if let Some(cardid) = self.deck.pop(){
-
+                
                 self.hands.get_mut(&playerid).unwrap().push(cardid);
                 return Some(cardid);
             }
-
+            
             panic!("why no card ppopped>?");
         }
         else{
-
+            
             return None;
         }
-
+        
     }
-
+    
+    
     pub fn does_card_exist(&self, cardid: u16 ) -> bool{
-
+        
         return  self.cards.contains_key(&cardid)  ;
-
+        
     }
     
     //get the card by ID and panic if it doesnt have it
     pub fn get_card_unsafe(&self, cardid: u16) -> Card{
-
+        
         self.cards.get(&cardid).unwrap().clone()
     }
-
+    
+    //get all cards that 
     pub fn get_all_card_ids(&self) -> Vec<u16>{
-
+        
         let mut toreturn = Vec::new();
-
+        
         for (cardid, card) in &self.cards{
-
             toreturn.push(*cardid);
         };
-
+        
+        
         toreturn
-
+        
     }
     
+    
     pub fn get_cards_in_hand(&self, playerid: u8) -> Vec<u16>{
-
+        
         let handcardids = self.hands.get(&playerid).unwrap();
-
+        
         let mut hand = Vec::new();
-
-
+        
+        
         for cardid in handcardids{
-
+            
             hand.push(*cardid);
-
+            
         }
-
-
+        
+        
         return hand;
         
     }
     
-
     //get a list of the cards in the game by ID
-    pub fn get_cards_in_game(&self) -> Option< (Vec<Card>, Vec<Card>, Vec<Card>) >{
+    pub fn get_cards_in_game(&self) -> Option< Vec<u16> >{
         
         if let Some(cardgame) = &self.cardgame{
-                
-            let player1hand = cardgame.playerscards.get(&1).unwrap().clone();
             
-            let river = cardgame.river.clone();
+            let mut toreturn = Vec::new();
             
-            let player2hand = cardgame.playerscards.get(&2).unwrap().clone();
+            for cardid in cardgame.get_card_ids_in_hand(1){
+                toreturn.push(cardid);
+            }
+            for cardid in cardgame.get_card_ids_in_hand(2){
+                toreturn.push(cardid);
+            }
+            for cardid in cardgame.get_card_ids_in_river(){
+                toreturn.push(cardid);
+            }
             
-            
-            return  Some( ( player1hand, river, player2hand) ) ;
+            return  Some( toreturn ) ;
             
         }
         else{
             return None;
         }
-
+        
     }
-
-
-
-
+    
+    //where is the card, what field is it in
+    //what is its position in the field
+    //what is the size of the field its in (hand size, river size)
+    pub fn where_is_card(&self, cardid: u16) -> (u8, u8, u8){
+        
+        /*
+        the positions where the card can be
+        
+        player 1s hand                  1
+        player 2s hand                  2
+        player 1s hand in the game      3
+        player 2s hand in the game      4
+        the river in the game           5
+        */
+        
+        let mut field = 0;
+        
+        let mut positioninfield = 0;
+        
+        let mut fieldsize = 0;
+        
+        for (playerid, hand) in &self.hands{
+            
+            let mut curcardpos = 0;
+            
+            for cardidinhand in hand{
+                
+                curcardpos += 1;
+                
+                if cardidinhand == &cardid{
+                    
+                    field = *playerid;
+                    positioninfield = curcardpos;
+                    fieldsize = hand.len();
+                }
+            }
+        }
+        
+        if let Some(cardgame) = &self.cardgame{
+            
+            
+            let cardsinplayer1hand = cardgame.get_card_ids_in_hand(1);
+            let cardsinplayer2hand = cardgame.get_card_ids_in_hand(2);
+            let cardsinriver = cardgame.get_card_ids_in_river();
+            
+            
+            
+            let mut curcardpos = 0;
+            for curcardid in cardsinplayer1hand.clone(){
+                curcardpos += 1;
+                if cardid == curcardid{
+                    field = 3;
+                    positioninfield = curcardpos;
+                    fieldsize = cardsinplayer1hand.len();
+                }
+            }
+            
+            
+            let mut curcardpos = 0;
+            for curcardid in cardsinplayer2hand.clone(){
+                curcardpos += 1;
+                if cardid == curcardid{
+                    field = 4;
+                    positioninfield = curcardpos;
+                    fieldsize = cardsinplayer2hand.len();
+                }
+            }
+            
+            
+            let mut curcardpos = 0;
+            for curcardid in cardsinriver.clone(){
+                curcardpos += 1;
+                if cardid == curcardid{
+                    field = 5;
+                    positioninfield = curcardpos;
+                    fieldsize = cardsinriver.len();
+                }
+            }
+            
+        }
+        
+        
+        (field,positioninfield,fieldsize as u8)
+        
+        
+    }
+    
+    
+    
+    
     //get the player to try to play a card in the game
     //return if we successful
     pub fn play_card(&mut self, playerid: u8, cardid: u16) -> bool{
-
+        
         let card = self.get_card_unsafe(cardid).clone();
-
+        
         //if there is a card game
         if let Some(cardgame) = &mut self.cardgame{
-
+            
             //play the card in the game
-            cardgame.play_card(playerid, card);
-
+            cardgame.play_card(playerid, (cardid,card));
+            
             self.remove_card_from_hand(playerid, cardid);
-
+            
             return true;
-    
+            
         };
-
+        
         false
     }
-
+    
     //remove this card from that players hand
     //if that player has that card in hand (should I panic if they dont?)
-    pub fn remove_card_from_hand(&mut self, playerid: u8, cardid: u16){
-
+    pub fn remove_card_from_game(&mut self, playerid: u8, cardid: u16){
+        
         let muthand = self.hands.get_mut(&playerid).unwrap();
-
+        
         let mut removedcard: Option<&u16> = None;
-    
+        
         //remove the card from the players hand
         muthand.retain(|cardidinhand| {
             
@@ -197,126 +291,170 @@ impl CardsInterface{
             
             !delete
         });
-
+        
         self.cards.remove(&cardid);
     }
-
+    
+    fn remove_card_from_hand(&mut self, playerid: u8, cardid: u16){
         
+        let muthand = self.hands.get_mut(&playerid).unwrap();
+        
+        let mut removedcard: Option<&u16> = None;
+        
+        //remove the card from the players hand
+        muthand.retain(|cardidinhand| {
+            
+            let delete = {
+                cardid == *cardidinhand
+            };
+            
+            !delete
+        });
+        
+    }
+    
+    
+    //get a card from the deck
+    fn get_card_from_deck(&mut self) -> (u16, Card){
+        
+        //draw a card from the deck, if there is no card in the deck
+        //create a random card in the deck then draw
+        if self.deck.is_empty(){
+            
+            let cardid = self.totalcards;
+            self.totalcards += 1;
+            let newcard = Card::new_random_card();
+            
+            self.cards.insert( cardid, newcard );
+            self.deck.push(cardid);
+        }
+        
+        if let Some(cardid) = self.deck.pop(){
+            
+            let card = self.get_card_unsafe(cardid);
+            
+            return (cardid, card) ;
+        }
+        
+        
+        panic!("why no card in the deck after adding to it");
+        
+    }
+    
+    
+    
     //start a poker game with the given players
     pub fn start_poker_game(&mut self, player1: u8, player2:u8){
-        
         
         //create the river to be passed in
         let mut river = Vec::new();
         
         for x in 0..5{
-            river.push( Card::new_random_card() );
+            river.push( self.get_card_from_deck() );
         }
         
-        
-        self.cardgame = Some( CardGame::new_poker(river)  );
-        
+        self.cardgame = Some( CardGame::new_poker(river) );
     }
+    
+    
     
     pub fn start_blackjack_game(&mut self, player1: u8, player2:u8){
         self.cardgame = Some( CardGame::new_blackjack() );
     }
-
+    
     //does a game exist, and is this player allowed to play a card in it?
     pub fn is_player_allowed_to_play_card(&self, playerid: u8) -> bool{
-
+        
         if let Some(cardgame) = & self.cardgame{
             return cardgame.is_player_allowed_to_play_card(playerid) ;
         };
-
+        
         return false;
     }
-
+    
     pub fn is_player_forced_to_play_card(&self, playerid: u8) -> bool{
-
+        
         if let Some(cardgame) = & self.cardgame{
             return cardgame.must_player_play_card(playerid);
         };
-
+        
         return false;
     }
-
-
-
+    
+    
+    
     pub fn does_player_own_card(&self, playerid: u8, cardid: u16) ->  bool{
-
+        
         //for each player
         for (cardownerid, cardidlist) in &self.hands{
-
+            
             //for each card in that players hand
             for playerscardid in cardidlist{
-
+                
                 //if that card in the hand matches the card passed in
                 if playerscardid == &cardid{
-
+                    
                     //if the owner of that card matches the player inputted
                     if cardownerid == &playerid{
-
+                        
                         return true;
-
+                        
                     };
-
+                    
                 };
-
+                
             };
-
+            
         };
-
-
+        
+        
         return false;
-
-
-
-    }
-
-    //generate a new card and give it to this player
-    //give this player a random card
-    pub fn give_new_random_card(&mut self, playerid: u8){
         
-        let cardid = self.totalcards;
-        self.totalcards += 1;
         
-        let thecard = Card::new_random_card();
-        
-        //put it into the list of cards
-        self.cards.insert(cardid, thecard);
-        
-        self.hands.get_mut(&playerid).unwrap().push(cardid);
         
     }
-
-
-
+    
+    
+    
     //if a player has won the card game, end the game
     //get the cards, and give them to the winning player
     pub fn tick(&mut self){
-
-
+        
+        let mut cardgameended = false;
+        
         //if theres a cardgame going on
         if let Some(cardgame) = &mut self.cardgame{
-
+            
             //if the cardgame is finished
             if cardgame.is_game_over(){
+                
+                //get the winner and the rewards
+                let (winnerid, rewards, toremovefromgame) = cardgame.get_winner_rewards().unwrap();
+                
 
-                //get the winner
-                //get the cards
-                //put the cards into the game
-                //give the cards to the winner
+                //for every card won, push its id into the winners hand
+                for (cardid, _) in rewards{
+                    self.hands.get_mut(&winnerid).unwrap().push(cardid);
+                }
+
+                for (cardid, _) in toremovefromgame{
+                    self.cards.remove(&cardid);
+                }
 
 
-
+                cardgameended = true;
             }
-
         }
 
+        if cardgameended{
+            self.cardgame = None;
+        }
+
+
+        
     }
-
-
+    
+    
     
 }
 
@@ -328,11 +466,11 @@ impl CardsInterface{
 pub struct CardGame{
     
     //the value of the cards in the hands of the players
-    playerscards: HashMap<u8, Vec<Card>>,
+    playerscards: HashMap<u8, Vec<(u16, Card)>>,
     
     //the cards in the middle of the board
     //is left as empty if there is no river (like in black jack)
-    river: Vec<Card>,
+    river: Vec<(u16, Card)>,
     
     //if there is a river
     //the number of cards in the river that are revealed to the player
@@ -356,9 +494,8 @@ pub struct CardGame{
 impl CardGame{
     
     
-    
     //a new game started with these players
-    pub fn new_blackjack() -> CardGame{
+    fn new_blackjack() -> CardGame{
         
         let mut hasplayerpassedmap = HashMap::new();
         hasplayerpassedmap.insert(1, false);
@@ -390,7 +527,7 @@ impl CardGame{
     }
     
     //get a river of 5 cards
-    pub fn new_poker(river: Vec<Card>) -> CardGame{
+    fn new_poker(river: Vec<(u16, Card)>) -> CardGame{
         
         
         if river.len() != 5{
@@ -426,52 +563,50 @@ impl CardGame{
         
         
     }
-
-
+    
+    
     
     //used for displaying the cards
     //get the list of the cards ina  players hand from a certain players perspective
-    pub fn get_cards_in_hand(&self, playerperspective: u8, requestedplayer: u8) -> Vec<Card>{
-        
-        self.playerscards.get(&requestedplayer).unwrap().clone()
-        
-    }
-    
-    
-    //get the cards in the river the open information about it
-    pub fn get_cards_in_river_appearance(&self) -> Vec<Card>{
+    fn get_card_ids_in_hand(&self, requestedplayer: u8) -> Vec<u16>{
         
         let mut toreturn = Vec::new();
         
-        let mut cardnumber = 1;
-        
-        //the cards that are higher in position in the river than the position revealed
-        //are returned as an "unknown" card
-        for card in &self.river{
+        for (cardid, card) in self.playerscards.get(&requestedplayer).unwrap().clone(){
             
-            //if the current card is larger than the amount of cards added to the river
-            //add a mystery card instead of the revealed card
-            if cardnumber > self.revealedriver{
-                
-                toreturn.push( Card::new_unknown_card() );
-            }
-            else{
-                toreturn.push(card.clone());
-            }
-            
-            cardnumber += 1;
-        };
+            toreturn.push(cardid);
+        }
         
-        
-        return(toreturn);
-        
+        toreturn
         
     }
+    
+    fn get_card_ids_in_river(&self) -> Vec<u16>{
+        
+        
+        let mut toreturn = Vec::new();
+        
+        for (cardid, card) in &self.river{
+            toreturn.push(*cardid);
+        }
+        
+        
+        toreturn
+        
+    }
+    
+    
+    fn get_card_ids_in_game(&self) -> (Vec<u16>, Vec<u16>, Vec<u16>){
+        
+        (self.get_card_ids_in_hand(1), self.get_card_ids_in_river(), self.get_card_ids_in_hand(2))
+        
+    }
+    
     
     
     
     //can this player play any cards now?
-    pub fn is_player_allowed_to_play_card(&self, playerid: u8) -> bool{
+    fn is_player_allowed_to_play_card(&self, playerid: u8) -> bool{
         
         //first of all, if the game is over, its false
         if self.is_game_over() == true{
@@ -515,7 +650,7 @@ impl CardGame{
     }
     
     //does this player NEED to play a card?
-    pub fn must_player_play_card(&self, playerid: u8) -> bool{
+    fn must_player_play_card(&self, playerid: u8) -> bool{
         
         //if this is blackjack and the player has less than 2 cards
         if self.blackjackorpoker == true{
@@ -544,20 +679,16 @@ impl CardGame{
         
     }
     
-    
-    
-    pub fn is_game_over(&self) -> bool{
+    fn is_game_over(&self) -> bool{
         
         self.ended        
         
     }
     
-    
-    
     //a player plays this card
     //return the winner of the game and the cards they win if they won
     //or return nothing if 
-    pub fn play_card(&mut self, playerid: u8, card: Card){
+    fn play_card(&mut self, playerid: u8, card: (u16, Card)){
         
         self.playerscards.get_mut(&playerid).unwrap().push(card);
         
@@ -634,15 +765,15 @@ impl CardGame{
     
     
     //a player passes their turn
-    pub fn player_passes(&mut self, playerid: u8){
+    fn player_passes(&mut self, playerid: u8){
         
         self.hasplayerpassed.insert(playerid, true);
         
     }    
     
     
-    //if the game is ended, get the winner, and the cards they won
-    fn get_winner_rewards(&mut self)-> Option<(u8, Vec<Card>)> {
+    //if the game is ended, get the winner, and the cards they won, then the cards to remove from the game
+    fn get_winner_rewards(&mut self)-> Option<(u8, Vec<(u16,Card)>, Vec<(u16, Card)>)> {
         
         
         //first, if the game is not completed yet, return none
@@ -659,7 +790,7 @@ impl CardGame{
             let mut highestblackjackscore = 0;
             let mut highestblackjackscoreholder = 0;
             
-            let mut allcardswon: Vec<Card> = Vec::new();
+            let mut allcardswon: Vec<(u16,Card)> = Vec::new();
             
             //for each player
             for (playerid, hand) in &self.playerscards{
@@ -670,7 +801,6 @@ impl CardGame{
                     
                     highestblackjackscore = playerscore;
                     highestblackjackscoreholder = *playerid;
-                    
                 }
                 
                 
@@ -681,16 +811,15 @@ impl CardGame{
             
             //if the "highestblackjackscoreholder" is zero, nobody won
             //so return that player 1 won, but they dont get any cards
-            //the cards are just trashed
             if (highestblackjackscore == 0){
                 
-                return Some( ( 1, Vec::new() ) ) ;
+                return Some( ( 1, Vec::new(), allcardswon ) ) ;
             }
             else{
                 
                 //else return the player with the highest score
                 //and every card from every players hand
-                return Some( (highestblackjackscoreholder, allcardswon) )  ;
+                return Some( (highestblackjackscoreholder, allcardswon, Vec::new()) )  ;
                 
             }
             
@@ -706,7 +835,7 @@ impl CardGame{
             let mut highestpokerscore = 0;
             let mut highestpokerscoreholder = 0;
             
-            let mut allcardswon: Vec<Card> = Vec::new();
+            let mut allcardswon: Vec<(u16,Card)> = Vec::new();
             
             let river = self.river.clone();
             
@@ -734,27 +863,23 @@ impl CardGame{
             //the cards are just trashed
             if (highestpokerscore == 0){
                 
-                return Some( ( 1, Vec::new() ) ) ;
+                allcardswon.extend(river);
+
+                return Some( ( 1, Vec::new(), allcardswon ) ) ;
             }
             else{
                 
                 //else return the player with the highest score
                 //and every card from every players hand
-                return Some( (highestpokerscoreholder, allcardswon) )  ;
+                return Some( (highestpokerscoreholder, allcardswon, river) ) ;
                 
             }
-            
-            
-            
-            
             
             
         };
         
         
         panic!("i shouldnt get here");
-        
-        
     }
     
     
@@ -762,7 +887,7 @@ impl CardGame{
     //return 0 for bust
     //21 for blackjack
     //the best value of the hand otherwise
-    fn evaluate_blackjack_hand(hand: &Vec<Card>) -> u16 {
+    fn evaluate_blackjack_hand(hand: &Vec<(u16,Card)>) -> u16 {
         
         //get total value of the cards that arent aces
         let mut loweracevalue = 0; 
@@ -773,7 +898,7 @@ impl CardGame{
         
         for currentcard in hand{
             
-            if ( currentcard.is_ace() ){
+            if ( currentcard.1.is_ace() ){
                 
                 numberofaces += 1;
                 
@@ -782,7 +907,7 @@ impl CardGame{
             
             else{
                 
-                loweracevalue += currentcard.blackjackvalue();
+                loweracevalue += currentcard.1.blackjackvalue();
             }
             
         };
@@ -823,7 +948,7 @@ impl CardGame{
     
     //evaluate a poker hand with a given river
     //and get its best value
-    fn evaluate_poker_hand(hand: &Vec<Card>, river: &Vec<Card>) -> u32{
+    fn evaluate_poker_hand(hand: &Vec<(u16,Card)>, river: &Vec<(u16,Card)>) -> u32{
         
         
         10
@@ -859,8 +984,6 @@ pub enum CardValue{
     jack,
     queen,
     king
-    
-    
 }
 
 //the effect of the card it can have
@@ -878,19 +1001,23 @@ pub enum CardEffect{
     
     //this card can raise a square to not be able to be moved past by another piece
     raisesquare,
+
+
+    //make the game have pool settings
+    makepoolgame,
     
     
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
 pub enum CardSuit{
-
+    
     diamonds,
     clubs,
     hearts,
     spades
-
-
+    
+    
 }
 
 
@@ -900,14 +1027,10 @@ pub struct Card{
     
     
     value: CardValue,
-
+    
     suit: CardSuit,
     
     pub effect: CardEffect,
-
-
-    //if the card is an unknown card
-    isunknown: bool,
     
     
     
@@ -979,14 +1102,14 @@ impl Card{
         
         
     }
-
-
+    
+    
     //return the number representing the value
     //1 - 13
     pub fn numbervalue(&self) -> u16{
-
-
-                
+        
+        
+        
         if self.value == CardValue::two{
             return(2);
         }
@@ -1027,55 +1150,137 @@ impl Card{
         else{
             return(1);
         }
-
+        
     }
-
-
-
+    
+    
+    
     pub fn suitvalue(&self) -> u16{
-
+        
         if self.suit == CardSuit::diamonds{
-            return 1;
+            return 0;
         }
         else if self.suit == CardSuit::clubs{
-            return 2;
+            return 1;
         }
         else if self.suit == CardSuit::hearts{
-            return 3;
+            return 2;
         }
         else{
-            return 4;
+            return 3;
         }
-
-
+        
+        
     }
-
+    
     
     pub fn new_random_card() -> Card{
-
-        Card{
-            value: CardValue::ace,
-            suit: CardSuit::spades,
-            effect: CardEffect::raisesquare,
-            isunknown: false
+        
+        use rand::Rng;
+        
+        let mut rng = rand::thread_rng();
+        
+        let effectnumb = rng.gen_range(0, 5);
+        let effect;
+        {
+            if effectnumb == 0{
+                effect = CardEffect::blackjackgame;
+            }
+            else if effectnumb == 1{
+                effect = CardEffect::pokergame;
+            }
+            else if effectnumb == 2{
+                effect = CardEffect::dropsquare;
+            }
+            else if effectnumb == 3{
+                effect = CardEffect::raisesquare;
+            }
+            else if effectnumb == 4{
+                effect = CardEffect::makepoolgame;
+            }
+            else{
+                panic!("not in the range generated");
+            }
         }
-
-    }
-
-    pub fn new_unknown_card() -> Card{
-
-
-        Card{
-
-            value: CardValue::ace,
-            suit: CardSuit::spades,
-            effect: CardEffect::raisesquare,
-            isunknown: true
-
+        
+        let effect = CardEffect::makepoolgame;
+        
+        
+        let valuenumb = rng.gen_range(0, 13);
+        let value;
+        {
+            
+            if valuenumb == 0{
+                value = CardValue::ace;
+            }
+            else if valuenumb == 1{
+                value = CardValue::two;
+            }
+            else if valuenumb == 2{
+                value = CardValue::three;
+            }
+            else if valuenumb == 3{
+                value = CardValue::four;
+            }
+            else if valuenumb == 4{
+                value = CardValue::five;
+            }
+            else if valuenumb == 5{
+                value = CardValue::six;
+            }
+            else if valuenumb == 6{
+                value = CardValue::seven;
+            }
+            else if valuenumb == 7{
+                value = CardValue::eight;
+            }
+            else if valuenumb == 8{
+                value = CardValue::nine;
+            }
+            else if valuenumb == 9{
+                value = CardValue::ten;
+            }
+            else if valuenumb == 10{
+                value = CardValue::jack;
+            }
+            else if valuenumb == 11{
+                value = CardValue::queen;
+            }
+            else if valuenumb == 12{
+                value = CardValue::king;
+            }
+            else{
+                panic!("not in the generated range");
+            }
+            
         }
+        
 
+        let suitvalue = rng.gen_range(0,4);
+        let suit;
 
-
+        if suitvalue == 0{
+            suit = CardSuit::diamonds;
+        }
+        else if suitvalue == 1{
+            suit = CardSuit::clubs;
+        }
+        else if suitvalue == 2{
+            suit = CardSuit::hearts;
+        }
+        else if suitvalue == 3{
+            suit = CardSuit::spades;
+        }
+        else{
+            panic!("not in teh genereated range");
+        }
+        
+        Card{
+            value: value,
+            suit: suit,
+            effect: effect,
+        }
+        
     }
     
 }

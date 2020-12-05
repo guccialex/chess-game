@@ -185,14 +185,6 @@ async function rungame(thegame) {
 
 
 
-
-
-
-
-
-
-
-
 //the appearance of the game state
 //doesnt this also manage getting input?
 class GameApperance{
@@ -218,6 +210,9 @@ class GameApperance{
         camera.upperRadiusLimit = 30;
         
         
+        //map objectname to meshstate
+        //the last state of this mesh when it was updated
+        this.lastmeshstate = new Map();
         
         
         //get the canvas for this engine to attach a control tos
@@ -255,11 +250,11 @@ class GameApperance{
         mesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
         mesh.material.alpha = 0.00;
         mesh.material.diffuseColor = BABYLON.Color3.Gray();
-        mesh.position.y = 1.1;
+        mesh.position.y = 0.75;
         
         
         
-        var skybox = BABYLON.Mesh.CreateBox("skybox", 5000.0, this.scene);
+        var skybox = BABYLON.Mesh.CreateBox("skybox", 100.0, this.scene);
         var skyboxMaterial = new BABYLON.StandardMaterial("skybox", this.scene);
         skyboxMaterial.backFaceCulling = false;
         skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("skybox/skybox", this.scene);
@@ -269,7 +264,14 @@ class GameApperance{
         skyboxMaterial.disableLighting = true;
         skybox.material = skyboxMaterial;
         
-        this.scene.freezeActiveMeshes();
+        //this.scene.freezeActiveMeshes();
+        
+        var image = new BABYLON.GUI.Image("overlay", "testimage.png");
+        image.width = "20%";
+        image.height = "20%";
+        image.left = "-40%";
+        image.top = "-40%";
+        this.advancedTexture.addControl(image);
         
     }
     
@@ -293,13 +295,25 @@ class GameApperance{
             let objectmesh = this.scene.getMeshByName(objectname);
             
             
+            //if the mesh is to be updated
+            let meshupdated = objectdata.meshupdated;
+            
+            
             //if the mesh doesnt exist, create it
-            if (objectmesh == null){
+            //or if the object data says that the mesh is updated
+            if (objectmesh == null || meshupdated == true){
+                
+                
+                //if the object mesh is updated, dispose of the old mesh
+                if (meshupdated == true && objectmesh != null){
+                    objectmesh.dispose();
+                }
                 
                 //the type of mesh it is
                 let cubedata = objectdata.mesh.Cube;
                 let cylinderdata = objectdata.mesh.Cylinder;
                 let timerdata = objectdata.mesh.Timer;
+                let circledata = objectdata.mesh.Circle;
                 
                 if (cubedata != null){
                     
@@ -330,21 +344,45 @@ class GameApperance{
                     
                     //if this has a mesh
                     if (cylinderdata.texture != null){
-                    
+                        
                         objectmesh.material.ambientTexture = new BABYLON.Texture(cylinderdata.texture, this.scene);
                     }
-
+                    
+                }
+                else if (circledata != null){
+                    
+                    let options = {
+                        diameter: circledata.diameter
+                    };
+                    
+                    objectmesh = BABYLON.MeshBuilder.CreateSphere(objectdata.name, options, this.scene);
+                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
+                    
+                    //if this has a mesh
+                    if (circledata.texture != null){
+                        objectmesh.material.ambientTexture = new BABYLON.Texture(circledata.texture, this.scene);
+                    }
+                    
                 }
                 else if (timerdata != null){
                     
                     let options = {
-                        height : 1,
-                        width  : 1,
-                        depth  : 1,
+                        height : 0.01,
+                        width  : 1.4,
+                        depth  : 2,
                     };
                     
+                    
                     objectmesh = BABYLON.MeshBuilder.CreateBox(objectdata.name, options, this.scene);
-                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
+                    
+                    
+                    //Create dynamic texture
+                    let texturetimer = new BABYLON.DynamicTexture("dynamic texture", {width:100, height:70}, this.scene);   
+                                        
+                    let materialtimer = new BABYLON.StandardMaterial("Mat", this.scene);
+                    materialtimer.diffuseTexture = texturetimer;
+                    objectmesh.material = materialtimer;                    
+                    
                     
                 }
                 else{
@@ -356,19 +394,16 @@ class GameApperance{
             
             
             
+            
+            
+            
             //set its position and rotation values
-            /*
-            objectmesh.position.x = objectdata.position[0];
-            objectmesh.position.y = objectdata.position[1];
-            objectmesh.position.z = objectdata.position[2];
-            */
+            //interpolate it a bit, probably can do this a better way
+            objectmesh.position.x = (objectmesh.position.x * 0.2) + (objectdata.position[0] * 0.8);
+            objectmesh.position.y = (objectmesh.position.y * 0.2) + (objectdata.position[1] * 0.8);
+            objectmesh.position.z = (objectmesh.position.z * 0.2) + (objectdata.position[2] * 0.8);
             
             
-            objectmesh.position.x = (objectmesh.position.x * 0.3) + (objectdata.position[0] * 0.7);
-            objectmesh.position.y = (objectmesh.position.y * 0.3) + (objectdata.position[1] * 0.7);
-            objectmesh.position.z = (objectmesh.position.z * 0.3) + (objectdata.position[2] * 0.7);
-            
-
             
             objectmesh.rotation.x = objectdata.rotation[0];
             objectmesh.rotation.y = objectdata.rotation[1];
@@ -379,18 +414,31 @@ class GameApperance{
             
             
             
+            
             let timerdata = objectdata.mesh.Timer;
             
             //if its a timer, scale it according to the time left
             if (timerdata != null){
-                
-                objectmesh.position.x = objectdata.position[0];
-                objectmesh.position.y = objectdata.position[1];
-                objectmesh.position.z = objectdata.position[2];
-                
-                objectmesh.scaling = new BABYLON.Vector3(1, objectmesh.scaling.y / 2 + timerdata.ticksleft / 20, 1);
-                objectmesh.position.y = objectmesh.position.y + objectmesh.scaling.y / 2 ;
-                
+
+                let bgcolour = new BABYLON.Color3( objectdata.colour[0] / 255, objectdata.colour[1] / 255, objectdata.colour[2] /255);
+
+                //clear background and update timer text
+
+                if (timerdata.currentlyturn){
+                    let font = "bold 40px monospace";
+                    objectmesh.material.diffuseTexture.drawText(timerdata.timeleft, 0, 40, font, "black", "green", true, true);
+
+                }
+                else{
+                    let font = "bold 40px monospace";
+                    objectmesh.material.diffuseTexture.drawText(timerdata.timeleft, 0, 40, font, "black", "white", true, true);
+                }
+
+                //Add text
+                let font = "bold 10px monospace";
+                objectmesh.material.diffuseTexture.drawText("and then you lose", 0, 60, font, "black", null, true, true);
+
+                            
             }
             
             
@@ -409,7 +457,7 @@ class GameApperance{
             }
             else{
                 
-                if (mesh.name == "plane" || mesh.name == "myMaterial" || mesh.name == "skybox"){
+                if (mesh.name == "plane" || mesh.name == "myMaterial" || mesh.name == "skybox" || mesh.name == "overlay"){
                 }
                 else{    
                     console.log("im disposing of", mesh.name);
@@ -431,8 +479,8 @@ class GameApperance{
         //THE LIBRARIES ARE JUST WORSE
         //AND EVERY OBJECT HAS LIKE 200 PROPERTIES AND METHODS
         //cant stress how annoying and pointless things like this are that i seem to only encounter in js
-        let objectmesh = BABYLON.MeshBuilder.CreateBox("benis", {}, this.scene);
-        objectmesh.dispose();
+        //let objectmesh = BABYLON.MeshBuilder.CreateBox("benis", {}, this.scene);
+        //objectmesh.dispose();
         
         
         this.scene.render();
@@ -502,6 +550,7 @@ class GameInterface{
         
         //tick the internal game
         this.wasmgame.tick();
+        
         
         //render it
         this.render();

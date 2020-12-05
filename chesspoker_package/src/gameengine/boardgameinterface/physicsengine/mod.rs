@@ -27,10 +27,23 @@ use nphysics3d::object::BodyStatus;
 
 use nphysics3d::math::{Force, ForceType};
 
+use nphysics3d::material::BasicMaterial;
+use nphysics3d::material::MaterialHandle;
+
 
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+
+
+
+
+
+
+//implement serializer for the physics engine
+
+
+
 
 pub struct PhysicsEngine{
     
@@ -66,7 +79,8 @@ pub struct PhysicsEngine{
 
 
 
-
+//a getter and setter for the state of the physics engine
+//its the 
 impl PhysicsEngine{
     
     
@@ -75,15 +89,20 @@ impl PhysicsEngine{
         
 
         //increase gravity so stuff drops quicker
-        let mechanical_world = DefaultMechanicalWorld::new(Vector3::new(0.0, -70.00, 0.0));
+        let mut mechanical_world = DefaultMechanicalWorld::new(Vector3::new(0.0, -40.00, 0.0));
         let geometrical_world = DefaultGeometricalWorld::new();
-        let mut bodies = DefaultBodySet::<f32>::new();
-        let mut colliders = DefaultColliderSet::<f32>::new();
+        let bodies = DefaultBodySet::<f32>::new();
+        let colliders = DefaultColliderSet::<f32>::new();
         let joint_constraints = DefaultJointConstraintSet::new();
         let force_generators = DefaultForceGeneratorSet::new();
         
-        
-        
+        mechanical_world.integration_parameters.max_ccd_substeps = 2;
+        //mechanical_world.integration_parameters.erp = 0.1;
+        mechanical_world.integration_parameters.warmstart_coeff = 0.9;
+        //mechanical_world.integration_parameters.allowed_linear_error = 0.01;
+        //mechanical_world.integration_parameters.max_linear_correction = 10.0;
+
+
         PhysicsEngine{
             
             totalobjects: 0,
@@ -120,7 +139,6 @@ impl PhysicsEngine{
         self.totalobjects +=1;
         
         
-        
         let cuboid = ShapeHandle::new(Cuboid::new(Vector3::repeat(1.0)));
 
         use nalgebra::base::Matrix3;
@@ -130,14 +148,23 @@ impl PhysicsEngine{
         .status(BodyStatus::Dynamic)
         //dont let it sleep, or it wont drop when the square is moved out from under
         .sleep_threshold(None)
+        //false means the axis is not locked, 
+        .kinematic_rotations(Vector3::new(true, true, true))
         //.angular_inertia( Matrix3::new_rotation(0.00001) )
         .build();
         
         let rb_handle = self.bodies.insert(rb);
         
+
+
+
+        let material = MaterialHandle::new(BasicMaterial::new(0.2, 0.2));
+
         // Build the collider.
         let co = ColliderDesc::new(cuboid.clone())
         .density(5.0)
+        .ccd_enabled(true)
+        .material(material)
         .build(BodyPartHandle(rb_handle, 0));
         
         let colliderhandle = self.colliders.insert(co);
@@ -150,6 +177,9 @@ impl PhysicsEngine{
         
         ID
     }
+
+
+
 
     
     
@@ -471,6 +501,58 @@ impl PhysicsEngine{
         collider.set_shape( ShapeHandle::new( shape ) );
         
     }
+
+
+    pub fn set_shape_sphere(&mut self, ID: &u16, diameter: f32){
+
+        let radius = diameter / 2.0;
+
+        let colliderhandle = self.bodytoshape.get_mut(ID).unwrap();
+        let mut collider = self.colliders.get_mut(*colliderhandle).unwrap();
+
+        let ball =  ncollide3d::shape::Ball::new(radius);
+        
+        collider.set_shape( ShapeHandle::new( ball ) );
+
+
+
+        let rbhandle = self.bodyhandles.get(&ID).unwrap();
+        self.bodies.rigid_body_mut(*rbhandle).unwrap().set_mass(10.0);
+
+
+    }
+
+
+    pub fn set_materials(&mut self, ID: &u16, elasticity: f32, friction: f32){
+
+        let colliderhandle = self.bodytoshape.get_mut(ID).unwrap();
+        let mut collider = self.colliders.get_mut(*colliderhandle).unwrap();
+
+        let oldmaterial = collider.material_mut().downcast_mut::<BasicMaterial<f32>>().unwrap();
+
+        oldmaterial.friction = friction;
+        oldmaterial.restitution = elasticity;
+    }
+
+
+    //todo change all the other settings applied here to their own proper method
+    pub fn set_kinematic_axis_of_rotation_locked(&mut self, ID: &u16, rotations: (bool, bool, bool)){
+
+        let rbhandle = self.bodyhandles.get(&ID).unwrap();
+        let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
+
+        rigidbody.set_rotations_kinematic(Vector3::new(rotations.0, rotations.1, rotations.2));
+
+
+        rigidbody.set_linear_damping(0.5);
+        rigidbody.set_angular_damping(10.0);
+
+
+        //use nphysics3d::object::ActivationStatus;
+        //rigidbody.activation_status_mut().set_deactivation_threshold( Some(ActivationStatus::default_threshold()) );
+
+    }
+
     
     pub fn toggle_gravity(&mut self, ID: &u16, gravityornot: bool){
         
@@ -492,6 +574,7 @@ impl PhysicsEngine{
         
         
     }
+
 
     
     

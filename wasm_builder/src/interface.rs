@@ -7,8 +7,7 @@ use physicsengine::MainGame;
 
 use physicsengine::PieceAction;
 
-
-
+use std::collections::HashSet;
 
 
 
@@ -21,6 +20,11 @@ pub struct LocalGameInterface{
     
     //the actual rust game
     thegame: MainGame,
+
+
+    //the MeshType of each object in the game
+    //to the mesh it was previously
+    objecttolastmesh: HashMap<String, MeshType>,
     
     
 }
@@ -40,6 +44,7 @@ impl LocalGameInterface{
             
             playerid: playerid,
             thegame:thegame,
+            objecttolastmesh: HashMap::new(),
             
         }
     }
@@ -53,6 +58,48 @@ impl LocalGameInterface{
     }
     
     
+    //the name of an object to the board that object is on
+    //0 none
+    //1 game
+    //2 card
+    pub fn objectname_to_board(&self, objectname: String) -> u32{
+
+        if let Some(objecttype) = objectname_to_objecttype(objectname){
+
+            //if its a piece
+            if let ObjectType::piece(pieceid) = objecttype{
+                return 1;
+            }
+
+            else if let ObjectType::card(cardid) = objecttype{
+
+                //if this card has an owner
+                if let Some(cardowner) = self.thegame.get_card_owner(cardid){
+                    //its not on any board
+                    return 0;
+                }
+                //if it doesnt, its on the card board
+                else{
+                    return 2;
+                }
+
+            }
+            //if its a boardsquare
+            else if let ObjectType::boardsquare(bsid) = objecttype{
+                return 1;
+            }
+
+
+        }
+
+        
+        //otherwise its not a game or a card
+        0
+    }
+    
+    
+    
+    
     //returns true if i am the owner of this object, false otherwise
     pub fn do_i_own_object(&self, object: ObjectType) -> bool{
         
@@ -61,8 +108,10 @@ impl LocalGameInterface{
             
             if let ObjectType::card(cardid) = object{
                 
-                if self.playerid == self.thegame.get_card_owner(cardid){
-                    return true;
+                if let Some(ownerid)= self.thegame.get_card_owner(cardid){
+                    if ownerid  == self.playerid{
+                        return true;
+                    }
                 }
             }
             else if let ObjectType::piece(pieceid) = object{
@@ -79,8 +128,6 @@ impl LocalGameInterface{
         return false;
         
     }
-    
-    
     
     //gets a map of every valid player input for this given object
     //mapped by the id of the object that needs to be clicked on for it to be performed
@@ -156,7 +203,6 @@ impl LocalGameInterface{
         toreturn
     }
     
-    
     pub fn get_this_objects_selectable_objects(&self, objectid: ObjectType) -> Vec<ObjectType>{
         
         let objecttoinput = self.get_inputs_of_object(objectid);
@@ -170,11 +216,6 @@ impl LocalGameInterface{
         toreturn
         
     }
-    
-    
-    
-    
-    
     
     //given the id of an main object, and then an object that its trying to perform an action on
     //try to perform that action and return whether it succeded and was sent to be performed or not
@@ -203,7 +244,7 @@ impl LocalGameInterface{
     pub fn try_to_flick_piece(&mut self, pieceid: u16, direction: f32, force: f32 ) {
         
         
-        let flickaction = PieceAction::flick(direction, force * 5.0);
+        let flickaction = PieceAction::flick(direction, force.sqrt() * 40.0);
         
         let flickinput = PlayerInput::pieceaction(pieceid, flickaction);
         
@@ -223,40 +264,32 @@ impl LocalGameInterface{
         
     }
     
-
+    
     pub fn try_to_draw_card(&mut self){
-
+        
         let input = PlayerInput::drawcard;
-
+        
         self.thegame.receive_input(self.playerid, input);
-
+        
     }
     
     
     
     //get the appearance of this object
-    fn get_object_appearance(&self, objectid: ObjectType) -> ObjectAppearance{
+    fn get_object_appearance(&mut self, objectid: ObjectType) -> ObjectAppearance{
         
         //if its a card
         if let ObjectType::card(cardid) = objectid{
             
-            //if i can get the card from this players perspective
             let card = self.thegame.get_card_by_id(cardid);
             
-            //get its index in that players hand
-            let handposition = self.thegame.get_card_position_in_hand(cardid);
-
-            //get the player whos hand it is in 
-            let ownersid = self.thegame.get_card_owner(cardid);
-            let handsize = self.thegame.get_size_of_hand(ownersid);
-            
+            let (field, cardposition, fieldsize) = self.thegame.where_is_card(cardid);
             
             let objectname = objecttype_to_objectname(objectid);
             
-            let appearanceid = LocalGameInterface::get_appearance_id_of_card(&card);
             
-            let xpos = ((handposition as f32 - handsize as f32 / 2.0) +0.5) * 2.0 ;
-            let ypos = 2.0;
+            let mut xpos = cardposition as f32 * 2.0;
+            let ypos = 0.0;
             let zpos;
             
             let xrot = 0.0;
@@ -264,15 +297,28 @@ impl LocalGameInterface{
             let zrot = 0.0;
             
             
-            if ownersid == 1{
+            if field == 1{
                 zpos = -6.0;
             }
-            else {
+            else if field == 2{
                 zpos = 6.0;
+            }
+            else if field == 3{
+                zpos = -4.0;
+                xpos += 4.0;
+            }
+            else if field == 4{
+                zpos = 4.0;
+                xpos += 4.0;
+            }
+            else{
+                zpos = 0.0;
+                xpos += 4.0;
             }
             
             
-            let toreturn = ObjectAppearance::new_hand_card( objectname, (xpos, ypos, zpos), (xrot, yrot, zrot), card );
+            
+            let toreturn = ObjectAppearance::new_card( objectname, (xpos, ypos, zpos), (xrot, yrot, zrot), card );
             
             
             return toreturn ;
@@ -283,13 +329,15 @@ impl LocalGameInterface{
             let position = self.thegame.get_board_game_object_translation( pieceid );
             let rotation = self.thegame.get_board_game_object_rotation( pieceid );
             let objectname = objecttype_to_objectname(objectid);
-
+            
             let ownerid = self.thegame.get_board_game_object_owner(pieceid);
-
+            
             let typename = self.thegame.get_piece_type_name(pieceid);
 
-            let toreturn = ObjectAppearance::new_piece( objectname, typename, position, rotation, ownerid );
-
+            //if this is a new mesh
+            
+            let toreturn = ObjectAppearance::new_piece( objectname, typename, position, rotation, ownerid, &mut self.objecttolastmesh );
+            
             
             return toreturn;
         }
@@ -298,11 +346,11 @@ impl LocalGameInterface{
             let position = self.thegame.get_board_game_object_translation( bsid );
             let rotation = self.thegame.get_board_game_object_rotation( bsid );
             let objectname = objecttype_to_objectname(objectid);
-
+            
             let issquarewhite = self.thegame.is_boardsquare_white(bsid);
-
+            
             let toreturn = ObjectAppearance::new_boardsquare( objectname, position, rotation, issquarewhite );
-
+            
             
             return toreturn;
         }
@@ -317,7 +365,7 @@ impl LocalGameInterface{
     fn get_objects(&self) -> Vec<ObjectType>{
         
         let boardobjectids = self.thegame.get_board_game_object_ids();
-        let cardobjectids = self.thegame.get_cards_in_hands_ids();
+        let cardobjectids = self.thegame.get_card_ids();
         
         let mut toreturn = Vec::new();
         
@@ -371,74 +419,21 @@ impl LocalGameInterface{
     fn get_appearance_id_of_card(card: &Card) -> u32{
         
         //giving a card of every suit and value a unique ID
-        let toreturn =  4 * card.numbervalue() + card.suitvalue();
+        let toreturn =  4 * (card.numbervalue() -1) + card.suitvalue()  + 1;
+
         toreturn as u32
     }
-
-
+    
+    
     //get the name of this cards texture
     fn get_name_of_cards_texture(card: &Card) -> String{
-
+        
         let cardappearanceid = LocalGameInterface::get_appearance_id_of_card(card);
         let cardappearancestring = format!("{:03}", cardappearanceid );
         "cardart/card_".to_string() + &cardappearancestring + ".jpg"
-
-    }
-    
-    
-    fn get_cards_in_cardgame_appearance(&self) -> Vec<ObjectAppearance>{
-        
-        let mut toreturn = Vec::new();
-        
-        
-        //get the state of the cards  in the game if there is a game
-        if let Some( (player1hand, rivercards, player2hand) ) = self.thegame.get_cards_in_game(){
-            
-            let mut uniquecardidnumb = 0;
-            let mut xpositioninsection = 0;
-
-
-            for card in player1hand{
-                uniquecardidnumb += 1;
-                xpositioninsection += 1;
-
-                let appearance = ObjectAppearance::new_boardgame_card("hand1".to_string(), xpositioninsection, card, uniquecardidnumb);
-                
-                toreturn.push(appearance);
-            }
-            
-            
-            
-            let mut xpositioninsection = 0;
-            for card in rivercards{
-                
-                uniquecardidnumb += 1;
-                xpositioninsection += 1;
-                
-                let appearance = ObjectAppearance::new_boardgame_card("river".to_string(), xpositioninsection, card, uniquecardidnumb);
-
-                toreturn.push(appearance);
-            }
-            
-            
-            
-            let mut xpositioninsection = 0;
-            for card in player2hand{
-                
-                uniquecardidnumb += 1;
-                xpositioninsection += 1;
-                
-                let appearance = ObjectAppearance::new_boardgame_card("hand2".to_string(), xpositioninsection, card, uniquecardidnumb);
-                
-                toreturn.push(appearance);
-            }
-
-        }
-        
-        
-        toreturn
         
     }
+    
     
     
     //returns whether this object exists in the game
@@ -453,7 +448,7 @@ impl LocalGameInterface{
             }
         }
         else if let ObjectType::card(cardid) = object{
-            if self.thegame.get_cards_in_hands_ids().contains(&cardid){
+            if self.thegame.get_card_ids().contains(&cardid){
                 return true;
             }
             else{
@@ -466,10 +461,10 @@ impl LocalGameInterface{
     }
     
     
-    pub fn get_full_appearance_state(&self) -> FullAppearanceState{
+    pub fn get_full_appearance_state(&mut self) -> FullAppearanceState{
         
         let mut toreturn = FullAppearanceState::new();
-        
+
         
         //get the piece ids
         //get the board square ids
@@ -484,45 +479,34 @@ impl LocalGameInterface{
             objectsappearance.push ( objectappearance );
         };
         
-        let cardsingameappearance = self.get_cards_in_cardgame_appearance();
         
         //for every object in the game add it to the full appearance to return
         for objectappearance in objectsappearance{
             toreturn.add_object(objectappearance);
-        };
-        
-
-        //if there are cards in the card game
-        if cardsingameappearance.len() != 0{
-
-            let playingcardboard = ObjectAppearance::new_card_board();
-            toreturn.add_object(playingcardboard);
-
-        };
-        
-
-        //for every object in the card game add it to the full appearance to return
-        for objectappearance in cardsingameappearance{
-            toreturn.add_object(objectappearance);
-        };
+        };        
         
         
         
-
-
+        
         let deckappearance = ObjectAppearance::new_deck();
         toreturn.add_object(deckappearance);
-
+        
         //add the appearance of the timer for the player and the opponent
-        let player1timeleft = self.thegame.get_players_turn_ticks_left(1);
-        let player1timer = ObjectAppearance::new_timer(1, player1timeleft);
+        let player1totaltimeleft = self.thegame.get_players_total_ticks_left(1);
+        let iscurrentlyturn = (self.thegame.get_players_turn_ticks_left(1) > 0);
+        let player1timer = ObjectAppearance::new_timer(1, player1totaltimeleft, iscurrentlyturn);
         toreturn.add_object(player1timer);
-
-
-        let player2timeleft = self.thegame.get_players_turn_ticks_left(2);
-        let player2timer = ObjectAppearance::new_timer(2, player2timeleft);
+        
+        
+        let player2totaltimeleft = self.thegame.get_players_total_ticks_left(2);
+        let iscurrentlyturn = (self.thegame.get_players_turn_ticks_left(2) > 0);
+        let player2timer = ObjectAppearance::new_timer(2, player2totaltimeleft, iscurrentlyturn);
         toreturn.add_object(player2timer);
-
+        
+        
+        
+        //if theres a card game going on, get a poker board to render
+        
         
         toreturn
     }
@@ -547,66 +531,87 @@ use serde::{Serialize, Deserialize};
 //appearance data for an object
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ObjectAppearance{
-
+    
     //the shared elements
     position: (f32,f32,f32),
     rotation: (f32,f32,f32),
     name: String,
     colour: (u8,u8,u8),
 
+    meshupdated: bool,
+
+    
     mesh: MeshType,
 }
 
 impl ObjectAppearance{
-
+    
     pub fn new_cue(pos: (f32,f32,f32), rot: (f32,f32,f32)) -> ObjectAppearance{
-
+        
         let mesh = CubeMesh{
             dimensions: (0.2, 0.2, 1.2),
             texture: None,
         };
-
+        
         let meshtype = MeshType::Cube(mesh);
-
+        
         ObjectAppearance{
             name: "dragindicator".to_string(),
             position: pos,
             rotation: rot,
             colour: (0,0,0),
+
+            meshupdated: false,
+
             mesh: meshtype,
         }
     }
-
-
-
+    
+    
+    
     pub fn new_deck() -> ObjectAppearance{
-
+        
         let texturename = "cardart/cardback.jpg".to_string();
-
+        
         let mesh = CubeMesh{
             dimensions: (0.6, 1.96, 1.4),
             texture: Some(texturename),
         };
-
+        
         let meshtype = MeshType::Cube(mesh);
-
+        
         
         ObjectAppearance{
             name: "deck".to_string(),
             position: (-7.0,0.0,0.0),
             rotation: (0.0,0.0,0.0),
             colour: (255,255,255),
+
+            meshupdated: false,
+
             mesh: meshtype,
         }
-
+        
     }
+    
+    
+    pub fn new_timer(playerid: u32, ticksleft: u32, currentlyturn: bool) -> ObjectAppearance{
+        
+
+        //the time left should be as minutes then seconds
+        let seconds = ticksleft / 30;
+
+        let minutestext = (seconds / 60).to_string();
+        let secondstext = format!("{:02}", seconds % 60);
 
 
-    pub fn new_timer(playerid: u32, timeleft: u32) -> ObjectAppearance{
+
+        let timeleft = minutestext + ":" + &secondstext;
+
 
         let position;
         let name;
-
+        
         if playerid == 1{
             position = (-7.0,0.0,-3.0);
             name = "player".to_string() + &playerid.to_string() + "timer";
@@ -618,28 +623,32 @@ impl ObjectAppearance{
         else{
             panic!("ahhh");
         }
-
+        
         let mesh = TimerMesh{
-            ticksleft: timeleft
+            timeleft: timeleft,
+            currentlyturn: currentlyturn,
         };
-
+        
         let meshtype = MeshType::Timer(mesh);
-
+        
         ObjectAppearance{
             position: position,
-            rotation: (0.0,0.0,0.0),
+            rotation: (0.0,0.0,-0.5),
             name: name,
-            colour: (0,0,0),
+            colour: (255,200,255),
+
+            meshupdated: false,
+
             mesh: meshtype,
         }
-
+        
     }
-
-    pub fn new_piece(objectname: String, typename: String ,position: (f32,f32,f32), rotation: (f32,f32,f32), ownerid: u8) -> ObjectAppearance{
-
+    
+    pub fn new_piece(objectname: String, typename: String ,position: (f32,f32,f32), rotation: (f32,f32,f32), ownerid: u8, prevmeshmap: &mut HashMap<String, MeshType>) -> ObjectAppearance{
+        
         let texturename;
         let colour;
-
+        
         if ownerid == 1{
             colour = (255,255,255);
             texturename = "pieceart/".to_string() + &typename + &".png";
@@ -647,41 +656,78 @@ impl ObjectAppearance{
         else{
             colour = (255,255,255);
             texturename = "pieceart/b_".to_string() + &typename + &".png";
+            
+        }
 
+        let meshtype;
+        
+        if typename == "poolball"{
+
+            let mesh = CircleMesh{
+                diameter: 0.7,
+                texture: Some("testball.png".to_string()),
+            };
+
+            meshtype = MeshType::Circle(mesh);
+
+        }
+        else{
+
+            let mesh = CylinderMesh{
+                dimensions: (0.5, 0.72),
+                texture: Some(texturename),
+            };
+            
+            meshtype = MeshType::Cylinder(mesh);
         }
 
 
-        let mesh = CylinderMesh{
-            dimensions: (0.5, 0.72),
-            texture: Some(texturename),
-        };
+        let meshupdated;
+
+        //if theres a meshtype for this object name
+        if let Some(prevmeshtype) = prevmeshmap.get(&objectname){
+
+            //if that mesh type is the same as this mesh type, set meshupdated to true
+            if prevmeshtype != &meshtype{
+                meshupdated = true;
+            }
+            else{
+                meshupdated = false;
+            }
+
+        }
+        else{
+            meshupdated = true;
+        }
+
+        prevmeshmap.insert(objectname.clone(), meshtype.clone());
 
 
-        let meshtype = MeshType::Cylinder(mesh);
         
         ObjectAppearance{
             name: objectname,
             position: position,
             rotation: rotation,
             colour: colour,
+            meshupdated: meshupdated,
             mesh: meshtype,
         }
-
+        
     }
-
-    pub fn new_hand_card(name: String, position: (f32,f32,f32), mut rotation: (f32,f32,f32), card: Card ) -> ObjectAppearance{
-
+    
+    pub fn new_card(name: String, position: (f32,f32,f32), mut rotation: (f32,f32,f32), card: Card ) -> ObjectAppearance{
+        
         let texturename = LocalGameInterface::get_name_of_cards_texture(&card);
-
-
+        
+        
         let mesh = CubeMesh{
             dimensions: (0.1, 1.96, 1.4),
             texture: Some(texturename),
         };
-
+        
         let meshtype = MeshType::Cube(mesh);
-
-
+        
+        
         rotation.1 += 3.14159 / 2.0;
         
         ObjectAppearance{
@@ -689,25 +735,28 @@ impl ObjectAppearance{
             position: position,
             rotation: rotation,
             colour: (255,255,255),
+
+            meshupdated: false,
+
             mesh: meshtype,
         }
-
-
+        
+        
     }
-
-
+    
+    
     pub fn new_boardsquare(name: String, position: (f32,f32,f32), rotation: (f32,f32,f32), white: bool ) -> ObjectAppearance{
-
-
+        
+        
         let mesh = CubeMesh{
             dimensions: (1.0, 1.0, 1.0),
             texture: None,
         };
-
+        
         let meshtype = MeshType::Cube(mesh);
-
+        
         let colour;
-
+        
         if white{
             colour = (255,255,255);
         }
@@ -721,120 +770,78 @@ impl ObjectAppearance{
             position: position,
             rotation: rotation,
             colour: colour,
+
+            meshupdated: false,
+
             mesh: meshtype,
         }
+        
+        
+    }
+    
+    
+    /*
+    //display a large version of the card along with its effect when the mouse hovers over the card or clicks on it
+    pub fn new_card_display(card:Card) -> ObjectAppearance{
 
 
     }
+    */
 
-
-    pub fn new_boardgame_card(hand: String, position: u32, card: Card, uniquecardidnumb: u32) -> ObjectAppearance{            
-
-        let zposition;
-
-        let mut xposition = 6.0 + 1.65 * (position as f32);
-
-        if hand == "hand1"{
-            zposition = -3.0;
-            xposition += 2.5;
-        }
-        else if hand == "river"{
-            zposition = 0.0;
-        }
-        else if hand == "hand2"{
-            zposition = 3.0;
-            xposition += 2.5;
-        }
-        else{
-            panic!("What else could it be");
-        }
-
-
-
-        let texturename = LocalGameInterface::get_name_of_cards_texture(&card);
-
-
-        let mesh = CubeMesh{
-            dimensions: (0.1, 1.96, 1.4),
-            texture: Some(texturename),
-        };
-
-        let meshtype = MeshType::Cube(mesh);
-
-
-        ObjectAppearance{
-            name: "G".to_string()+&uniquecardidnumb.to_string(),
-            position: (xposition, 0.7, zposition),
-            rotation: (0.0, 3.14159 / 2.0, 0.0),
-            colour: (255,255,255),
-            mesh: meshtype
-        }
-
-    }
-
-
-    pub fn new_card_board() -> ObjectAppearance{
-
-        let mesh = CubeMesh{
-            dimensions: (1.0, 10.0, 10.0),
-            texture: None,
-        };
-
-        let meshtype = MeshType::Cube(mesh);
-
-
-        ObjectAppearance{
-            name: "cardboard".to_string(),
-            position: (11.0, 0.0, 0.0),
-            rotation: (0.0, 0.0, 0.0),
-            colour: (5,255,5),
-            mesh: meshtype
-        }
-
-    }
-
-
+    
 }
 
 
 
 
-#[derive(Serialize, Deserialize, Clone)]
-enum MeshType{
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub enum MeshType{
     Cube(CubeMesh),
     Cylinder(CylinderMesh),
+    Circle(CircleMesh),
     Timer(TimerMesh)
 }
 
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 struct TimerMesh{
-    ticksleft: u32,
+
+    timeleft: String,
+    currentlyturn: bool,
 }
 
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 struct CubeMesh{
-
+    
     //the size
     dimensions: (f32,f32,f32),
-
+    
     //the name of the texture
     texture: Option<String>,
 }
 
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 struct CylinderMesh{
-
+    
     //the size
     dimensions: (f32,f32),
-
+    
     //the name of the texture
     texture: Option<String>,
 }
 
 
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+struct CircleMesh{
+    
+    //the size
+    diameter: f32,
+    
+    //the name of the texture
+    texture: Option<String>,
+}
 
 
 
@@ -847,6 +854,7 @@ pub struct FullAppearanceState{
     
     //the list of every object and its appearance
     objects: Vec<ObjectAppearance>,
+
 }
 
 impl FullAppearanceState{
@@ -869,18 +877,18 @@ impl FullAppearanceState{
         for curobject in self.objects.iter_mut(){
             
             if curobject.name == objectname{
-
+                
                 let greencolourfloat = (0.0,255.0,0.0);
                 let colourfloat = (curobject.colour.0 as f32, curobject.colour.1 as f32, curobject.colour.2 as f32);
-
-
+                
+                
                 let mixedr = greencolourfloat.0 * 0.8 + colourfloat.0 * 0.2;
                 let mixedg = greencolourfloat.1 * 0.8 + colourfloat.1 * 0.2;
                 let mixedb = greencolourfloat.2 * 0.8 + colourfloat.2 * 0.2;
-
+                
                 //make its colour closer to green
                 curobject.colour = (mixedr as u8, mixedg as u8, mixedb as u8);
-            
+                
             }
         }
     }
@@ -893,17 +901,17 @@ impl FullAppearanceState{
                 
                 let yellowcolourfloat = (255.0,255.0,0.0);
                 let colourfloat = (curobject.colour.0 as f32, curobject.colour.1 as f32, curobject.colour.2 as f32);
-
-
+                
+                
                 let mixedr = yellowcolourfloat.0 * 0.8 + colourfloat.0 * 0.2;
                 let mixedg = yellowcolourfloat.1 * 0.8 + colourfloat.1 * 0.2;
                 let mixedb = yellowcolourfloat.2 * 0.8 + colourfloat.2 * 0.2;
-
+                
                 //make its colour closer to green
                 curobject.colour = (mixedr as u8, mixedg as u8, mixedb as u8);
-
-
-
+                
+                
+                
             }
         }
     }
@@ -1003,38 +1011,3 @@ pub fn objecttype_to_objectname(inputobjecttype: ObjectType) -> String {
 
 
 
-//the name of an object to the board that object is on
-//0 none
-//1 game
-//2 card
-pub fn objectname_to_board(objectname: String) -> u32{
-    
-    if objectname.len() == 0{
-        return(0);
-    }
-    
-    
-    //if its a piece
-    if objectname.chars().nth(0).unwrap() == 'P'{
-        return 1;
-    }
-    //if its a card in a game
-    if objectname.chars().nth(0).unwrap() == 'G'{
-        
-        return 2;
-    }
-    //if its a card in a hand or outside a game
-    if objectname.chars().nth(0).unwrap() == 'C'{
-        return 0;
-    }
-    //if its a boardsquare
-    if objectname.chars().nth(0).unwrap() == 'B'{
-        return 1;
-    }
-    
-    
-    
-    //otherwise its not a game or a card
-    0
-    
-}

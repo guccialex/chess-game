@@ -68,6 +68,27 @@ impl GameEngine{
         gameengine
         
     }
+
+
+
+    //make this a pool game
+    //make every piece a pool ball shape
+    //and remove all their actions aside from flick
+    //drop 6 random empty squares
+    pub fn make_pool_game(&mut self){
+
+        //for every piece with a type
+        for (pieceid, typedata) in self.piecetypedata.iter_mut(){
+
+            //set all their types as a pool ball            
+            typedata.set_pool_ball();
+
+            self.boardgame.make_object_pool_ball(pieceid);
+
+        }
+
+
+    }
     
     
     
@@ -137,6 +158,12 @@ impl GameEngine{
                         
                         //the id of this board square it lands on
                         let endid = self.boardgame.get_id_of_boardsquare_pos(endpos).unwrap();
+
+                        //if the current square is on a mission, break
+                        if self.boardgame.is_object_on_mission(endid){
+                            break;
+                        }
+
                         
                         //if this board square does not have any of my pieces on it
                         let piecesonboardsquare = self.boardgame.get_pieces_on_board_square( endid );
@@ -159,7 +186,7 @@ impl GameEngine{
                             if ! hastocapture{
                                 allowedactions.push(action);
                             }
-                        }
+                       }
                         else{
                             //if this square has a piece and only has opponents pieces, and im allowed to capture, add this
                             if onlyopponentspieces{
@@ -182,6 +209,13 @@ impl GameEngine{
                         
                         //the current square id
                         let cursquareid = self.boardgame.get_id_of_boardsquare_pos(cursquarepos).unwrap();
+
+                        //if the current square is on a mission, break
+                        if self.boardgame.is_object_on_mission(cursquareid){
+                            break;
+                        }
+
+
                         
                         let piecesonboardsquare = self.boardgame.get_pieces_on_board_square(cursquareid);
                         
@@ -225,7 +259,7 @@ impl GameEngine{
                         }
                         
                         
-                        //if there is a piece on this board square break and end after this loop
+                        //if this board square isnt empty, break after this loop
                         if ! piecesonboardsquare.is_empty() {
                             break;   
                         }

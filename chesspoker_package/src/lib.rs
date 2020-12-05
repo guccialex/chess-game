@@ -8,7 +8,6 @@ use std::collections::HashSet;
 use std::collections::HashMap;
 
 
-
 mod datastructs;
 
 
@@ -37,7 +36,6 @@ use cardstructs::CardsInterface;
 
 
 //the maingame creates and returns these objects as its fuctions
-
 pub struct MainGame{
     
     totalplayers: u8,
@@ -97,18 +95,57 @@ impl MainGame{
         
     }
     
-    pub fn get_game_information_string(&self, playerid: u8) -> String{
+    pub fn get_game_information_string(&self) -> String{
         
         "somestring".to_string()
         
     }
+
+
+    pub fn set_game_information_string(&mut self, gamestring: String){
+
+        //i can serialize
+        /*
+        everything but the board game
+
+
+        */
+        
+
+
+        
+    }
+
+    
+
+
+
+
+    //what happens when a player wins?
+    //just let the frontend know by having this method return true
+    //i can either drop shit from the sky in a celebratory ass way
+    //maybe have babylon js create confetti on its frontend thing
+    //and the text "player X wins" over everything
+    //or "YOU WON / LOST" depending on the player
+    pub fn is_game_over(&self) -> bool{
+
+        //win / lose conditions
+        //no pieces left
+        //king taken
+        //no time left
+
+        
+        false
+    }
+
+
     
 
     //get if it is the players turn, and if it is, how many ticks they have left in their turn
     //0 means it is not their turn
     pub fn get_players_turn_ticks_left(&self, playerid: u8) -> u32{
 
-        if let Some(ticksleft) = self.turnmanager.get_ticks_left_for_player(playerid){
+        if let Some(ticksleft) = self.turnmanager.get_ticks_left_for_players_turn(playerid){
             return ticksleft;
         }
         else{
@@ -117,71 +154,95 @@ impl MainGame{
 
     }
 
-    
-    
-    
-    
-    //card getter functions
-    //get player 1 and 2s hand as a list of ids
-    //the interface shouldnt need knowledge about any cards
-    //anywhere but the hands
-    pub fn get_cards_in_hands_ids(&self) -> Vec<u16>{
-        
-        let mut toreturn = Vec::new();
-        
-        for cardid in self.cards.get_cards_in_hand(1){
-            toreturn.push(cardid);
-        }
-        
-        for cardid in self.cards.get_cards_in_hand(2){
-            toreturn.push(cardid);
-        }
-        
-        toreturn
+    //get the total amount of time the player has lefts
+    pub fn get_players_total_ticks_left(&self, playerid: u8) -> u32{
+
+        self.turnmanager.get_players_total_ticks_left(playerid)
+
     }
+
+
+
+    
+    //get the id of the cards in the hands and the game
+    pub fn get_card_ids(&self) -> Vec<u16>{
+        self.cards.get_all_card_ids()
+    }
+
+    //get the information about the card
     pub fn get_card_by_id(&self, cardid: u16) -> Card{
         
         self.cards.get_card_unsafe(cardid)
     }
-    pub fn get_card_owner(&self, cardid: u16) -> u8{
+
+
+    //where is the card, what field is it in
+    //what is its position in the field
+    //what is the size of the field its in (hand size, river size)
+    pub fn where_is_card(&self, cardid: u16) -> (u8, u8, u8){
+
+        self.cards.where_is_card(cardid)
+    }
+
+
+
+    //if the cards is in the hand, get its owner
+    pub fn get_card_owner(&self, cardid: u16) -> Option<u8>{
         
         if self.cards.does_player_own_card(1, cardid){
-            return 1;
+            return Some(1);
         }
         else if self.cards.does_player_own_card(2, cardid){
-            return 2;
+            return Some(2);
         }
         else{
-            panic!("well apparently nobody owns the card");
+            return None;
         }
     }
-    pub fn get_card_position_in_hand(&self, cardid: u16) -> u8{
-        
-        //get the owner of the card
-        let owner = self.get_card_owner(cardid);
-        
-        //get the hand of that player
-        let ownershand = self.cards.get_cards_in_hand(owner);
-        
-        //get the position of this card in the hand
-        let mut curpos = 0;
-        
-        for curcardid in ownershand{
-            
-            if curcardid == cardid{
-                break;
-            }
-            
-            curpos += 1;
-        }
-        
-        return curpos;
-    }
-    pub fn get_cards_in_game(&self) -> Option< (Vec<Card>, Vec<Card>, Vec<Card>) >{
-        
-        self.cards.get_cards_in_game()
+
+
+    pub fn get_size_of_hand(&self, playerid: u8) -> u8{
+
+        self.cards.get_cards_in_hand(playerid).len() as u8
     }
     
+
+
+
+
+
+
+
+    //get the objects on the board that that the card can interact with, and the associated input for it
+    pub fn get_boardobject_actions_allowed_by_card(&self, playerid: u8, cardid: u16) -> HashMap<u16, PlayerInput> {
+        
+        //first, does the card exist
+        if self.cards.does_card_exist(cardid){
+            
+            let card = self.cards.get_card_unsafe(cardid);
+            
+            let mut allowedinputs = HashMap::new();
+            
+            //if this card can drop or raise a square
+            if card.effect == CardEffect::dropsquare || card.effect == CardEffect::raisesquare{
+                
+                //for every board square
+                for boardsquareid in self.boardgame.get_empty_squares_not_on_mission(){
+
+                    //if that square is empty
+                    
+                    let input = PlayerInput::playcardonsquare(cardid, boardsquareid);
+                    
+                    allowedinputs.insert( boardsquareid, input );
+                }
+                
+            }
+            
+            return allowedinputs;
+        }
+        
+        return HashMap::new();
+    }
     
     
     
@@ -223,46 +284,9 @@ impl MainGame{
         self.boardgame.is_boardsquare_white(boardsquareid)
     }
 
-    pub fn get_size_of_hand(&self, playerid: u8) -> u8{
-
-        self.cards.get_cards_in_hand(playerid).len() as u8
-    }
     
     
     
-    
-    
-    //get the objects on the board that that the card can interact with, and the associated input for it
-    pub fn get_boardobject_actions_allowed_by_card(&self, playerid: u8, cardid: u16) -> HashMap<u16, PlayerInput> {
-        
-        //first, does the card exist
-        if self.cards.does_card_exist(cardid){
-            
-            let card = self.cards.get_card_unsafe(cardid);
-            
-            let mut allowedinputs = HashMap::new();
-            
-            
-            //if this card can drop or raise a square
-            if card.effect == CardEffect::dropsquare || card.effect == CardEffect::raisesquare{
-                
-                //for every board square
-                for boardsquareid in self.boardgame.get_empty_squares_not_on_mission(){
-
-                    //if that square is empty
-                    
-                    let input = PlayerInput::playcardonsquare(cardid, boardsquareid);
-                    
-                    allowedinputs.insert( boardsquareid, input );
-                }
-                
-            }
-            
-            return allowedinputs;
-        }
-        
-        return HashMap::new();
-    }
     
     
     //the actions allowed by the piece and the objects it captures or lands on
@@ -632,6 +656,10 @@ impl MainGame{
             if cardeffect == CardEffect::pokergame{
                 return true;
             }
+
+            if cardeffect == CardEffect::makepoolgame{
+                return true;
+            }
         }
         
         return false;
@@ -737,8 +765,25 @@ impl MainGame{
         
         //or if the input is a card action
         else if let PlayerInput::playcardonboard(cardid) = playerinput{
+
+            let cardeffect = self.cards.get_card_unsafe(*cardid).effect;
             
-            self.cards.play_card(*playerid, *cardid);
+            
+            //if the player can play the card in the game
+            if self.cards.is_player_allowed_to_play_card(*playerid){
+                self.cards.play_card(*playerid, *cardid);
+            }
+            //if the cards effect is one that can be played on the board
+            else if cardeffect == CardEffect::makepoolgame{
+
+                self.boardgame.make_pool_game();
+
+            }
+            else{
+                //otherwise panic, because this card should not have been allowed to be played
+                //and it will fuck shit if i get here without actually having a valid action
+            }
+
             
         }
         
@@ -767,7 +812,7 @@ impl MainGame{
             
             
             //remove the card from the hand
-            self.cards.remove_card_from_hand(*playerid, *cardid);
+            self.cards.remove_card_from_game(*playerid, *cardid);
             
         }
         else if let PlayerInput::drawcard = playerinput{

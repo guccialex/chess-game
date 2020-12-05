@@ -1,40 +1,19 @@
-
-
 use physicsengine::MainGame;
-
-
 use physicsengine::GameToConnectTo;
 use physicsengine::ConnectedToGame;
-
-
 use std::sync::Arc;
-
-
-
 use std::net::TcpListener;
-
 use std::net::TcpStream;
 use std::thread::spawn;
-
 use tungstenite::accept_hdr;
 use tungstenite::handshake::server::{Request, Response};
-
 use tungstenite::server::accept;
-
-
 use std::collections::HashMap;
 use std::collections::HashSet;
-
 use tungstenite::{connect, Message};
-
-
-
 use url::Url;
 use  std::sync::Mutex;
 use std::{thread, time};
-
-
-
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::channel;
@@ -60,7 +39,7 @@ fn main() {
     
     
     
-    //tick the game
+    //tick the game 30 times a second
     let mutexgamecopy = mutexgame.clone();
     spawn(move || {
         
@@ -68,16 +47,18 @@ fn main() {
             
             println!("ticking");
             
-            let sleeptime = time::Duration::from_millis(700);
+            //it shouldnt be WAIT 33 ms, but wait until its 
+            //33 ms past the last time this was ticked
+            let sleeptime = time::Duration::from_millis(33);
             thread::sleep( sleeptime );
             
             
             //taking ownership of the "games" list
             //to tick the game
             {
-                let mut games = mutexgamecopy.lock().unwrap();
+                let mut game = mutexgamecopy.lock().unwrap();
                 
-                games.tick();    
+                game.tick();    
             }
             
         }
@@ -106,13 +87,7 @@ fn main() {
             handle_connection(stream, mutexgamecopy);
             
             
-        });
-        
-        
-        
-        
-        
-        
+        });        
     }
     
     
@@ -323,13 +298,13 @@ impl Game{
             //send the states of the game through the websocket
             
             {
-                let gamestatestringto1 = self.thegame.get_game_information_string(1);
+                let gamestatestringto1 = self.thegame.get_game_information_string();
                 let player1msg = Message::text(gamestatestringto1);
                 self.player1websocket.as_mut().unwrap().write_message(player1msg).unwrap();
                 
                 
                 
-                let gamestatestringto2 = self.thegame.get_game_information_string(2);
+                let gamestatestringto2 = self.thegame.get_game_information_string();
                 let player2msg = Message::text(gamestatestringto2);
                 self.player2websocket.as_mut().unwrap().write_message(player2msg).unwrap();
             }

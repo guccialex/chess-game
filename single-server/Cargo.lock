@@ -269,6 +269,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "libc",
  "wasi",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -591,6 +592,7 @@ dependencies = [
  "nalgebra",
  "ncollide3d",
  "nphysics3d",
+ "rand",
  "serde",
  "serde_json",
 ]
