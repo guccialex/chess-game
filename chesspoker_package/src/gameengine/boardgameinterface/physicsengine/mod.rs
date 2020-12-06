@@ -179,12 +179,6 @@ impl PhysicsEngine{
     }
 
 
-
-
-    
-    
-
-
     pub fn tick(&mut self){
         
         //turn the gravity off of objects that it should be turned off for

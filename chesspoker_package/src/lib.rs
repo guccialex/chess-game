@@ -102,6 +102,7 @@ impl MainGame{
     }
 
 
+    //fully serializable with rapier integration hopefully
     pub fn set_game_information_string(&mut self, gamestring: String){
 
         //i can serialize
