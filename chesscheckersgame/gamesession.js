@@ -468,19 +468,6 @@ class GameApperance{
         }
         
         
-        //FOR SOME REASON
-        //WHICH THE KNOWLEDGE OF HAS BEEN GIFTED ONTO ME PURELY BY LUCK
-        //I HAVE FOUND THIS TO BE THE SOLUTION TO THE FACT THAT NEW OBJECTS ADDED TO THE SCENE
-        //WOULD BE ADDED AND THEIR MESHES AND SHIT ADDED
-        //BUT WOULDNT ACTUALLY APPEAR
-        //WHEN I DISPOSE OF A MESH, IT FOR WHATEVER REASON UPDATES THE SCENE SO THAT IT BECOMES VISIBLE
-        //AT LEAST NOW I HAVE ENOUGH IN THE JS SIDE THAT I DONT HAVE TO DEAL WITH THIS
-        //THIS IS WHY I HATE JAVASCRIPT
-        //THE LIBRARIES ARE JUST WORSE
-        //AND EVERY OBJECT HAS LIKE 200 PROPERTIES AND METHODS
-        //cant stress how annoying and pointless things like this are that i seem to only encounter in js
-        //let objectmesh = BABYLON.MeshBuilder.CreateBox("benis", {}, this.scene);
-        //objectmesh.dispose();
         
         
         this.scene.render();
@@ -529,7 +516,11 @@ class GameInterface{
     //get a websocket message from the server
     get_message(message){
         
-        console.log("receiving a message from the server", message);
+        //console.log("receiving a message from the server", message);
+
+        //let data = new Uint8Array( message.arrayBuffer());
+
+        //console.log("something", data);
         
         //give the received message to the game
         this.wasmgame.get_incoming_socket_message( message );

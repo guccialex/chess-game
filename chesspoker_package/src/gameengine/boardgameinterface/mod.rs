@@ -54,7 +54,7 @@ creates piece of type return ID
 
 mod physicsengine;
 
-use physicsengine::PhysicsEngine;
+use physicsengine::RapierPhysicsEngine;
 
 use std::collections::HashSet;
 use std::collections::HashMap;
@@ -66,6 +66,7 @@ use serde::{Serialize, Deserialize};
 use nalgebra::Vector3;
 
 
+#[derive(Serialize, Deserialize)]
 pub struct BoardGame{
     
     
@@ -77,7 +78,7 @@ pub struct BoardGame{
     
     
     //the physical engine
-    physicsengine: PhysicsEngine,
+    physicsengine: RapierPhysicsEngine,
     
     
     //the ID of the object to the mission the object is on
@@ -107,7 +108,7 @@ impl BoardGame{
             
             pieces: HashSet::new(),
             boardsquares: HashMap::new(),
-            physicsengine: PhysicsEngine::new(),
+            physicsengine: RapierPhysicsEngine::new(),
             idtomission: HashMap::new(),
             futuremissions: Vec::new(),
             physicalidtoshapeid: HashMap::new(),
@@ -117,25 +118,33 @@ impl BoardGame{
         
         //create the 4 invisible walls bordering the game
         {
+
+            let horizontalwalldimensions = (20.0 , 20.0 , 2.0);
+
+            let verticalwalldimensions = (2.0 , 20.0 , 20.0 );
+            
+            
+
+
             let physicalid = boardgame.physicsengine.add_object();
-            boardgame.physicsengine.set_position( &physicalid,  (0.0,0.0,-5.0) );
+            boardgame.physicsengine.set_translation( &physicalid,  (0.0,0.0,-5.0) );
             boardgame.physicsengine.make_static(&physicalid);
-            boardgame.physicsengine.set_shape(&physicalid, ShapeIDtoConvexHull::horizontalwall() );
+            boardgame.physicsengine.set_shape_cuboid(&physicalid, horizontalwalldimensions );
             
             let physicalid = boardgame.physicsengine.add_object();
-            boardgame.physicsengine.set_position( &physicalid,  (0.0,0.0,5.0) );
+            boardgame.physicsengine.set_translation( &physicalid,  (0.0,0.0,5.0) );
             boardgame.physicsengine.make_static(&physicalid);
-            boardgame.physicsengine.set_shape(&physicalid, ShapeIDtoConvexHull::horizontalwall() );
+            boardgame.physicsengine.set_shape_cuboid(&physicalid, horizontalwalldimensions );
             
             let physicalid = boardgame.physicsengine.add_object();
-            boardgame.physicsengine.set_position( &physicalid,  (-5.0,0.0,0.0) );
+            boardgame.physicsengine.set_translation( &physicalid,  (-5.0,0.0,0.0) );
             boardgame.physicsengine.make_static(&physicalid);
-            boardgame.physicsengine.set_shape(&physicalid, ShapeIDtoConvexHull::verticalwall() );
+            boardgame.physicsengine.set_shape_cuboid(&physicalid, verticalwalldimensions );
             
             let physicalid = boardgame.physicsengine.add_object();
-            boardgame.physicsengine.set_position( &physicalid,  (5.0,0.0,0.0) );
+            boardgame.physicsengine.set_translation( &physicalid,  (5.0,0.0,0.0) );
             boardgame.physicsengine.make_static(&physicalid);
-            boardgame.physicsengine.set_shape(&physicalid, ShapeIDtoConvexHull::verticalwall() );
+            boardgame.physicsengine.set_shape_cuboid(&physicalid, verticalwalldimensions );
         }
         
         
@@ -159,17 +168,18 @@ impl BoardGame{
                     let ypos = 0.0;
                     let (xpos, zpos) = convert_board_square_pos_to_physical_pos( (x, z) ); 
                     
-                    boardgame.physicsengine.set_position( &physicalid, ( xpos , ypos ,zpos  ) );
-                    boardgame.physicsengine.toggle_gravity( &physicalid, false);
+                    boardgame.physicsengine.set_translation( &physicalid, ( xpos , ypos ,zpos  ) );
+
+
                     boardgame.physicsengine.make_static(&physicalid);
-                    boardgame.physicsengine.set_materials(&physicalid, 0.2, 0.5);
+                    boardgame.physicsengine.set_materials(&physicalid, 0.0, 1.0);
                     
                     
                     
-                    let boardsquareshape = ShapeIDtoConvexHull::shapeidtoconvexhull( &(1 as u32) );
+                    let boardsquareshape = (1.0,1.0,1.0);
                     
                     
-                    boardgame.physicsengine.set_shape(&physicalid, boardsquareshape);
+                    boardgame.physicsengine.set_shape_cuboid(&physicalid, boardsquareshape);
                     
                     
                     boardgame.boardsquares.insert( (x,z), physicalid );
@@ -195,15 +205,15 @@ impl BoardGame{
         self.physicsengine.set_shape_sphere(objectid, 0.7);
 
         //move it up, or itll sink through the floor when ccd is on
-        self.physicsengine.apply_delta_position(objectid , Vector3::new(0.0, 1.0, 0.0));
+        self.physicsengine.apply_delta_position(objectid , (0.0, 1.0, 0.0));
 
 
 
         //elasticity and friction
-        self.physicsengine.set_materials(objectid, 0.8, 40.4);
+        self.physicsengine.set_materials(objectid, 1.3, 1.0);
 
         //unlock all the axis of rotation
-        self.physicsengine.set_kinematic_axis_of_rotation_locked( objectid, (false,false,false) );
+        //self.physicsengine.set_kinematic_axis_of_rotation_locked( objectid, (false,false,false) );
 
 
     }
@@ -246,15 +256,17 @@ impl BoardGame{
     pub fn new_piece(&mut self, pos:(u8,u8) ) -> u16{
         
         let pos = convert_board_square_pos_to_physical_pos( pos );
-        let shape = ShapeIDtoConvexHull::shapeidtoconvexhull(&2);
+        //let shape = ShapeIDtoConvexHull::shapeidtoconvexhull(&2);
         
+
         let pieceid = self.physicsengine.add_object();
         self.pieces.insert(pieceid);
         
         
-        self.physicsengine.set_position( &pieceid, ( pos.0 , 6.0 , pos.1 ) );
-        self.physicsengine.toggle_gravity( &pieceid, true);
-        self.physicsengine.set_shape(&pieceid, shape );
+        self.physicsengine.set_translation( &pieceid, ( pos.0 , 6.0 , pos.1 ) );
+        
+        
+        self.physicsengine.set_shape_cylinder(&pieceid, 0.5, 0.7 );
         
         
         return  pieceid;
@@ -287,7 +299,6 @@ impl BoardGame{
                 //put that mission into the lists of future missions
                 self.futuremissions.push( (30, pieceid, slidemission) );
             }
-            
             
             //make the missions that drop the pieces that its passing over
             {
@@ -466,21 +477,18 @@ impl BoardGame{
                 
                 let currentimpulsevector = mission.get_current_impulse();
                 
-                //make the vector into a force
-                let currentimpulse = nphysics3d::algebra::Force3::new( currentimpulsevector, Vector3::new(0.0,0.0,0.0) ); 
-                
-                self.physicsengine.apply_delta_impulse(physicalid, currentimpulse);
+                self.physicsengine.apply_delta_impulse(physicalid, currentimpulsevector);
                 
             }
             
             if mission.is_current_position_change(){          
                 
-                let currentposchangevector = mission.get_current_position_change();
+                let poscvector = mission.get_current_position_change();
                 
-                self.physicsengine.apply_delta_position(physicalid, currentposchangevector);
+                self.physicsengine.apply_delta_position(physicalid, (poscvector.x, poscvector.y, poscvector.z) );
                 
                 //and set this object to not experience the force of gravity for the next tick
-                self.physicsengine.turn_gravity_off_for_tick(physicalid);
+                //self.physicsengine.turn_gravity_off_for_tick(physicalid);
                 
                 //and set it to be static for a tick
                 self.physicsengine.make_static_for_tick(physicalid);

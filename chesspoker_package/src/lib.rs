@@ -32,10 +32,12 @@ use cardstructs::CardsInterface;
 
 
 
+use serde::{Serialize, Deserialize};
 
 
 
 //the maingame creates and returns these objects as its fuctions
+#[derive(Serialize, Deserialize)]
 pub struct MainGame{
     
     totalplayers: u8,
@@ -95,27 +97,19 @@ impl MainGame{
         
     }
     
+    /*
     pub fn get_game_information_string(&self) -> String{
-        
-        "somestring".to_string()
-        
+        ron::to_string(&self).unwrap()
     }
+    */
 
 
+    /*
     //fully serializable with rapier integration hopefully
     pub fn set_game_information_string(&mut self, gamestring: String){
-
-        //i can serialize
-        /*
-        everything but the board game
-
-
-        */
-        
-
-
-        
+        *self = ron::from_str(&gamestring).unwrap();
     }
+    */
 
     
 
@@ -855,7 +849,6 @@ impl MainGame{
 
 
 
-use serde::{Serialize, Deserialize};
 
 
 

@@ -146,8 +146,10 @@ fn handle_connection(mut stream: TcpStream, game: Arc< Mutex< Game >>){
                 
                 //connect to the game as player 1 and give it this websocket stream
                 {
-                    let mut unlockedgame = game.lock().unwrap();
-                    unlockedgame.connect_player1(websocket);
+                    if let Ok(unlockedgame) = &mut game.lock(){
+                        unlockedgame.connect_player1(websocket);
+                    }
+                    
                 }
             }
             
@@ -155,8 +157,10 @@ fn handle_connection(mut stream: TcpStream, game: Arc< Mutex< Game >>){
                 
                 //connect to the game as player 2 and gove it this websocket stream
                 {
-                    let mut unlockedgame = game.lock().unwrap();
-                    unlockedgame.connect_player2(websocket);
+                    if let Ok(unlockedgame) = &mut game.lock(){
+                        unlockedgame.connect_player2(websocket);
+                    }
+                    
                 }
                 
             }
@@ -196,6 +200,11 @@ struct Game{
     player2websocket: Option< tungstenite::WebSocket<std::net::TcpStream> >,
     
     
+    totalticks: u32,
+
+    //if I received an input from a player last tick, send an update method
+    tosendupdate: bool,
+    
     
 }
 
@@ -216,6 +225,12 @@ impl Game{
             player1websocket: None,
             
             player2websocket: None,
+            
+            totalticks: 0,
+
+            tosendupdate: false,
+            
+            
             
         }
         
@@ -252,7 +267,6 @@ impl Game{
             self.player2active = true;
             
             
-            
             let player2msg = Message::text("connected to game");
             self.player2websocket.as_mut().unwrap().write_message(player2msg).unwrap();
             
@@ -271,13 +285,16 @@ impl Game{
             self.gameon = true;
         }
         else{
-            self.gameon = false;
+            //THIS SHOULD BE FALSE
+            //BUT IM SETTING IT TO TRUE FOR TESTING
+            self.gameon = true;
         }
         
         
         //if the game state is valid to tick it
         if self.gameon{
             
+            self.totalticks += 1;
             
             //tick the game
             self.thegame.tick();
@@ -286,9 +303,34 @@ impl Game{
             //receive player 1's queued input if there is any
             {
                 
+                use physicsengine::PlayerInput;
+                
+                if let Some(socket) = &mut self.player1websocket{
+                    
+                    if let Ok(receivedmessage) = socket.read_message(){
+                        
+                        self.tosendupdate = true;
+
+                        let message = receivedmessage.to_string();
+                        
+                        //convert this to a player input
+                        let playerinput = serde_json::from_str::<PlayerInput>(&message).unwrap();
+                        
+                        //give the player input to the game
+                        self.thegame.receive_input(1, playerinput);
+                        
+                    }
+                    
+                    
+                }
+                
+                
             }
             //receive player 2's queued input if there is any
             {
+                
+                
+                
                 
             }
             
@@ -296,24 +338,37 @@ impl Game{
             
             
             //send the states of the game through the websocket
-            
-            {
-                let gamestatestringto1 = self.thegame.get_game_information_string();
-                let player1msg = Message::text(gamestatestringto1);
-                self.player1websocket.as_mut().unwrap().write_message(player1msg).unwrap();
+            //if the websocket is open this tick
+            if self.totalticks % 5 == 0 || self.tosendupdate{
+                
+                let gamebinto1 = bincode::serialize(&self.thegame).unwrap();
+                let vecofchar = gamebinto1.iter().map(|b| *b as char).collect::<Vec<_>>();
+                let stringmessage = vecofchar.iter().collect::<String>();
                 
                 
+                let player1msg = Message::text(stringmessage);
                 
-                let gamestatestringto2 = self.thegame.get_game_information_string();
+                if let Some(thing) = self.player1websocket.as_mut(){
+                    thing.write_message(player1msg).unwrap();
+                }
+                
+                
+                let gamestatestringto2 = ron::to_string(&self.thegame).unwrap();
                 let player2msg = Message::text(gamestatestringto2);
-                self.player2websocket.as_mut().unwrap().write_message(player2msg).unwrap();
+                
+                if let Some(thing) = self.player2websocket.as_mut(){
+                    thing.write_message(player2msg).unwrap();
+                }
+
+
+
+                self.tosendupdate = false;
+                
             }
-            
+
+
+
         }
-        
-        
     }
-    
-    
 }
 

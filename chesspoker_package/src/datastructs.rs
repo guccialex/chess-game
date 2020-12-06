@@ -205,8 +205,8 @@ impl TurnManager{
         //set up the basequeue
         //with player 1 and player 2
         //a max of 60 seconds per turn
-        toreturn.basequeue.push(  (player1, 0, 1800)  );
-        toreturn.basequeue.push(  (player2, 1800, 1800)  );
+        toreturn.basequeue.push(  (player1, 0, 18)  );
+        toreturn.basequeue.push(  (player2, 18, 18)  );
         
         toreturn.playertimeleft.insert( player1, 1800 * 5);
         toreturn.playertimeleft.insert( player2, 1800 * 5);
@@ -407,6 +407,7 @@ impl TurnManager{
 
 
 
+#[derive(Serialize, Deserialize)]
 pub struct GameSettings{
 
 

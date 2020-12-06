@@ -18,6 +18,8 @@ wasm-bindgen = { version = "*", features = ["serde-serialize"] }
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 
+bincode = "*"
+
 console_error_panic_hook = "0.1.6"
 
 

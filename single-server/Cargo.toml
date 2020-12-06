@@ -13,7 +13,10 @@ physicsengine = { path = "../chesspoker_package" }
 
 tungstenite = "*"
 
-serde = "*"
-serde_json = "*"
 crossbeam = "*"
 url = "*"
+ron = "0.6.2"
+bincode = "*"
+
+
+serde_json = "*"

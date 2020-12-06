@@ -1,77 +1,45 @@
+use rapier3d::dynamics::{JointSet, RigidBodySet, IntegrationParameters};
+use rapier3d::geometry::{BroadPhase, NarrowPhase, ColliderSet};
+use rapier3d::pipeline::PhysicsPipeline;
 
-
-use nalgebra::{Point3, RealField, Vector3};
-use ncollide3d::shape::{Cuboid, Ball, ShapeHandle};
-use nphysics3d::force_generator::DefaultForceGeneratorSet;
-use nphysics3d::joint::DefaultJointConstraintSet;
-
-use nphysics3d::object::{
-    BodyPartHandle, ColliderDesc, DefaultBodySet, DefaultColliderSet, Ground, RigidBodyDesc,
-};
-use nphysics3d::world::{DefaultGeometricalWorld, DefaultMechanicalWorld};
-
-use nphysics3d::object::DefaultBodyHandle;
-use nphysics3d::object::DefaultColliderHandle;
-
-use nalgebra::geometry::Isometry3;
-
-use nalgebra::geometry::Translation3;
-
-use ncollide3d::shape::ConvexHull;
-
-use nphysics3d::object::Body;
-
-use nphysics3d::object::BodyStatus;
-
-
-
-use nphysics3d::math::{Force, ForceType};
-
-use nphysics3d::material::BasicMaterial;
-use nphysics3d::material::MaterialHandle;
-
-
+use rapier3d::dynamics::{BodyStatus, RigidBodyBuilder};
 
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use nalgebra::{Vector3, Isometry3};
+
+use ncollide3d::shape::ConvexHull;
+use rapier3d::geometry::{ColliderBuilder, Shape, Ball};
 
 
+use serde::{Serialize, Deserialize};
 
 
-
-//implement serializer for the physics engine
-
-
-
-
-pub struct PhysicsEngine{
+#[derive(Serialize, Deserialize)]
+pub struct RapierPhysicsEngine{
+    
+    
+    //this should be stored but not serialized. hmm
+    //pipeline: PhysicsPipeline,
+    gravity: Vector3<f32>,
+    integration_parameters: IntegrationParameters,
+    broad_phase: BroadPhase,
+    narrow_phase: NarrowPhase,
+    bodies: RigidBodySet,
+    colliders: ColliderSet,
+    joints: JointSet,
+    
+    
+    //objectid to its rigidbody handle
+    bodyhandles: HashMap<u16,rapier3d::data::arena::Index>,
+    
+    //the main shape/collider associated with each body
+    shapehandles: HashMap<u16, rapier3d::data::arena::Index>,
     
     totalobjects: u16,
     
     
-    mechanical_world: DefaultMechanicalWorld<f32>,
-    geometrical_world: DefaultGeometricalWorld<f32>,
-    bodies: DefaultBodySet<f32>,
-    colliders: DefaultColliderSet<f32>,
-    joint_constraints: DefaultJointConstraintSet<f32>,
-    force_generators: DefaultForceGeneratorSet<f32>,
-    
-    
-    //objectid to its rigidbody handle
-    bodyhandles: HashMap<u16, DefaultBodyHandle>,
-    
-    //the main shape/collider associated with each body
-    bodytoshape: HashMap<u16, DefaultColliderHandle>,
-    
-    //a list of sensors, mapped to their colliderid
-    sensors: HashMap<u16, DefaultColliderHandle>,
-    
-    
-    
-    //objects whos gravity will be disabled for only the next physical tick
-    gravity_off_for_tick: HashSet<u16>,
-
     //objects who will be considered static for the next physical tick
     static_for_tick: HashSet<u16>,
     
@@ -79,48 +47,51 @@ pub struct PhysicsEngine{
 
 
 
+
+
+
 //a getter and setter for the state of the physics engine
 //its the 
-impl PhysicsEngine{
+impl RapierPhysicsEngine{
     
     
-    pub fn new() -> PhysicsEngine{
+    pub fn new() -> RapierPhysicsEngine{
+        
+        //this should be stored but not serialized. hmm
+        //let mut pipeline = PhysicsPipeline::new();
         
         
-
-        //increase gravity so stuff drops quicker
-        let mut mechanical_world = DefaultMechanicalWorld::new(Vector3::new(0.0, -40.00, 0.0));
-        let geometrical_world = DefaultGeometricalWorld::new();
-        let bodies = DefaultBodySet::<f32>::new();
-        let colliders = DefaultColliderSet::<f32>::new();
-        let joint_constraints = DefaultJointConstraintSet::new();
-        let force_generators = DefaultForceGeneratorSet::new();
+        let gravity = Vector3::new(0.0, -20.0, 0.0);
+        let mut integration_parameters = IntegrationParameters::default();
+        let mut broad_phase = BroadPhase::new();
+        let mut narrow_phase = NarrowPhase::new();
+        let mut bodies = RigidBodySet::new();
+        let mut colliders = ColliderSet::new();
+        let mut joints = JointSet::new();
+        // We ignore contact events for now.
+        let event_handler = ();
         
-        mechanical_world.integration_parameters.max_ccd_substeps = 2;
-        //mechanical_world.integration_parameters.erp = 0.1;
-        mechanical_world.integration_parameters.warmstart_coeff = 0.9;
-        //mechanical_world.integration_parameters.allowed_linear_error = 0.01;
-        //mechanical_world.integration_parameters.max_linear_correction = 10.0;
-
-
-        PhysicsEngine{
-            
-            totalobjects: 0,
-            
-            mechanical_world: mechanical_world,
-            geometrical_world: geometrical_world,
+        
+        
+        integration_parameters.warmstart_coeff = 1.0;
+        integration_parameters.max_ccd_substeps = 10;
+        integration_parameters.multiple_ccd_substep_sensor_events_enabled = true;
+        
+        
+        
+        // Run the simulation in the game loop.
+        RapierPhysicsEngine{
+            gravity: gravity,
+            integration_parameters: integration_parameters,
+            broad_phase: broad_phase,
+            narrow_phase: narrow_phase,
             bodies: bodies,
             colliders: colliders,
-            joint_constraints: joint_constraints,
-            force_generators: force_generators,
-            
+            joints: joints,
             
             bodyhandles: HashMap::new(),
-            bodytoshape: HashMap::new(),
-            
-            sensors: HashMap::new(),
-            
-            gravity_off_for_tick: HashSet::new(),
+            shapehandles: HashMap::new(),
+            totalobjects: 0,
             static_for_tick: HashSet::new(),
         }
         
@@ -129,449 +100,361 @@ impl PhysicsEngine{
     }
     
     
-    //add an object to this physics world
-    //return the ID for the object
-    pub fn add_object(&mut self) -> u16{
-        
-        //maybe dont specify anything about the object but allow it to be changed in post before the tick
-        
-        let ID = self.totalobjects;
-        self.totalobjects +=1;
-        
-        
-        let cuboid = ShapeHandle::new(Cuboid::new(Vector3::repeat(1.0)));
-
-        use nalgebra::base::Matrix3;
-        
-        // Build the rigid body.
-        let rb = RigidBodyDesc::<f32>::new()
-        .status(BodyStatus::Dynamic)
-        //dont let it sleep, or it wont drop when the square is moved out from under
-        .sleep_threshold(None)
-        //false means the axis is not locked, 
-        .kinematic_rotations(Vector3::new(true, true, true))
-        //.angular_inertia( Matrix3::new_rotation(0.00001) )
-        .build();
-        
-        let rb_handle = self.bodies.insert(rb);
-        
-
-
-
-        let material = MaterialHandle::new(BasicMaterial::new(0.2, 0.2));
-
-        // Build the collider.
-        let co = ColliderDesc::new(cuboid.clone())
-        .density(5.0)
-        .ccd_enabled(true)
-        .material(material)
-        .build(BodyPartHandle(rb_handle, 0));
-        
-        let colliderhandle = self.colliders.insert(co);
-        
-        
-        
-        self.bodyhandles.insert(ID, rb_handle);
-        self.bodytoshape.insert(ID, colliderhandle);
-        
-        
-        ID
-    }
-
-
     pub fn tick(&mut self){
-        
-        //turn the gravity off of objects that it should be turned off for
-        for objid in &self.gravity_off_for_tick{
-            
-            let rbhandle = self.bodyhandles.get(&objid).unwrap();
-            let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
-            
-            rigidbody.enable_gravity(false);
-            
-        }
 
         //save the status of the body before making it static so to restore it to the proper state after
         let mut previousbodystatusbyobjid: HashMap<u16, BodyStatus> = HashMap::new();
 
         //make the object static for the objects it should be static for this tick
         for objid in &self.static_for_tick{
-
             let rbhandle = self.bodyhandles.get(&objid).unwrap();
-            let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
-
-            previousbodystatusbyobjid.insert(*objid, rigidbody.status());
-            
-            rigidbody.set_status(BodyStatus::Static);
-
+            let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
+        
+            previousbodystatusbyobjid.insert(*objid, rigidbody.body_status);
+                    
+            rigidbody.body_status = BodyStatus::Static;
         }
+
         
-        
-        
-        self.mechanical_world.step(
-            &mut self.geometrical_world,
+        PhysicsPipeline::new().step(
+            &self.gravity,
+            &self.integration_parameters,
+            &mut self.broad_phase,
+            &mut self.narrow_phase,
             &mut self.bodies,
             &mut self.colliders,
-            &mut self.joint_constraints,
-            &mut self.force_generators,
+            &mut self.joints,
+            None,
+            None,
+            &()
         );
-        
-        
-        //reenable gravity for those objects
-        for objid in &self.gravity_off_for_tick{
-            
+
+
+        //restore the objects made static to what they were before
+        for (objid, rbstatus) in previousbodystatusbyobjid{
             let rbhandle = self.bodyhandles.get(&objid).unwrap();
-            let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
-            
-            rigidbody.enable_gravity(true);
-            
+            let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
+                    
+            rigidbody.body_status = rbstatus;
         }
 
-        //set the  body status back to what it was
-        for objid in &self.static_for_tick{
-
-            let rbhandle = self.bodyhandles.get(&objid).unwrap();
-            let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
-            
-            rigidbody.set_status( *previousbodystatusbyobjid.get(objid).unwrap() );
-
-        }
-
-
-        
         
         
         //clear the objects that had their gravity disabled this tick
-        self.gravity_off_for_tick = HashSet::new();
         self.static_for_tick = HashSet::new();
         
     }
-
     
-    //turn the force of gravity off for a piece for a single tick
-    pub fn turn_gravity_off_for_tick(&mut self, ID: &u16){
-        
-        self.gravity_off_for_tick.insert(*ID);
-        
-    }
-
-
-    pub fn make_static_for_tick(&mut self, ID: &u16){
-
-        self.static_for_tick.insert(*ID);
-    }
-
     
-
-
-    //given the id of the object they're attached to
-    //attach a sensor
-    //then set its shape using the method "set_shape()"
-    pub fn attach_sensor(&mut self, ID: &u16) -> u16{
+    
+    
+    //add an object to this physics world
+    //return the ID for the object
+    pub fn add_object(&mut self) -> u16{
         
-        let sensorid = self.totalobjects;
+        let objectid = self.totalobjects;
         self.totalobjects += 1;
         
         
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        let rigidbodypart = BodyPartHandle(*rbhandle, 0);
+        let rigid_body = RigidBodyBuilder::new(BodyStatus::Dynamic)
+        .angular_damping(3.5)
+        .linear_damping(0.0)
+        .can_sleep(false)
+        .build();
         
         
-        let shape = ShapeHandle::new(Ball::new(1.5));
+        let rbhandle = self.bodies.insert(rigid_body);
         
-        let sensor = ColliderDesc::<f32>::new(shape)
-        .sensor(true)
-        .build(rigidbodypart);
+        self.bodyhandles.insert(objectid, rbhandle);
         
-        let sensor_handle = self.colliders.insert(sensor);
         
-        self.sensors.insert(sensorid, sensor_handle);
         
-        sensorid
+        let collider = ColliderBuilder::cuboid(1.0, 1.0, 1.0)
+        .translation(0.0, 0.0, 0.0)
+        .density(1.3)
+        .friction(0.8)
+        .build();
+        
+        
+        let chandle = self.colliders.insert(collider, rbhandle, &mut self.bodies);
+        
+        self.shapehandles.insert(objectid, chandle);
+        
+        return objectid;
+        
         
         
     }
-
-
-    //used to get the contacts of a sensor
-    //given the id of a sensor, get the id of every object that is in contact with the sensor currently
-    pub fn get_sensor_proximities(&self, sensorid: &u16) -> HashSet<u16>{
-        
-        let mut contacts = HashSet::new();
-        
-        //the handle of the sensor
-        let sensorhandle = self.sensors.get(sensorid).unwrap();
-        
-        //get the things it contacts with
-        for (colliderhandle1, collider1, colliderhandle2, collider2, _, contactmanifold) in self.geometrical_world.proximities_with(&self.colliders, *sensorhandle, true).unwrap(){
-            
-            //if the sensor is intersecting with the object
-            if contactmanifold == ncollide3d::query::Proximity::WithinMargin{
-                
-                //return the collider (that isnt a sensor) that this sensor interacts with
-                for (objectid, colliderhandle) in &self.bodytoshape{
-                    
-                    if (*colliderhandle == colliderhandle1 || *colliderhandle == colliderhandle2){
-                        
-                        contacts.insert(*objectid);
-                        
-                    }
-                    
-                }
-                
-            }
-            
-        }
-        
-        //return the objects this sensor intersects with
-        contacts
+    
+    
+    
+    
+    
+    
+    pub fn make_static_for_tick(&mut self, ID: &u16){
+        self.static_for_tick.insert(*ID);
     }
     
-
-
     
-
-
     //physical property getters and setters
-
-
-
+    
+    
     //apply a change of position to an object
-    pub fn apply_delta_position(&mut self, ID: &u16, deltapos: Vector3<f32> ){
+    pub fn apply_delta_position(&mut self, ID: &u16, deltapos: (f32,f32,f32) ){
         
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
+        use  nalgebra::geometry::Translation3;
         
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
         
-        let oldisometry = rigidbody.position();
-        let oldtra = oldisometry.translation;
-        let oldrotation = oldisometry.rotation;
+        let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
         
-        let newtranslation = Translation3::new(deltapos.x + oldtra.x, deltapos.y+oldtra.y, deltapos.z+oldtra.z);
+        let mut pos = *rigidbody.position();
         
+        let tra = Translation3::new(deltapos.0, deltapos.1, deltapos.2);
         
-        let newisometry = Isometry3::from_parts(newtranslation, oldrotation);
+        pos.append_translation_mut(&tra);
         
+        rigidbody.set_position(pos, true);
         
-        rigidbody.set_position(newisometry);
     }
     
     //apply a impulse force to an object
-    pub fn apply_delta_impulse(&mut self, ID: &u16, impulse: Force<f32>){
-        
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
+    pub fn apply_delta_impulse(&mut self, ID: &u16, impulse: Vector3<f32>){
         
         
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
         
-        rigidbody.apply_force(0, &impulse , ForceType::Impulse, true);
+        let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
+        
+        rigidbody.apply_impulse(impulse, true);
+        
     }
     
     
-    //set the position of an object with its ID
-    //set its position without changing its rotation
-    pub fn set_position(&mut self, ID: &u16, position: (f32,f32,f32)  ) {
+    pub fn set_translation(&mut self, ID: &u16, position: (f32,f32,f32)  ) {
         
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
         
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
+        let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
         
+        let pos = Isometry3::translation(position.0, position.1, position.2);
         
-        let oldisometry = rigidbody.position();
-        let oldrotation = oldisometry.rotation;
-        
-        let newtranslation = Translation3::new(position.0, position.1, position.2);
-        
-        
-        let newisometry = Isometry3::from_parts(newtranslation, oldrotation);
-        
-        
-        rigidbody.set_position(newisometry);
+        rigidbody.set_position(pos, true);
         
     }
-
+    
     //get the translation of the position of an object
     pub fn get_translation(&self, ID: &u16) -> (f32,f32,f32){
         
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        let rigidbody = self.bodies.rigid_body(*rbhandle).unwrap();
+        
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
+        
+        let rigidbody = self.bodies.get(*rbhandle).unwrap();
         
         let translation = rigidbody.position().translation;
         
         (translation.x, translation.y, translation.z)
+        
     }
-
+    
     //get the translation of an object
     pub fn get_rotation(&self, ID: &u16) -> (f32,f32,f32){
         
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        let rigidbody = self.bodies.rigid_body(*rbhandle).unwrap();
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
+        
+        let rigidbody = self.bodies.get(*rbhandle).unwrap();
         
         let rotation = rigidbody.position().rotation.euler_angles();
         
         (rotation.0, rotation.1, rotation.2)
         
-        
     }
     
     pub fn set_rotation(&mut self, ID: &u16, rotation:(f32,f32,f32) ){
         
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
+        
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
+        let mut rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
         
         
         let oldisometry = rigidbody.position();
         let oldtranslation = oldisometry.translation;
-
-
+        
+        
         use nalgebra::geometry::UnitQuaternion;
         
         let newrotation = UnitQuaternion::from_euler_angles( rotation.0, rotation.1, rotation.2);
         
         let newisometry = Isometry3::from_parts(oldtranslation, newrotation);
         
-        rigidbody.set_position(newisometry);
+        rigidbody.set_position(newisometry, true);
         
     }
     
     //get its velocity in each dimension
     pub fn get_linear_velocity(&self, ID: &u16) -> (f32,f32,f32){
         
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        let rigidbody = self.bodies.rigid_body(*rbhandle).unwrap();
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
+        let rigidbody = self.bodies.get(*rbhandle).unwrap();
         
-        let velocity = rigidbody.velocity().linear;
+        let linvel = rigidbody.linvel();
         
-        (velocity.x, velocity.y, velocity.z)
-        
-        
+        (linvel.x, linvel.y, linvel.z)
     }
     
     //get its velocity in each dimension
     pub fn set_linear_velocity(&mut self, ID: &u16, linearvelocity:(f32,f32,f32) ){
         
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
-
-        let vector = Vector3::new( linearvelocity.0, linearvelocity.1, linearvelocity.2 );
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
+        let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
         
-        rigidbody.set_linear_velocity( vector );
         
+        let linvel = Vector3::new(linearvelocity.0, linearvelocity.1, linearvelocity.2);
+        
+        rigidbody.set_linvel(linvel, true);
     }
     
     //get its velocity in each dimension
     pub fn get_angular_velocity(&self, ID: &u16) -> (f32,f32,f32){
         
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        let rigidbody = self.bodies.rigid_body(*rbhandle).unwrap();
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
+        let rigidbody = self.bodies.get(*rbhandle).unwrap();
         
-        let velocity = rigidbody.velocity().angular;
+        let linvel = rigidbody.angvel();
         
-        (velocity.x, velocity.y, velocity.z)
-        
+        (linvel.x, linvel.y, linvel.z)
         
     }
     
     //get its velocity in each dimension
     pub fn set_angular_velocity(&mut self, ID: &u16, angularvelocity:(f32,f32,f32) ){
         
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
-
-        let vector = Vector3::new( angularvelocity.0, angularvelocity.1, angularvelocity.2 );
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
+        let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
         
-        rigidbody.set_angular_velocity(vector);
         
+        let angvel = Vector3::new(angularvelocity.0, angularvelocity.1, angularvelocity.2);
+        
+        rigidbody.set_angvel(angvel, true);
     }
     
-    pub fn set_shape(&mut self, ID: &u16, shape: ConvexHull<f32>){
-        
-        //change the shape of the main collider associated with the object passed by ID
-        
-        
-        let colliderhandle = self.bodytoshape.get_mut(ID).unwrap();
-        let mut collider = self.colliders.get_mut(*colliderhandle).unwrap();
-        
-        collider.set_shape( ShapeHandle::new( shape ) );
-        
-    }
-
-
+    
     pub fn set_shape_sphere(&mut self, ID: &u16, diameter: f32){
-
-        let radius = diameter / 2.0;
-
-        let colliderhandle = self.bodytoshape.get_mut(ID).unwrap();
-        let mut collider = self.colliders.get_mut(*colliderhandle).unwrap();
-
-        let ball =  ncollide3d::shape::Ball::new(radius);
         
-        collider.set_shape( ShapeHandle::new( ball ) );
-
-
-
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        self.bodies.rigid_body_mut(*rbhandle).unwrap().set_mass(10.0);
-
-
+        let radius = diameter /2.0;
+        self.remove_bodies_colldiers(ID);
+        
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
+        
+        let collider = ColliderBuilder::ball(radius).build();
+        
+        
+        
+        
+        let oldfriction = collider.friction;
+        let oldrestitution = collider.restitution;
+        
+        let chandle = self.colliders.insert(collider, *rbhandle, &mut self.bodies);
+        self.shapehandles.insert(*ID, chandle);
+        
+        let collider = self.colliders.get_mut(chandle).unwrap();
+        collider.friction = oldfriction;
+        collider.restitution = oldrestitution;
+        
     }
-
-
-    pub fn set_materials(&mut self, ID: &u16, elasticity: f32, friction: f32){
-
-        let colliderhandle = self.bodytoshape.get_mut(ID).unwrap();
-        let mut collider = self.colliders.get_mut(*colliderhandle).unwrap();
-
-        let oldmaterial = collider.material_mut().downcast_mut::<BasicMaterial<f32>>().unwrap();
-
-        oldmaterial.friction = friction;
-        oldmaterial.restitution = elasticity;
-    }
-
-
-    //todo change all the other settings applied here to their own proper method
-    pub fn set_kinematic_axis_of_rotation_locked(&mut self, ID: &u16, rotations: (bool, bool, bool)){
-
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
-
-        rigidbody.set_rotations_kinematic(Vector3::new(rotations.0, rotations.1, rotations.2));
-
-
-        rigidbody.set_linear_damping(0.5);
-        rigidbody.set_angular_damping(10.0);
-
-
-        //use nphysics3d::object::ActivationStatus;
-        //rigidbody.activation_status_mut().set_deactivation_threshold( Some(ActivationStatus::default_threshold()) );
-
-    }
-
     
-    pub fn toggle_gravity(&mut self, ID: &u16, gravityornot: bool){
+    
+    pub fn set_shape_cuboid(&mut self, ID: &u16, dimensions: (f32,f32,f32)){
         
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
+        let dimensions = (dimensions.0 / 2.0, dimensions.1/2.0, dimensions.2 / 2.0);
         
-        rigidbody.enable_gravity(gravityornot);
+        self.remove_bodies_colldiers(ID);
+        
+        
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
+        
+        let collider = ColliderBuilder::cuboid(dimensions.0, dimensions.1, dimensions.2).build();
+        
+        
+        
+        
+        let oldfriction = collider.friction;
+        let oldrestitution = collider.restitution;
+        
+        let chandle = self.colliders.insert(collider, *rbhandle, &mut self.bodies);
+        self.shapehandles.insert(*ID, chandle);
+        
+        let collider = self.colliders.get_mut(chandle).unwrap();
+        collider.friction = oldfriction;
+        collider.restitution = oldrestitution;
         
     }
+    
+    pub fn set_shape_cylinder(&mut self, ID: &u16, height: f32, diameter: f32){
+        
+        
+        
+        let halfheight = height/2.0;
+        let radius = diameter /2.0;
+        
+        self.remove_bodies_colldiers(ID);
+        
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
+        
+        let collider = ColliderBuilder::cylinder(halfheight, radius).build();
+        
+        
+        
+        
+        
+        let oldfriction = collider.friction;
+        let oldrestitution = collider.restitution;
+        
+        let chandle = self.colliders.insert(collider, *rbhandle, &mut self.bodies);
+        self.shapehandles.insert(*ID, chandle);
+        
+        let collider = self.colliders.get_mut(chandle).unwrap();
+        collider.friction = oldfriction;
+        collider.restitution = oldrestitution;
+    }
+    
+    //remove the colliders from the body of this object
+    fn remove_bodies_colldiers(&mut self, ID: &u16){
+        
+        //get the colliders associated with the rigidbody with this ID
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
+        let rigidbody = self.bodies.get_mut(*rbhandle).unwrap().clone();
+        
+        let colliders = rigidbody.colliders();
+        
+        for colliderhandle in colliders{
+            //remove them from the collider set
+            self.colliders.remove(*colliderhandle, &mut self.bodies, true );
+        }
+        
+    }
+    
+    
+    pub fn set_materials(&mut self, ID: &u16, elasticity: f32, friction: f32){
+        let colliderid = self.shapehandles.get(ID).unwrap();
+        
+        let collider = self.colliders.get_mut(*colliderid).unwrap();
+        
+        collider.friction = friction;
+        collider.restitution = elasticity;
+    }
+    
+    
     
     pub fn make_static(&mut self, ID: &u16){
         
         
-        let rbhandle = self.bodyhandles.get(&ID).unwrap();
-        let rigidbody = self.bodies.rigid_body_mut(*rbhandle).unwrap();
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
         
-        rigidbody.set_status(BodyStatus::Static);
+        let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
         
-        
-        
+        rigidbody.body_status = BodyStatus::Static;
     }
-
-
-    
     
 }
-
 

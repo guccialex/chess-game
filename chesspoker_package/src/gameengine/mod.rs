@@ -17,7 +17,7 @@ pub use datastructs::PieceAction;
 
 
 
-
+#[derive(Serialize, Deserialize)]
 pub struct GameEngine{
     
     

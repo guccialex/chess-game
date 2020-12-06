@@ -97,6 +97,20 @@ impl LocalGameInterface{
         0
     }
     
+
+
+    pub fn receive_game_update(&mut self, string: Vec<u8>){
+
+        if let Ok(newgame) = bincode::deserialize::<MainGame>(&string){
+
+            self.thegame = newgame;
+        }
+        else{
+            panic!("didnt work");
+        }
+
+
+    }
     
     
     
@@ -218,8 +232,8 @@ impl LocalGameInterface{
     }
     
     //given the id of an main object, and then an object that its trying to perform an action on
-    //try to perform that action and return whether it succeded and was sent to be performed or not
-    pub fn try_to_perform_action(&mut self, object1: ObjectType, object2: ObjectType) -> bool{
+    //return if an input was sent to the game, and if it was, what the serialized string of it is
+    pub fn try_to_perform_action(&mut self, object1: ObjectType, object2: ObjectType) -> Option<String>{
         
         let objecttoinput = self.get_inputs_of_object(object1);
         
@@ -229,47 +243,52 @@ impl LocalGameInterface{
             
             //send that input to the game and return true
             self.thegame.receive_input( self.playerid, playerinput.clone());
-            
-            return true;
+
+            return Some( serde_json::to_string(playerinput).unwrap() );
             
         };
         
         
         //otherwise do nothing and return false
-        return false;
+        return None;
         
     }
     
     
-    pub fn try_to_flick_piece(&mut self, pieceid: u16, direction: f32, force: f32 ) {
+    pub fn try_to_flick_piece(&mut self, pieceid: u16, direction: f32, force: f32 ) -> String{
         
-        
-        let flickaction = PieceAction::flick(direction, force.sqrt() * 40.0);
+        let flickaction = PieceAction::flick(direction, force.sqrt() * 3.0);
         
         let flickinput = PlayerInput::pieceaction(pieceid, flickaction);
         
         //give the flick input to the game
-        self.thegame.receive_input(self.playerid, flickinput);
-        
+        self.thegame.receive_input(self.playerid, flickinput.clone());
+
+
+        return serde_json::to_string(&flickinput).unwrap() ;
         
     }
     
-    
-    //try to play the selected card for its effect on the game board
-    pub fn try_to_play_card(&mut self, cardid: u16){
+    pub fn try_to_play_card(&mut self, cardid: u16) -> String{
         
         let input = PlayerInput::playcardonboard(cardid);
         
-        self.thegame.receive_input( self.playerid, input);
+        self.thegame.receive_input( self.playerid, input.clone());
         
+
+        return serde_json::to_string( &input).unwrap() ;
+
     }
     
     
-    pub fn try_to_draw_card(&mut self){
+    pub fn try_to_draw_card(&mut self) -> String{
         
         let input = PlayerInput::drawcard;
         
-        self.thegame.receive_input(self.playerid, input);
+        self.thegame.receive_input(self.playerid, input.clone());
+
+
+        return serde_json::to_string( &input).unwrap() ;
         
     }
     

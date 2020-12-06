@@ -21,6 +21,7 @@ pub enum PieceAction{
 //a struct that has the information about the piece
 //what type of piece it is
 //what actions its allowed to perform
+#[derive(Serialize, Deserialize)]
 pub struct PieceData{
 
     //the name of the piece

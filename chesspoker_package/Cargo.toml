@@ -12,6 +12,7 @@ nalgebra   = {version = "0.23", features = ["serde-serialize"] }
 ncollide3d = "0.26"
 nphysics3d = {version = "0.18", default-features = false, features = [ "dim3", "use-wasm-bindgen" ] }
 
+rapier3d = { version = "*", features = [ "serde-serialize" ] }
 
 #nphysics_testbed3d = "*"
 
@@ -21,6 +22,7 @@ nphysics3d = {version = "0.18", default-features = false, features = [ "dim3", "
 
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
+ron = "*"
 
 
 rand = {version = "*", features = [ "wasm-bindgen" ] }

@@ -102,20 +102,13 @@ impl FullGame{
         
     }
     
-    
-    
     //give this wasm struct a message from the server
     pub fn get_incoming_socket_message(&mut self, message: String){
-        
-        /*
-        //if it is a "gamedata" struct
-        if let Ok(gamedata) = serde_json::from_str::<GameData>( &message ){
-            
-            //give it to the local game
-            self.localgame.receive_game_state_data(gamedata);
-            
-        }
-        */
+
+        let backtovecofchar = message.chars().collect::<Vec<_>>();
+        let backtogamebin = backtovecofchar.iter().map(|c| *c as u8).collect::<Vec<_>>();
+
+        self.localgame.receive_game_update( backtogamebin );
     }
     
     
@@ -252,7 +245,10 @@ impl FullGame{
                     //get if the new object selected can form an action with the selected one
                     //if it can, send that action as input to the game
                     //and set selected to be none
-                    self.localgame.try_to_perform_action(currentlyselectedobject, pickedobject);
+                    let possibleinput = self.localgame.try_to_perform_action(currentlyselectedobject, pickedobject);
+                    if let Some(input) = possibleinput{
+                        self.queuedoutgoingsocketmessages.push(input);
+                    }
 
                     self.selectedobject = None;
                 }
@@ -260,7 +256,8 @@ impl FullGame{
             //if its name is "deck" create a draw action
             else if objectname == "deck"{
 
-                self.localgame.try_to_draw_card();
+                let input = self.localgame.try_to_draw_card();
+                self.queuedoutgoingsocketmessages.push(input);
             }
             else{
 
@@ -361,8 +358,8 @@ impl FullGame{
                 if let Some(ObjectType::piece(pieceid)) = self.selectedobject{
                     
                     //try to flick that piece
-                    self.localgame.try_to_flick_piece(pieceid, flickx, flicky);
-                    
+                    let input = self.localgame.try_to_flick_piece(pieceid, flickx, flicky);
+                    self.queuedoutgoingsocketmessages.push(input);
                 }
                 
             }
@@ -379,13 +376,15 @@ impl FullGame{
                     //if its over 1, send a mission to play the card over the game board
                     else if boardover == 1{
                         
-                        self.localgame.try_to_play_card(cardid);
+                        let input = self.localgame.try_to_play_card(cardid);
+                        self.queuedoutgoingsocketmessages.push(input);
                         
                     }
                     //if its over 2, send a mission to play the card over the card board
                     else if boardover == 2{
                         
-                        self.localgame.try_to_play_card(cardid);
+                        let input = self.localgame.try_to_play_card(cardid);
+                        self.queuedoutgoingsocketmessages.push(input);
                         
                     }
                     else{
