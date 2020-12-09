@@ -49,7 +49,7 @@ fn main() {
             
             //it shouldnt be WAIT 33 ms, but wait until its 
             //33 ms past the last time this was ticked
-            let sleeptime = time::Duration::from_millis(33);
+            let sleeptime = time::Duration::from_millis(32);
             thread::sleep( sleeptime );
             
             
@@ -339,7 +339,7 @@ impl Game{
             
             //send the states of the game through the websocket
             //if the websocket is open this tick
-            if self.totalticks % 5 == 0 || self.tosendupdate{
+            if self.totalticks % 45 == 0 || self.tosendupdate{
                 
                 let gamebinto1 = bincode::serialize(&self.thegame).unwrap();
                 let vecofchar = gamebinto1.iter().map(|b| *b as char).collect::<Vec<_>>();

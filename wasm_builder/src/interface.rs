@@ -6,6 +6,9 @@ use std::collections::HashMap;
 use physicsengine::MainGame;
 
 use physicsengine::PieceAction;
+use physicsengine::BlackJackAction;
+use physicsengine::PokerAction;
+use physicsengine::CardAction;
 
 use std::collections::HashSet;
 
@@ -271,7 +274,9 @@ impl LocalGameInterface{
     
     pub fn try_to_play_card(&mut self, cardid: u16) -> String{
         
-        let input = PlayerInput::playcardonboard(cardid);
+
+        let action = CardAction::playcardonboard;
+        let input = PlayerInput::cardaction(cardid, action);
         
         self.thegame.receive_input( self.playerid, input.clone());
         

@@ -6,7 +6,7 @@ use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use datastructs::slide_id_to_direction_change_from_objective_perspective;
+//use datastructs::slide_id_to_direction_change_from_objective_perspective;
 
 pub use datastructs::PieceAction;
 
@@ -23,6 +23,10 @@ pub struct GameEngine{
     
     //the pieces that this player owns
     playertopiece: HashMap<u8, HashSet<u16> >,
+    
+    //player 11 is the pool of player 1
+    //player 12 is the pool of player 2
+    
     
     
     //the direction the player i facing, of the 8 cardinal directions
@@ -43,290 +47,223 @@ impl GameEngine{
     
     pub fn new(player1id: u8, player2id: u8) -> GameEngine{
         
-        
         let mut gameengine = GameEngine{
-            
             playertopiece: HashMap::new(),
             playertodirection: HashMap::new(),
             piecetypedata: HashMap::new(),
-            boardgame: BoardGame::new_empty_board(),
-            
+            boardgame: BoardGame::new_empty_board(),  
         };
-        
         
         gameengine.playertopiece.insert(player1id, HashSet::new());
         gameengine.playertopiece.insert(player2id, HashSet::new());
-        
+
+
+        //the pools for the players
+        gameengine.playertopiece.insert(player1id, HashSet::new());
+        gameengine.playertopiece.insert(player2id, HashSet::new());
+
         
         gameengine.playertodirection.insert(player1id, 0 );
         gameengine.playertodirection.insert(player2id, 4 );
         
-        
         gameengine.init_chess_game();
         
-        
         gameengine
-        
-    }
-
-
-
-    //make this a pool game
-    //make every piece a pool ball shape
-    //and remove all their actions aside from flick
-    //drop 6 random empty squares
-    pub fn make_pool_game(&mut self){
-
-        //for every piece with a type
-        for (pieceid, typedata) in self.piecetypedata.iter_mut(){
-
-            //set all their types as a pool ball            
-            typedata.set_pool_ball();
-
-            self.boardgame.make_object_pool_ball(pieceid);
-
-        }
-
-
     }
     
     
-    
-    //is this board game object a square
-    pub fn is_board_game_object_square(&self, objectid: u16) -> bool{
-        self.boardgame.is_board_game_object_square(objectid)
-    }
-    //is this board game object a piece
-    pub fn is_board_game_object_piece(&self, objectid: u16) -> bool{
-        self.boardgame.is_board_game_object_piece(objectid)
-    }
-    
-    
-    
-    
-    pub fn get_owner_of_piece(& self, pieceid: u16) -> u8{
-        
-        for (player, pieces) in self.playertopiece.clone(){
-            
-            for playerspieceid in pieces{
-                
-                if playerspieceid == pieceid{
-                    
-                    return player;
-                }
+
+    pub fn does_player_have_king(&self, playerid: u8) -> bool{
+
+        let mut kingexists = false;
+
+        //for every piece that player owns
+        for pieceid in self.playertopiece.get(&playerid).unwrap(){
+
+            //if the player has a piece with the name king
+            let piecedata = self.piecetypedata.get(pieceid).unwrap();
+            if piecedata.get_type_name() == "king"{
+                kingexists = true;
             }
+
         }
-        
-        panic!("cant find the owner of the piece");
-        
+
+
+        kingexists
     }
     
     
-    
-    
-    
-    
-    pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec< PieceAction >){
+    pub fn are_pieces_and_values_offered_valid(&self, playerid: u8, piecesandvaluededuction: Vec<(u16, u8)>) -> bool{
         
-        //if its on a board square
-        if let Some(boardsquareid) = self.boardgame.get_board_square_piece_is_on(pieceid){
+        let mut allpiecesvalid = true;
+        
+        
+        //for every piece, get if its owned by the player
+        //and is worth at least as much as the value suggested, if true
+        for (pieceid, requestedvalue) in piecesandvaluededuction{
             
-            let boardsquarepos = self.boardgame.get_pos_of_boardsquare(boardsquareid).unwrap();
-            
-            //get the actions of the piece
-            let piecedata = self.piecetypedata.get(&pieceid).unwrap();
-            
-            //the owner of teh piece
-            let owner = self.get_owner_of_piece(pieceid);
-            let ownerdirection = self.playertodirection.get(&owner).unwrap();
-            
-            //the direction of the owner of the piece
-            let allactions = piecedata.get_piece_actions(*ownerdirection);
-            
-            //add to this if an action is allowed
-            let mut allowedactions: Vec<PieceAction> = Vec::new();
-            
-            
-            //for every action, get if it is allowed
-            for (action, hastocapture, cancapture) in allactions{
+            //if its owned by the player
+            if self.playertopiece.get(&playerid).unwrap().contains(&pieceid){
                 
-                //if its a lift and move
-                if let PieceAction::liftandmove( relativepos ) = action{
-                    
-                    //get the square that it is taken to if it exists
-                    if let Some(endpos) = GameEngine::get_square_pos_that_action_takes_piece_at_pos(boardsquarepos, action.clone()){
-                        
-                        //the id of this board square it lands on
-                        let endid = self.boardgame.get_id_of_boardsquare_pos(endpos).unwrap();
-
-                        //if the current square is on a mission, break
-                        if self.boardgame.is_object_on_mission(endid){
-                            break;
-                        }
-
-                        
-                        //if this board square does not have any of my pieces on it
-                        let piecesonboardsquare = self.boardgame.get_pieces_on_board_square( endid );
-                        
-                        //for each piece on the board square, get if it only has opponents pieces on it (includes being empty)
-                        let mut onlyopponentspieces = true;
-                        for otherpieceid in piecesonboardsquare.iter(){
-                            let ownerofotherpiece = self.get_owner_of_piece( *otherpieceid);
-                            if ownerofotherpiece == owner{   
-                                onlyopponentspieces = false;
-                            }
-                        }
-                        
-                        let mut objectsinteractedwith = Vec::new();
-                        objectsinteractedwith.push(endid);
-                        
-                        
-                        //if this is an empty board square, and im not forced to capture to move, add this
-                        if piecesonboardsquare.is_empty(){
-                            if ! hastocapture{
-                                allowedactions.push(action);
-                            }
-                       }
-                        else{
-                            //if this square has a piece and only has opponents pieces, and im allowed to capture, add this
-                            if onlyopponentspieces{
-                                if cancapture{
-                                    allowedactions.push(action);
-                                }
-                            }   
-                        }
-                    }
+                let piecedata = self.piecetypedata.get(&pieceid).unwrap();
+                
+                let piecevalue = piecedata.get_value();
+                
+                if requestedvalue > piecevalue{
+                    allpiecesvalid = false;
                 }
-                //if its a slide action
-                else if let PieceAction::slide( direction, distance ) = action{
-                    
-                    let mut stepnumber = 1;
-                    
-                    let mut actiontogethere = PieceAction::slide(direction, stepnumber);
-                    
-                    //if that board square exists
-                    while let Some(cursquarepos) = GameEngine::get_square_pos_that_action_takes_piece_at_pos( boardsquarepos, actiontogethere.clone() ){
-                        
-                        //the current square id
-                        let cursquareid = self.boardgame.get_id_of_boardsquare_pos(cursquarepos).unwrap();
-
-                        //if the current square is on a mission, break
-                        if self.boardgame.is_object_on_mission(cursquareid){
-                            break;
-                        }
-
-
-                        
-                        let piecesonboardsquare = self.boardgame.get_pieces_on_board_square(cursquareid);
-                        
-                        //for each piece on the board square, get if it only has opponents pieces on it (includes being empty)
-                        let mut onlyopponentspieces = true;
-                        for otherpieceid in piecesonboardsquare.iter(){
-                            //if this piece is owned by the same player that owns the "pieceid" entered
-                            //set "onlyopponentspieces" to false
-                            let ownerofotherpiece = self.get_owner_of_piece(*otherpieceid);
-                            
-                            if ownerofotherpiece == owner{   
-                                onlyopponentspieces = false;
-                            }
-                        }
-                        
-                        
-                        
-                        //if the action to get here is the same as the action
-                        if actiontogethere == action{
-                            
-                            //if this is an empty board square, and im not forced to capture to move, add this
-                            if piecesonboardsquare.is_empty(){
-                                if ! hastocapture{
-                                    //add it to the list of allowed actions
-                                    allowedactions.push(action.clone());
-                                }
-                            }
-                            
-                            //if this board square has pieces
-                            else{
-                                //if it only has opponents pieces 
-                                if onlyopponentspieces{
-                                    //if im allowed to capture, add this
-                                    if cancapture{
-                                        //add it to the list of allowed actions
-                                        allowedactions.push(action.clone());
-                                    }
-                                }
-                            }
-                            
-                        }
-                        
-                        
-                        //if this board square isnt empty, break after this loop
-                        if ! piecesonboardsquare.is_empty() {
-                            break;   
-                        }
-                        
-                        
-                        //increase the step
-                        stepnumber += 1;
-                        
-                        //update the action
-                        actiontogethere = PieceAction::slide(direction, stepnumber);
-                        
-                    }
-                }
+                
             }
-            
-            
-            
-            return (piecedata.canflick() , allowedactions);
-        }
-        
-        
-        
-        //if its not on a board square, it cant do anything
-        (false, Vec::new())
-        
-        
-    }
-    
-    
-    //if a piece can perform this action, what objects will it target
-    pub fn get_objects_targeted_by_action(&self, pieceid: u16, action: PieceAction) -> Vec<u16>{
-        
-        //get the boardsquare this action will land on
-        //and the pieces on that boardsquare
-        
-        
-        //if the piece is on a boardsquare
-        if let Some(bsid) = self.boardgame.get_board_square_piece_is_on(pieceid){
-            
-            //the position of the boardsquare its on
-            let pos = self.boardgame.get_pos_of_boardsquare(bsid).unwrap();
-            
-            if let Some(endpos) = GameEngine::get_square_pos_that_action_takes_piece_at_pos(pos, action){
-                
-                let mut toreturn = Vec::new();
-                
-                //push the id of the boardsquare it ends up on
-                //and every piece on that boardsquare
-                let endid = self.boardgame.get_id_of_boardsquare_pos(endpos).unwrap();
-                
-                let pieces = self.boardgame.get_pieces_on_board_square(endid);
-                
-                toreturn.push(endid);
-                
-                for pieceid in pieces{
-                    
-                    toreturn.push( pieceid );
-                }
-                
-                
-                return toreturn;
-                
+            else{
+                allpiecesvalid = false;
             }
         }
         
         
-        return Vec::new() ;
+        allpiecesvalid
+    }
+    
+    
+    //if the pieces offered are valid
+    //and if so, what their total value is
+    pub fn get_value_of_offered_pieces(&self, playerid: u8, piecesandvaluededuction: Vec<(u16, u8)>) -> Option<u8>{
+        
+        
+        //if its not valid, return None
+        if ! self.are_pieces_and_values_offered_valid(playerid, piecesandvaluededuction.clone()){
+            return None;
+        };
+        
+        
+        let mut totalvaluerequested = 0;
+        
+        //for every piece, get if its owned by the player
+        //and is worth at least as much as the value suggested, if true
+        for (pieceid, requestedvalue) in piecesandvaluededuction{
+            
+            totalvaluerequested  += requestedvalue;
+        }
+        
+        
+        Some( totalvaluerequested )
+        
+    }
+    
+    
+    //give every piece in the pool to this player
+    pub fn give_pool_to_player(&mut self, playerid: u8){
+        
+        //give the pieces in player 1s pool
+        for pieceid in self.playertopiece.get(&11).unwrap().clone(){
+            
+            self.transfer_ownership(pieceid, playerid);
+        }
+        
+        
+        //give the pieces in player 2s pool
+        for pieceid in self.playertopiece.get(&12).unwrap().clone(){
+            
+            self.transfer_ownership(pieceid, playerid);
+        }
+        
+    }
+    
+    
+    
+    
+    //get the value of the pieces in the pool of this player
+    pub fn get_value_of_players_pool(&self, playerid: u8) -> u8{
+        
+        let mut totalvalue = 0;
+        
+        let poolid = playerid + 10;
+        
+        //get every piece owned by this players pool and add their values
+        for pieceid in self.playertopiece.get(&poolid).unwrap(){
+            
+            let piecedata = self.piecetypedata.get(pieceid).unwrap();
+            
+            totalvalue += piecedata.get_value();
+        }
+        
+        
+        return totalvalue;
+        
+    }
+    
+    
+    //put the amount of value from these pieces into the pool of player X
+    pub fn put_pieces_in_pool(&mut self, piecesandvaluededuction: Vec<(u16, u8)> ){
+        
+        
+        //for each piece and value for it
+        for (pieceid, valuetosacrifice) in piecesandvaluededuction{
+            
+            //get the value of that piece
+            let piecevalue = self.piecetypedata.get(&pieceid).unwrap().get_value();
+            
+            
+            let piecetoputinpool;
+            
+            //if the value to sacrifice is equal to the value of the piece
+            //put that piece in this players pool
+            if piecevalue == valuetosacrifice{
+                piecetoputinpool = pieceid;
+            }
+            //if the value to sacrifice is less than the the value of the piece
+            //split that piece and put the piece split into with the value meant to sacrifice
+            //as the one to put in the pool
+            else{
+                let (pieceofvalue, otherpiece) = self.split_piece(pieceid, valuetosacrifice);
+                piecetoputinpool = pieceofvalue;
+            }
+            
+            
+            //transfer the ownership of the piece to put in the pool to the pool of the player who owns it
+            self.transfer_piece_to_pool(piecetoputinpool);
+            
+        };
+        
+        
+    }
+    
+    
+    //split a piece in two, ensuring that one of the pieces split's value is equal to the amount passed in
+    //return the ID of both pieces that were made when this one split
+    //and have the first ID be of the piece who's value is equal to the amount
+    fn split_piece(&mut self, pieceid: u16, amount: u8) -> (u16, u16){
+        
+        
+        
+        panic!("no");
+        
+    }
+    
+    
+    
+    
+    fn transfer_piece_to_pool(&mut self, pieceid: u16){
+        
+        
+        let pieceowner = self.get_owner_of_piece(pieceid);
+        
+        let thisplayerspoolid = pieceowner + 10;
+        
+        self.transfer_ownership(pieceid, thisplayerspoolid);
+        
+    }
+    
+    //transfer the ownership fo this piece to this player
+    fn transfer_ownership(&mut self, pieceid: u16, newplayerid: u8){
+        
+        //get the old owner of the piece
+        let oldowner = self.get_owner_of_piece(pieceid);
+        
+        //remove that piece from that players list of pieces
+        self.playertopiece.get_mut(&oldowner).unwrap().remove(&pieceid);
+        
+        //and give that piece to the new player
+        self.playertopiece.get_mut(&newplayerid).unwrap().insert(pieceid);
         
     }
     
@@ -354,142 +291,477 @@ impl GameEngine{
             }
             
             
-            self.create_pawn( (0,pawnrow), playerx);
-            self.create_pawn( (1,pawnrow), playerx);
-            self.create_pawn( (2,pawnrow), playerx);
-            self.create_pawn( (3,pawnrow), playerx);
-            self.create_pawn( (4,pawnrow), playerx);
-            self.create_pawn( (5,pawnrow), playerx);
-            self.create_pawn( (6,pawnrow), playerx);
-            self.create_pawn( (7,pawnrow), playerx);
+            let id = self.create_piece( (0,pawnrow), playerx);
+            self.set_pawn(id);
+            let id = self.create_piece( (1,pawnrow), playerx);
+            self.set_pawn(id);
+            let id = self.create_piece( (2,pawnrow), playerx);
+            self.set_pawn(id);
+            let id = self.create_piece( (3,pawnrow), playerx);
+            self.set_pawn(id);
+            let id = self.create_piece( (4,pawnrow), playerx);
+            self.set_pawn(id);
+            let id = self.create_piece( (5,pawnrow), playerx);
+            self.set_pawn(id);
+            let id = self.create_piece( (6,pawnrow), playerx);
+            self.set_pawn(id);
+            let id = self.create_piece( (7,pawnrow), playerx);
+            self.set_pawn(id);
             
             
             
-            self.create_rook  ( (0,backrow), playerx);
-            self.create_knight( (1,backrow), playerx);
-            self.create_bishop( (2,backrow), playerx);
-            self.create_queen ( (3,backrow), playerx);
-            self.create_king  ( (4,backrow), playerx);
-            self.create_bishop( (5,backrow), playerx);
-            self.create_knight( (6,backrow), playerx);
-            self.create_rook  ( (7,backrow), playerx);
+            let id = self.create_piece( (0,backrow), playerx);
+            self.set_rook(id);
+            let id = self.create_piece( (1,backrow), playerx);
+            self.set_knight(id);
+            let id = self.create_piece( (2,backrow), playerx);
+            self.set_bishop(id);
+            let id = self.create_piece( (3,backrow), playerx);
+            self.set_queen(id);
+            let id = self.create_piece( (4,backrow), playerx);
+            self.set_king(id);
+            let id = self.create_piece( (5,backrow), playerx);
+            self.set_bishop(id);
+            let id = self.create_piece( (6,backrow), playerx);
+            self.set_knight(id);
+            let id = self.create_piece( (7,backrow), playerx);
+            self.set_rook(id);
             
         };
         
     }
     
     
-    //create a pawn, at this position, with this owner
-    fn create_pawn(&mut self, pos: (u8,u8), owner: u8){
-        
-        let pieceid = self.boardgame.new_piece(pos);
-        let mut piecedata = PieceData::new();
-        piecedata.set_pawn();
-        
-        self.playertopiece.get_mut(&owner).unwrap().insert(pieceid);
-        self.piecetypedata.insert(pieceid, piecedata);
-    }
     
-    fn create_knight(&mut self, pos: (u8,u8), owner: u8){
+    //add the pieces to the game that a chess game would have
+    fn init_checkers_game(&mut self){
         
-        let pieceid = self.boardgame.new_piece(pos);
-        let mut piecedata = PieceData::new();
-        piecedata.set_knight();
+        //player 1 and 2, the 3 is not inclusive
+        for playerx in 1..3{
+            
+            let firstrow = 0;
+            
+            
+            let id = self.create_piece( (0, 1), playerx);
+            self.set_checkers(id);
+            
+            
+        };
         
-        self.playertopiece.get_mut(&owner).unwrap().insert(pieceid);
-        self.piecetypedata.insert(pieceid, piecedata);
-    }
-    
-    fn create_bishop(&mut self, pos: (u8,u8), owner: u8){
-        
-        let pieceid = self.boardgame.new_piece(pos);
-        let mut piecedata = PieceData::new();
-        piecedata.set_bishop();
-        
-        self.playertopiece.get_mut(&owner).unwrap().insert(pieceid);
-        self.piecetypedata.insert(pieceid, piecedata);
-    }
-    
-    fn create_rook(&mut self, pos: (u8,u8), owner: u8){
-        
-        let pieceid = self.boardgame.new_piece(pos);
-        let mut piecedata = PieceData::new();
-        piecedata.set_rook();
-        
-        self.playertopiece.get_mut(&owner).unwrap().insert(pieceid);
-        self.piecetypedata.insert(pieceid, piecedata);
-    }
-    
-    fn create_king(&mut self, pos: (u8,u8), owner: u8){
-        
-        let pieceid = self.boardgame.new_piece(pos);
-        let mut piecedata = PieceData::new();
-        piecedata.set_king();
-        
-        self.playertopiece.get_mut(&owner).unwrap().insert(pieceid);
-        self.piecetypedata.insert(pieceid, piecedata);
-    }
-    
-    fn create_queen(&mut self, pos: (u8,u8), owner: u8){
-        
-        let pieceid = self.boardgame.new_piece(pos);
-        let mut piecedata = PieceData::new();
-        piecedata.set_queen();
-        
-        self.playertopiece.get_mut(&owner).unwrap().insert(pieceid);
-        self.piecetypedata.insert(pieceid, piecedata);
     }
     
     
     
-    //if a piece is at a certain pos, and that action is performed (assume its valid)
-    //if it is a position within the bounds, and none if its out of bounds
-    pub fn get_square_pos_that_action_takes_piece_at_pos(piecepos: (u8,u8), action: PieceAction) -> Option<(u8,u8)>{
+    
+    
+    
+    
+    
+    
+    //make this a pool game
+    //make every piece a pool ball shape
+    //and remove all their actions aside from flick
+    //drop 6 random empty squares
+    pub fn make_pool_game(&mut self){
         
-        let intpiecepos = (piecepos.0 as i8, piecepos.1 as i8);
+        //for every piece with a type
+        for (pieceid, _) in self.piecetypedata.clone().iter(){
+            
+            self.set_pool_ball(*pieceid);            
+        }
         
-        if let PieceAction::liftandmove( relativepos ) = action{
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec<PieceAction>){
+        
+        
+        //get the piece data
+        let piecedata = self.piecetypedata.get(&pieceid).unwrap();
+        //the owner of the piece
+        let owner = self.get_owner_of_piece(pieceid);
+        //the direction of the owner of the piece
+        let ownerdirection = self.playertodirection.get(&owner).unwrap();
+        
+        
+        //get all the actions this piece can potentially perform
+        let allactions = piecedata.get_piece_actions(*ownerdirection);
+        
+        //the list of allowed actions to return
+        let mut allowedactions: Vec<PieceAction> = Vec::new();
+        
+        
+        //for every action, get if it is allowed
+        for action in allactions{
             
-            let newpos = (intpiecepos.0 + relativepos.0 , intpiecepos.1 + relativepos.1);
-            
-            //if the new pos is out of range, return none
-            if newpos.0 <0 || newpos.0 > 7{
-                return None;
-            }
-            if newpos.1 <0 || newpos.1 > 7{
-                return None;
-            }
-            
-            //otherwise, return it
-            return Some( (newpos.0 as u8, newpos.1 as u8) );
-            
-        } 
-        else if let PieceAction::slide( direction, distance ) = action{
-            
-            let (xstep, zstep) = slide_id_to_direction_change_from_objective_perspective(direction);
-            
-            let relativepos = (xstep * distance as i8, zstep * distance as i8);
-            
-            let newpos = (intpiecepos.0 + relativepos.0 , intpiecepos.1 + relativepos.1);
-            
-            //if the new pos is out of range, return none
-            if newpos.0 <0 || newpos.0 > 7{
-                return None;
-            }
-            if newpos.1 <0 || newpos.1 > 7{
-                return None;
-            }
-            
-            //otherwise, return it
-            return Some( (newpos.0 as u8, newpos.1 as u8) );
-            
-        } 
+            if self.is_action_allowed(action.clone(), pieceid){
+                
+                allowedactions.push( action );
+            };
+        };
+        
+        
+        let flickable;
+        
+        //if its on a boardsquare
+        if let Some(_) = self.boardgame.get_board_square_piece_is_on(pieceid){
+            flickable = piecedata.canflick();
+        }
         else{
-            return None;
+            flickable = false;
         }
         
         
+        return (flickable, allowedactions);
     }
+    
+    
+    
+    //get if this action is allowed by this piece
+    pub fn is_action_allowed(&self, action: PieceAction, pieceid: u16) -> bool{
+        
+        //get the owner of this piece
+        let owner = self.get_owner_of_piece(pieceid);
+        //the direction of the owner
+        let ownerdirection = self.playertodirection.get(&owner).unwrap();
+        
+        //if this is is one of the actions the piece is allowed to perform
+        let piecedata = self.piecetypedata.get(&pieceid).unwrap();
+        
+        //if the action is not allowed by the piecedata, return false before proceeding
+        if ! piecedata.is_action_allowed(action.clone(), *ownerdirection){
+            return false;
+        }
+        
+        
+        //if its on a board square
+        if let Some(boardsquareid) = self.boardgame.get_board_square_piece_is_on(pieceid){
+            
+            //if the current boardsquare is on a mission, return false
+            if self.boardgame.is_object_on_mission(boardsquareid){
+                return false;
+            }
+            //if the current piece is on a mission, return false
+            if self.boardgame.is_object_on_mission(pieceid){
+                return false;
+            }
+            
+            //the position of the boardsquare its on
+            let boardsquarepos = self.boardgame.get_pos_of_boardsquare(boardsquareid).unwrap();
+            
+            
+            //if its a lift and move action
+            if let PieceAction::liftandmove( relativepos ) = action{
+                
+                //the position of the boardsquare this action takes the piece
+                let endpos = action.get_square_pos_that_action_takes_piece_at_pos( boardsquarepos );
+                
+                //the id of this board square it lands on if it exists
+                if let Some(endid) = self.boardgame.get_id_of_boardsquare_i8_pos(endpos){
+                    
+                    //if the boardsquare is on a mission, return false
+                    if self.boardgame.is_object_on_mission(endid){
+                        return false;
+                    }
+                    
+                    
+                    //get if this lift and move action has to capture, and if it can capture
+                    let (hastocapture, cancapture) = piecedata.get_capture_type_of_lift_and_move( relativepos, *ownerdirection );
+                    
+                    
+                    //does the boardsquare have any enemy pieces on it
+                    let mut opposingpiecesonsquare: bool = false; 
+                    //does the boardsquare have any ally pieces on it
+                    let mut alliedpiecesonsquare: bool = false;
+                    
+                    {
+                        //get the pieces on the boardsquare
+                        let piecesonboardsquare = self.boardgame.get_pieces_on_board_square( endid );
+                        
+                        //for each piece on the boardsquare
+                        for otherpieceid in piecesonboardsquare.iter(){
+                            
+                            let ownerofotherpiece = self.get_owner_of_piece( *otherpieceid);
+                            
+                            //if its owned by the owner of the piece performing the action
+                            if ownerofotherpiece == owner{
+                                alliedpiecesonsquare = true;
+                            }
+                            //if its owned by a different player
+                            else{
+                                opposingpiecesonsquare = true;
+                            }
+                        }
+                    }
+                    
+                    
+                    
+                    //if this square has any of my pieces on it, return false
+                    if alliedpiecesonsquare{
+                        return false;
+                    }
+                    //if it doesnt have any of my pieces on it
+                    else{
+                        
+                        //if this square has (an) opponents piece(s) on it
+                        if opposingpiecesonsquare{
+                            if cancapture{
+                                return true;
+                            }
+                        }
+                        //if this square doesnt have any of my, or my opponents pieces on it
+                        else{
+                            
+                            //if it doesnt have to capture a piece, return true
+                            if ! hastocapture{
+                                return true;
+                            }
+                            //if it has to capture a piece, then return false
+                            else{
+                                return false;
+                            }
+                        }
+                    }
+                }
+                
+                
+            }
+            //if this is a slide action
+            else if let PieceAction::slide( direction, distance ) = action{
+                
+                //get if this lift and move action has to capture, and if it can capture
+                let (hastocapture, cancapture) = piecedata.get_capture_type_of_slide(direction, distance, *ownerdirection);
+                
+                
+                let mut stepnumber = 1;
+                let mut actiontogethere = PieceAction::slide(direction, stepnumber);
+                let mut cursquarepos = actiontogethere.get_square_pos_that_action_takes_piece_at_pos(boardsquarepos);
+                
+                
+                //if the board square exists
+                while let Some(cursquareid) = self.boardgame.get_id_of_boardsquare_i8_pos(cursquarepos){
+                    
+                    
+                    //if the current square is on a mission, break
+                    if self.boardgame.is_object_on_mission(cursquareid){
+                        break;
+                    }
+                    
+                    
+                    //does the boardsquare have any enemy pieces on it
+                    let mut opposingpiecesonsquare: bool = false; 
+                    //does the boardsquare have any ally pieces on it
+                    let mut alliedpiecesonsquare: bool = false;
+                    {
+                        //get the pieces on the boardsquare
+                        let piecesonboardsquare = self.boardgame.get_pieces_on_board_square( cursquareid );
+                        
+                        //for each piece on the boardsquare
+                        for otherpieceid in piecesonboardsquare.iter(){
+                            
+                            let ownerofotherpiece = self.get_owner_of_piece( *otherpieceid);
+                            
+                            //if its owned by the owner of the piece performing the action
+                            if ownerofotherpiece == owner{
+                                alliedpiecesonsquare = true;
+                            }
+                            //if its owned by a different player
+                            else{
+                                opposingpiecesonsquare = true;
+                            }
+                        }
+                    }
+                    
+                    
+                    //if this is final boardsquare the action will arrive at
+                    if action == actiontogethere{
+                        
+                        //if this square has any of my pieces on it, return false
+                        if alliedpiecesonsquare{
+                            return false;
+                        }
+                        //if it doesnt have any of my pieces on it
+                        else{
+                            
+                            //if this square has (an) opponents piece(s) on it
+                            if opposingpiecesonsquare{
+                                if cancapture{
+                                    return true;
+                                }
+                            }
+                            //if this square doesnt have any of my, or my opponents pieces on it
+                            else{
+                                
+                                //if it doesnt have to capture a piece, return true
+                                if ! hastocapture{
+                                    return true;
+                                }
+                                //if it has to capture a piece, then return false
+                                else{
+                                    return false;
+                                }
+                            }
+                        }
+                        
+                    }
+                    //if this is a boardsquare on the way to the final position
+                    else{
+                        
+                        //if its not empty, return false
+                        //if this square has any pieces on it break
+                        if opposingpiecesonsquare || alliedpiecesonsquare{
+                            return false;
+                        };
+                        
+                    }
+                    
+                    
+                    //increase the step
+                    stepnumber += 1;
+                    //update the action
+                    actiontogethere = PieceAction::slide(direction, stepnumber);
+                    //update the boardsquare pos
+                    cursquarepos = actiontogethere.get_square_pos_that_action_takes_piece_at_pos(boardsquarepos);
+                }
+            }
+            //if this is a flick action
+            else if let PieceAction::flick(direction, force) = action{
+                
+                //if the piece data allowd it, as long as its on a boardsquare
+                //a flick is allowed
+                return true;
+            }
+        }
+        
+        
+        return false;
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    //if a piece can perform this action, what objects will it target
+    pub fn get_objects_targeted_by_action(&self, pieceid: u16, action: PieceAction) -> Vec<u16>{        
+        
+        //if the piece is on a boardsquare
+        if let Some(bsid) = self.boardgame.get_board_square_piece_is_on(pieceid){
+            
+            //the position of the boardsquare its on
+            let startpos = self.boardgame.get_pos_of_boardsquare(bsid).unwrap();
+            
+            //the board square this action takes the piece
+            let pos = action.get_square_pos_that_action_takes_piece_at_pos(startpos);
+            
+            
+            if let Some(endid) = self.boardgame.get_id_of_boardsquare_i8_pos(pos){
+                
+                let mut toreturn = Vec::new();
+                
+                let pieces = self.boardgame.get_pieces_on_board_square(endid);
+                
+                toreturn.push(endid);
+                
+                for pieceid in pieces{
+                    toreturn.push( pieceid );
+                }
+                
+                
+                return toreturn;
+            }
+        }
+        
+        
+        return Vec::new() ;
+        
+    }
+    
+    
+    
+    
+    
+    
+    //create a piece
+    fn create_piece(&mut self, pos: (u8,u8), owner: u8) -> u16{
+        
+        let pieceid = self.boardgame.new_piece(pos);
+        let mut piecedata = PieceData::new();
+        
+        self.playertopiece.get_mut(&owner).unwrap().insert(pieceid);
+        self.piecetypedata.insert(pieceid, piecedata);
+        
+        pieceid
+    }
+    
+    
+    //make an existing piece a certain type of piece
+    
+    fn set_pawn(&mut self, pieceid: u16){
+        
+        let piecedata = self.piecetypedata.get_mut(&pieceid).unwrap();
+        piecedata.set_pawn();
+        
+    }
+    fn set_knight(&mut self, pieceid: u16){
+        
+        let piecedata = self.piecetypedata.get_mut(&pieceid).unwrap();
+        piecedata.set_knight();
+        
+    }
+    fn set_rook(&mut self, pieceid: u16){
+        
+        let piecedata = self.piecetypedata.get_mut(&pieceid).unwrap();
+        piecedata.set_rook();
+        
+    }
+    fn set_bishop(&mut self, pieceid: u16){
+        
+        let piecedata = self.piecetypedata.get_mut(&pieceid).unwrap();
+        piecedata.set_bishop();
+        
+    }
+    fn set_queen(&mut self, pieceid: u16){
+        
+        let piecedata = self.piecetypedata.get_mut(&pieceid).unwrap();
+        piecedata.set_queen();
+        
+    }
+    fn set_king(&mut self, pieceid: u16){
+        
+        let piecedata = self.piecetypedata.get_mut(&pieceid).unwrap();
+        piecedata.set_king();
+        
+    }
+    
+    fn set_pool_ball(&mut self, pieceid: u16){
+        
+        let typedata = self.piecetypedata.get_mut(&pieceid).unwrap();       
+        typedata.set_pool_ball();
+        
+        self.boardgame.make_object_pool_ball(&pieceid);
+    }
+    
+    fn set_checkers(&mut self, pieceid: u16){
+        
+        let typedata = self.piecetypedata.get_mut(&pieceid).unwrap();       
+        typedata.set_checkers();
+    }
+    
+    
+    
+    
+    
     
     
     
@@ -509,9 +781,7 @@ impl GameEngine{
     pub fn tick(&mut self){
         self.boardgame.tick();
     }
-
-
-
+    
     
     //get the id of every board square in the game
     pub fn get_squares(&self) -> Vec<u16>{
@@ -541,21 +811,15 @@ impl GameEngine{
     //and that arent on a mission currently
     pub fn get_empty_squares_not_on_mission(&self) -> Vec<u16>{
         
-        //get the position of every board square in the game
-        let mut boardsquareposs: Vec<(u8,u8)> = Vec::new();
-        for x in 0..8{
-            for y in 0..8{
-                boardsquareposs.push( (x,y) );
-            }
-        }
+        let bsids = self.get_squares();
         
         let mut toreturn = Vec::new();
         
-        //for every board square pos get its id
-        for boardsquarepos in boardsquareposs{
-            let bsid = self.boardgame.get_id_of_boardsquare_pos(boardsquarepos).unwrap();
+        
+        for bsid in bsids{
             
             let piecesonboardsquare = self.boardgame.get_pieces_on_board_square(bsid);
+            
             //if it doesnt have anything on it
             if piecesonboardsquare.is_empty(){
                 
@@ -564,48 +828,41 @@ impl GameEngine{
                     
                     //then push it into the list of empty squares not on a mission
                     toreturn.push( bsid );
-                    
                 }
             }
         }
         
         
         return toreturn;
-        
-        
     }
     
-    pub fn perform_action(&mut self, player: u8, piece: u16, pieceaction: PieceAction ){
-        
-        let playerdirection = self.playertodirection.get(&player).unwrap();
-        
+    pub fn perform_action(&mut self, piece: u16, pieceaction: PieceAction ){
         
         //set that piece to having moved
         if let PieceAction::liftandmove(relativeposition) = pieceaction{
             
-            let relativeposition = (relativeposition.0 as i8, relativeposition.1 as i8);
-            let rotatedrelpos = datastructs::players_perspective_to_objective_perspective_lift(playerdirection, &relativeposition).unwrap();
-            let floatrelpos = (rotatedrelpos.0 as f32, rotatedrelpos.1 as f32);
+            let relativeposition = pieceaction.get_relative_position_action_takes_piece();
+            let floatrelpos = (relativeposition.0 as f32, relativeposition.1 as f32);
+            
             self.boardgame.lift_and_move_piece_to(piece, floatrelpos);
             
         }
         else if let PieceAction::slide(slidedirection, slidedistance) = pieceaction{
             
-            let objslidedir = datastructs::players_perspective_to_objective_perspective_slide(playerdirection, &slidedirection);
-            let slidechange = datastructs::slide_id_to_direction_change_from_objective_perspective(objslidedir);
-            self.boardgame.slide_piece(piece, slidechange, slidedistance);
+            let relativeposition = pieceaction.get_relative_position_action_takes_piece();
+            let floatrelpos = (relativeposition.0 as f32, relativeposition.1 as f32);
+            
+            self.boardgame.slide_piece(piece, floatrelpos);
             
         }
         else if let PieceAction::flick(direction, force) = pieceaction{
             
             self.boardgame.flick_piece(piece, direction, force);
-            
         }
         
         
         //set the piece has having moved
         self.piecetypedata.get_mut(&piece).unwrap().moved_piece();
-        
     }
     
     pub fn drop_square(&mut self, bsid: u16){
@@ -644,5 +901,30 @@ impl GameEngine{
         
     }
     
+    //is this board game object a square
+    pub fn is_board_game_object_square(&self, objectid: u16) -> bool{
+        self.boardgame.is_board_game_object_square(objectid)
+    }
+    //is this board game object a piece
+    pub fn is_board_game_object_piece(&self, objectid: u16) -> bool{
+        self.boardgame.is_board_game_object_piece(objectid)
+    }
+    
+    pub fn get_owner_of_piece(& self, pieceid: u16) -> u8{
+        
+        for (player, pieces) in self.playertopiece.clone(){
+            
+            for playerspieceid in pieces{
+                
+                if playerspieceid == pieceid{
+                    
+                    return player;
+                }
+            }
+        }
+        
+        panic!("cant find the owner of the piece");
+        
+    }
 }
 

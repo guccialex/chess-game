@@ -73,9 +73,10 @@ impl RapierPhysicsEngine{
         
         
         
-        integration_parameters.warmstart_coeff = 1.0;
+        integration_parameters.warmstart_coeff = 0.9;
         integration_parameters.max_ccd_substeps = 10;
         integration_parameters.multiple_ccd_substep_sensor_events_enabled = true;
+        integration_parameters.set_inv_dt(60.0);
         
         
         
@@ -115,8 +116,9 @@ impl RapierPhysicsEngine{
             rigidbody.body_status = BodyStatus::Static;
         }
 
-        
-        PhysicsPipeline::new().step(
+        let mut temppipeline = PhysicsPipeline::new();
+
+        temppipeline.step(
             &self.gravity,
             &self.integration_parameters,
             &mut self.broad_phase,
@@ -128,7 +130,30 @@ impl RapierPhysicsEngine{
             None,
             &()
         );
-
+        temppipeline.step(
+            &self.gravity,
+            &self.integration_parameters,
+            &mut self.broad_phase,
+            &mut self.narrow_phase,
+            &mut self.bodies,
+            &mut self.colliders,
+            &mut self.joints,
+            None,
+            None,
+            &()
+        );
+        temppipeline.step(
+            &self.gravity,
+            &self.integration_parameters,
+            &mut self.broad_phase,
+            &mut self.narrow_phase,
+            &mut self.bodies,
+            &mut self.colliders,
+            &mut self.joints,
+            None,
+            None,
+            &()
+        );
 
         //restore the objects made static to what they were before
         for (objid, rbstatus) in previousbodystatusbyobjid{

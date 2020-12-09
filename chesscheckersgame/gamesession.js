@@ -273,6 +273,27 @@ class GameApperance{
         image.top = "-40%";
         this.advancedTexture.addControl(image);
         
+        
+        
+        
+        //mesh.freezeWorldMatrix();
+        
+        this.scene.autoClear = false; // Color buffer
+        this.scene.autoClearDepthAndStencil = false; // Depth and stencil, obviously
+        //this.scene.setRenderingAutoClearDepthStencil(renderingGroupIdx, autoClear, depth, stencil);
+        
+
+        var options = BABYLON.SceneOptimizerOptions.ModerateDegradationAllowed(30, 30);//new BABYLON.SceneOptimizerOptions(40, 900);
+        //options.addOptimization(new BABYLON.HardwareScalingOptimization(0, 1));
+        // Optimizer
+        //var optimizer = new BABYLON.SceneOptimizer(this.scene, options);
+        
+
+        //optimizer.start();
+
+        //BABYLON.SceneOptimizer.OptimizeAsync(this.scene, options);
+
+        BABYLON.SceneOptimizer.OptimizeAsync(scene, options);
     }
     
     
@@ -378,7 +399,7 @@ class GameApperance{
                     
                     //Create dynamic texture
                     let texturetimer = new BABYLON.DynamicTexture("dynamic texture", {width:100, height:70}, this.scene);   
-                                        
+                    
                     let materialtimer = new BABYLON.StandardMaterial("Mat", this.scene);
                     materialtimer.diffuseTexture = texturetimer;
                     objectmesh.material = materialtimer;                    
@@ -399,9 +420,9 @@ class GameApperance{
             
             //set its position and rotation values
             //interpolate it a bit, probably can do this a better way
-            objectmesh.position.x = (objectmesh.position.x * 0.2) + (objectdata.position[0] * 0.8);
-            objectmesh.position.y = (objectmesh.position.y * 0.2) + (objectdata.position[1] * 0.8);
-            objectmesh.position.z = (objectmesh.position.z * 0.2) + (objectdata.position[2] * 0.8);
+            objectmesh.position.x = (objectmesh.position.x * 0.5) + (objectdata.position[0] * 0.5);
+            objectmesh.position.y = (objectmesh.position.y * 0.5) + (objectdata.position[1] * 0.5);
+            objectmesh.position.z = (objectmesh.position.z * 0.5) + (objectdata.position[2] * 0.5);
             
             
             
@@ -419,26 +440,26 @@ class GameApperance{
             
             //if its a timer, scale it according to the time left
             if (timerdata != null){
-
+                
                 let bgcolour = new BABYLON.Color3( objectdata.colour[0] / 255, objectdata.colour[1] / 255, objectdata.colour[2] /255);
-
+                
                 //clear background and update timer text
-
+                
                 if (timerdata.currentlyturn){
                     let font = "bold 40px monospace";
                     objectmesh.material.diffuseTexture.drawText(timerdata.timeleft, 0, 40, font, "black", "green", true, true);
-
+                    
                 }
                 else{
                     let font = "bold 40px monospace";
                     objectmesh.material.diffuseTexture.drawText(timerdata.timeleft, 0, 40, font, "black", "white", true, true);
                 }
-
+                
                 //Add text
                 let font = "bold 10px monospace";
                 objectmesh.material.diffuseTexture.drawText("and then you lose", 0, 60, font, "black", null, true, true);
-
-                            
+                
+                
             }
             
             
@@ -517,9 +538,9 @@ class GameInterface{
     get_message(message){
         
         //console.log("receiving a message from the server", message);
-
+        
         //let data = new Uint8Array( message.arrayBuffer());
-
+        
         //console.log("something", data);
         
         //give the received message to the game

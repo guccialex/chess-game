@@ -118,14 +118,14 @@ impl BoardGame{
         
         //create the 4 invisible walls bordering the game
         {
-
+            
             let horizontalwalldimensions = (20.0 , 20.0 , 2.0);
-
+            
             let verticalwalldimensions = (2.0 , 20.0 , 20.0 );
             
             
-
-
+            
+            
             let physicalid = boardgame.physicsengine.add_object();
             boardgame.physicsengine.set_translation( &physicalid,  (0.0,0.0,-5.0) );
             boardgame.physicsengine.make_static(&physicalid);
@@ -169,8 +169,8 @@ impl BoardGame{
                     let (xpos, zpos) = convert_board_square_pos_to_physical_pos( (x, z) ); 
                     
                     boardgame.physicsengine.set_translation( &physicalid, ( xpos , ypos ,zpos  ) );
-
-
+                    
+                    
                     boardgame.physicsengine.make_static(&physicalid);
                     boardgame.physicsengine.set_materials(&physicalid, 0.0, 1.0);
                     
@@ -193,32 +193,32 @@ impl BoardGame{
         boardgame
     }
     
-
+    
     pub fn make_object_pool_ball(&mut self, objectid: &u16) {
-
+        
         if ! self.pieces.contains(objectid){
-
+            
             panic!("What else could this object be other than a piece?");
         }
-
+        
         //make it a ball
         self.physicsengine.set_shape_sphere(objectid, 0.7);
-
+        
         //move it up, or itll sink through the floor when ccd is on
         self.physicsengine.apply_delta_position(objectid , (0.0, 1.0, 0.0));
-
-
-
+        
+        
+        
         //elasticity and friction
         self.physicsengine.set_materials(objectid, 1.3, 1.0);
-
+        
         //unlock all the axis of rotation
         //self.physicsengine.set_kinematic_axis_of_rotation_locked( objectid, (false,false,false) );
-
-
+        
+        
     }
     
-
+    
     
     //is this board game object a square
     pub fn is_board_game_object_square(&self, objectid: u16) -> bool{
@@ -244,11 +244,11 @@ impl BoardGame{
         return false;
         
     }
-
+    
     pub fn is_object_on_mission(&self, objectid: u16) -> bool{
-
+        
         self.idtomission.contains_key(&objectid)
-
+        
     }
     
     
@@ -258,7 +258,7 @@ impl BoardGame{
         let pos = convert_board_square_pos_to_physical_pos( pos );
         //let shape = ShapeIDtoConvexHull::shapeidtoconvexhull(&2);
         
-
+        
         let pieceid = self.physicsengine.add_object();
         self.pieces.insert(pieceid);
         
@@ -274,21 +274,29 @@ impl BoardGame{
     }
     
     
-    
-    
-    
-    pub fn slide_piece(&mut self, pieceid: u16, slidestepchange: (i8,i8), slidedistance: u8){
+    pub fn slide_piece(&mut self, pieceid: u16, relativeposition: (f32,f32)){
+
+        
+        //how many steps the piece will take
+        let totalsteps = f32::max(relativeposition.0.abs(), relativeposition.1.abs()) as u8;
+
+        //get the single step distance (how far it will move every unit)
+        let relativepositionunit: (f32,f32) = (relativeposition.0 / totalsteps as f32, relativeposition.1 / totalsteps as f32);
+
+        //how long it will take to move each unit
+        let unittime = 14;
         
         
         //get the board square this piece is on
         if let Some(boardsquare) = self.get_board_square_piece_is_on(pieceid){
             
+
             //make the slide mission want to go to the middle of the square its going to
             {
-                let mut relativepos = ((slidestepchange.0 as f32 * slidedistance as f32), (slidestepchange.1 as f32 * slidedistance as f32));
-
+                let mut relativepos = relativeposition;
+                
                 let pieceoffset = self.piece_on_square_offset(pieceid, boardsquare);
-
+                
                 relativepos.0 = relativepos.0 - pieceoffset.0;
                 relativepos.1 = relativepos.1 - pieceoffset.1;
                 
@@ -299,35 +307,38 @@ impl BoardGame{
                 //put that mission into the lists of future missions
                 self.futuremissions.push( (30, pieceid, slidemission) );
             }
-            
+
             //make the missions that drop the pieces that its passing over
             {
                 
-                let mut curboardsquarepos = self.get_pos_of_boardsquare(boardsquare).unwrap();
-                curboardsquarepos = ((curboardsquarepos.0 as i8 + slidestepchange.0) as u8 , (curboardsquarepos.1 as i8 + slidestepchange.1) as u8);
-                
+                let mut curboardsquarefloatpos =  convert_board_square_pos_to_physical_pos( self.get_pos_of_boardsquare(boardsquare).unwrap() );
+                curboardsquarefloatpos = (curboardsquarefloatpos.0 + relativepositionunit.0, curboardsquarefloatpos.1 + relativepositionunit.1);
+
+
                 let mut stepnumber = 1;            
                 //how long into the future to drop the piece
                 let mut curdroptick = 10;
-                
-                
-                while let Some(boardsquareid) = self.get_id_of_boardsquare_pos( curboardsquarepos ){
-                    
-                    self.set_future_drop_and_raise(curdroptick, boardsquareid);
-                    
-                    curboardsquarepos = ((curboardsquarepos.0 as i8 + slidestepchange.0) as u8 , (curboardsquarepos.1 as i8 + slidestepchange.1) as u8);
-                    
+
+
+                while let Some(curboardsquarepos) = convert_physical_pos_to_board_square_pos( curboardsquarefloatpos.0, curboardsquarefloatpos.1){
+
+                    if let Some(boardsquareid) = self.get_id_of_boardsquare_pos( curboardsquarepos ){
+                        self.set_future_drop_and_raise(curdroptick, boardsquareid);
+                    }
+
+
                     stepnumber += 1;
-                    
-                    curdroptick += (10.0 * ((slidestepchange.0 as f32).powf(2.0) + (slidestepchange.1 as f32).powf(2.0)).sqrt()) as u32;
-                    
-                    if stepnumber as u8 > slidedistance{
+                    curdroptick += unittime;
+
+                    if stepnumber > totalsteps{
                         break;
                     }
+
+                    //update the curboardsquarefloatpos
+                    curboardsquarefloatpos = (curboardsquarefloatpos.0 + relativepositionunit.0, curboardsquarefloatpos.1 + relativepositionunit.1);
                 }
-                
+
             }
-            
         };
     }
     
@@ -348,15 +359,15 @@ impl BoardGame{
         self.futuremissions.push(  (0, boardsquare , longliftanddropmission)  );    
         
     }
-
+    
     pub fn set_long_boardsquare_raise(&mut self, length: u32, boardsquare: u16){
-
-
+        
+        
         let longraisemission = Mission::make_lengthed_raise(length);
         
         self.futuremissions.push(  (0, boardsquare , longraisemission)  );    
-
-
+        
+        
     }
     
     //flick a piece in a direction (radians), with a force
@@ -594,6 +605,28 @@ impl BoardGame{
         
     }
     
+    //get the id of the boardsquare by its position
+    pub fn get_id_of_boardsquare_i8_pos(&self, pos: (i8,i8) ) -> Option<u16>{
+
+        //if either of the positions are negative
+        if pos.0 < 0 || pos.1 < 0{
+            return None;
+        }
+
+
+        let u8pos = (pos.0 as u8, pos.1 as u8);
+
+        if let Some(bsid) = self.boardsquares.get(&u8pos){
+            
+            return Some(*bsid);
+        }
+        else{
+            
+            return None;
+        };
+        
+    }
+    
     //get the position of the boardsquare by its id
     pub fn get_pos_of_boardsquare(&self, id: u16) -> Option<(u8,u8)>{
         
@@ -641,7 +674,7 @@ impl BoardGame{
         //get the pieces x and z position and subtract the position of the piece its on from it
         let xoffset = self.physicsengine.get_translation(&id).0 - physicalbs.0;
         let zoffset = self.physicsengine.get_translation(&id).2 - physicalbs.2;
-
+        
         return ( 0.0, 0.0 );
         
         return (xoffset, zoffset);
@@ -1036,7 +1069,7 @@ impl Mission{
     
     //a drop and raise mission for a board square
     pub fn make_drop_and_raise() -> Mission{
-
+        
         return ( Mission::make_drop_and_loop_around());
         
         let mut positionchanges = Vec::new();
@@ -1080,28 +1113,28 @@ impl Mission{
         }
         
     }
-
+    
     //a mission for a boardsquare that drops it then makes it sink from the top back to teh bottom
     pub fn make_drop_and_loop_around() -> Mission{
-
-
+        
+        
         let mut positionchanges = Vec::new();
         
         
         //the object stops dropping
         //starts moving to the left
         let enddrop = 3;
-
+        
         //the object stops moving to the left
         //starts raising
         let endleft = 6;
-
+        
         //the object raises up
         let endraise = 9;
-
+        
         //the object comes back to where it was
         let endright = 12;
-
+        
         //the object shoots back down into its original position
         let endrestore = 21;
         
@@ -1129,9 +1162,9 @@ impl Mission{
             positionchanges: positionchanges,
             
         }
-
-
-
+        
+        
+        
     }
     
     
@@ -1154,8 +1187,8 @@ impl Mission{
         //shoot the object to the left so nothing can stay on it
         let leftphysics = (enddrop, endleft, Vector3::new(-1.0, 0.0, 0.0) );
         positionchanges.push(leftphysics);
-
-
+        
+        
         let waitphysics = (endleft, waitstillend, Vector3::new(0.0, 0.0, 0.0) );
         positionchanges.push(waitphysics);
         
@@ -1174,9 +1207,9 @@ impl Mission{
         }
         
     }
-
+    
     pub fn make_lengthed_raise(ticks: u32) -> Mission{
-
+        
         let mut positionchanges = Vec::new();
         
         
@@ -1190,7 +1223,7 @@ impl Mission{
         let raisephysics = (0, endraise, Vector3::new(0.0, 0.2, 0.0) );
         positionchanges.push(raisephysics);
         
-
+        
         let waitphysics = (endraise, wait, Vector3::new(0.0, 0.0, 0.0) );
         positionchanges.push(waitphysics);
         
@@ -1206,8 +1239,8 @@ impl Mission{
             impulses: Vec::new(),
             positionchanges: positionchanges,
         }
-
-
+        
+        
     }
     
     

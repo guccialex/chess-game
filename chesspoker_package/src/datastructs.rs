@@ -8,12 +8,9 @@ use std::collections::HashSet;
 
 use super::PieceAction;
 
-
-
-
-
-
-
+use super::PokerAction;
+use super::BlackJackAction;
+use super::CardAction;
 
 
 
@@ -21,21 +18,25 @@ use super::PieceAction;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum PlayerInput{
     
-    //playing a card on the active board
-    playcardonboard(u16),
-
-    //playing a card with a target of a piece
-    playcardonpiece(u16, u16),
-
-    //playing a card with a target of a board square
-    playcardonsquare(u16, u16),
+    cardaction(u16, CardAction),
     
     //perform an action on a piece
     pieceaction(u16, PieceAction),
 
     //draw card from the deck
     drawcard,
-    
+
+    //an action for the poker game
+    pokeraction(PokerAction),
+
+    //an action for the blackjack game
+    blackjackaction(BlackJackAction),
+
+
+    //settling the debt in the game
+    //the value that a player HAS to reconcile
+    //before doing anything else
+    settledebt( Vec<(u16, u8)>)
 }
 
 
@@ -93,79 +94,6 @@ fn is_in_range_f32(ranges: Vec< (f32,f32) >, value: f32) -> bool{
 
 
 
-//test the turn manager
-pub fn test_turn_manager(){
-    
-    let mut turnmanager = TurnManager::new_two_player(1, 2);
-    
-    
-    //make sure there is a player with an active turn
-    assert_eq!(turnmanager.is_active_turns(), true);
-    
-    //make sure the only active turn is that of player 1
-    {
-        
-        let currentplayers = turnmanager.get_current_players();
-        
-        let mut only1 = 0;
-        for activeplayer in currentplayers{
-            assert_eq!(1, activeplayer);
-            
-            only1 += 1;
-        }
-        
-        assert_eq!(only1, 1);
-    }
-    
-    
-    //tick for 30 ticks
-    for x in 0..30{
-        turnmanager.tick();
-    }
-    
-    //make sure there is a player with
-    //make sure the only active turn is that of player 2
-    {
-        
-        let currentplayers = turnmanager.get_current_players();
-        
-        let mut only1 = 0;
-        for activeplayer in currentplayers{
-            assert_eq!(2, activeplayer);
-            
-            only1 += 1;
-        }
-        
-        assert_eq!(only1, 1);
-    }
-    
-    
-    //have player 2 perform an action
-    //make sure that its just player 1s turn now
-    {
-        turnmanager.player_took_action(2);
-        
-        let currentplayers = turnmanager.get_current_players();
-        
-        let mut only1 = 0;
-        for activeplayer in currentplayers{
-            assert_eq!(1, activeplayer);
-            
-            only1 += 1;
-        }
-        
-        assert_eq!(only1, 1);
-    }
-    
-    
-    
-    
-    
-    
-    
-    
-}
-
 
 
 
@@ -173,18 +101,30 @@ pub fn test_turn_manager(){
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct TurnManager{
     
-    //a list of the turns queued
-    //the playerid, the ticks until their turn, and then how long that turn is
-    //0 ticks until their turn means that it is currently their turn
-    queuedturns: Vec< (u8, u32, u32) >,
-    
-    
-    //the playerid, the ticks until their turn, and then how long that turn is
-    //becomes the queuedturns when queuedturns is empty
-    basequeue: Vec< (u8, u32, u32) >,
+
+    totalturnsid: u16,
+
+    //the turn ID
+    //the id of the player for that turn
+    //the amount of ticks left for this turn
+    //the turn ID that is going next after this on
+    turns: HashMap<u16, (u8, u32, u16)>,
+
+    //the id of the turn it currently is
+    currentturn: u16,
+
+    //the amount of ticks spent on this turn
+    currentturntick: u32,
 
 
-    //the total amount of time a player has left
+    //how many ticks its been since this player took an action
+    tickssincelastaction: HashMap<u8, u32>,
+
+    //how long until the player can take their next action after performing it
+    cooldown: Option<HashMap<u8, u32>>,
+
+
+    //the total amount of ticks a player has left
     playertimeleft: HashMap<u8, i32>,
 }
 
@@ -193,196 +133,111 @@ pub struct TurnManager{
 impl TurnManager{
     
     pub fn new_two_player(player1: u8, player2: u8) -> TurnManager{
-        
-        let mut toreturn = TurnManager{
-            
-            queuedturns: Vec::new(),
-            basequeue: Vec::new(),
-            playertimeleft: HashMap::new(),
-        };
-
-        
-        //set up the basequeue
-        //with player 1 and player 2
-        //a max of 60 seconds per turn
-        toreturn.basequeue.push(  (player1, 0, 18)  );
-        toreturn.basequeue.push(  (player2, 18, 18)  );
-        
-        toreturn.playertimeleft.insert( player1, 1800 * 5);
-        toreturn.playertimeleft.insert( player2, 1800 * 5);
 
 
-        toreturn.tick();
+        let mut turns = HashMap::new();
+
+        turns.insert(0, (player1, 60, 1) );
+        turns.insert(1, (player2, 60, 0) );
+
+
+        let mut tickssincelastaction = HashMap::new();
+
+        tickssincelastaction.insert(player1, 0);
+        tickssincelastaction.insert(player2, 0);
+
+
+        let mut playertimeleft = HashMap::new();
+
+        playertimeleft.insert( player1, 20000 );
+        playertimeleft.insert( player2, 20000 );
+
+
         
-        toreturn
+        TurnManager{
+            totalturnsid: 0,
+            turns: turns,
+            currentturn: 0,
+
+            //turn 0 and 1 were used for the setup of the first two turns
+            currentturntick: 2,
+
+            tickssincelastaction: tickssincelastaction,
+
+            cooldown: None,
+            playertimeleft: playertimeleft,
+        }
+
     }
     
-    
-    //upkeep the struct
-    //should be called after every tick
-    //and after every change
-    fn timeless_upkeep(&mut self){
-        
-        //if the queued turns is empty, make base queue the queued turns
-        if self.queuedturns.is_empty(){
-            self.queuedturns = self.basequeue.clone();
-        }
-        
-        
-        //remove all queued turns that have a zero length of turn left
-        self.queuedturns.retain(|&x| x.2 > 0);
-        
-        
-        //if there are no players with an active turn, tick until there is one
-        if !self.is_active_turns(){
-            
-            self.tick();
-            
-        }
-        
-        
-    }
     
     
     //progress timewards
     pub fn tick(&mut self) {
         
-        
-        //tick each item in queued turns
-        for (_, ticksuntil, turnlength) in self.queuedturns.iter_mut(){
-            
-            //decrease ticks until, unless its zero
-            //then tick down turnlength
-            if *ticksuntil > 0{
-                *ticksuntil = *ticksuntil -1;
-            }
-            else{
-                *turnlength = *turnlength -1;
-                
-            }
+        let (playerid, length, nextturn) = self.turns.get(&self.currentturn).unwrap();
+
+        self.currentturntick += 1;
+
+        if self.currentturntick > *length{
+
+            self.currentturntick = 0;
+            self.currentturn = *nextturn;
         }
-
-
-        let activeplayers = self.get_current_players();
-
-        //if it is currently the players turn
-        //tick the amount of time they have left down
-        for (player, timeleft) in self.playertimeleft.iter_mut(){
-
-            //if the player is active, tick his timeleft down
-            if activeplayers.contains(player){
-                
-                *timeleft = *timeleft - 1;
-            }
-        }
-
-        
-        //perform a timeless upkeep
-        self.timeless_upkeep();        
         
         
     }
-    
-    //return whether there are any players with active turns
-    pub fn is_active_turns(&self)-> bool{
-        
-        //return whether there are active turns in this turnmanager
-        
-        let mut isactiveturn = false;
-        
-        
-        for (_, timeuntil, timeleft) in self.queuedturns.clone(){
-            
-            if timeuntil <= 0{
-                
-                if timeleft > 0{
-                    
-                    isactiveturn = true;
-                    
-                }
-            }
-            
-        }
-        
-        
-        
-        isactiveturn
-        
-        
-    }
-    
+
+
     //this player took a turn action
     pub fn player_took_action(&mut self, playerid: u8){
         
-        //tick until it is no longer that players turn and dont
-        while self.get_current_players().contains(&playerid) {
-            
-            self.tick();
-            
-            //and add to that players total time to offset the tick that shouldnt be
-            //taking their total time down
-            *self.playertimeleft.get_mut(&playerid).unwrap() += 1;
-        }
+        self.currentturntick += 100;
         
     }
     
     //get a set of players who currently have a turn
     pub fn get_current_players(&self) -> HashSet<u8>{
         
+        let turn = self.turns.get(&self.currentturn).unwrap();
+
+        let mut toreturn = HashSet::new();
         
-        let mut activeplayers = HashSet::new();
-        
-        
-        for (playerid, timeuntil, timeleft) in &self.queuedturns{
-            
-            
-            if *timeuntil <= 0 && *timeleft > 0{
-                
-                activeplayers.insert(*playerid);
-                
-            }
-            
-            
-        }
-        
-        
-        activeplayers
-        
-        
-        
+        toreturn.insert(turn.0);
+
+        toreturn
     }
 
     //if it is this players turn, is it the last tick they have for their turn?
     pub fn is_it_this_players_turns_last_tick(&self, playerid: u8) -> bool{
 
-        for (queuedplayer, ticksuntil, turnlength) in self.queuedturns.iter(){
+        let (curplayerid, turnlength, _) = self.turns.get(&self.currentturn).unwrap();
 
-            if queuedplayer == &playerid{
+        if playerid == *curplayerid{
 
-                if *turnlength <= 1{
-                    return true;
-                }
-            }
+            if self.currentturntick == *turnlength -1{
+
+                return true;
+            };
         };
 
-        false    
+        return false;
     }
-
 
     //if it is this players turn, return how many ticks they have left in their turn
     pub fn get_ticks_left_for_players_turn(&self, playerid: u8) -> Option<u32>{
 
-        for (queuedplayer, ticksuntil, turnlength) in self.queuedturns.iter(){
 
-            if queuedplayer == &playerid{
+        let (curplayerid, turnlength, _) = self.turns.get(&self.currentturn).unwrap();
 
-                if ticksuntil == &0{
-                    return Some(*turnlength);
-                }
-            }
+        if playerid == *curplayerid{
+
+            return Some( turnlength - self.currentturntick );
+
         };
 
-        None
+        return None;
+
     }
 
     //the total amount of ticks this player has left
@@ -398,7 +253,37 @@ impl TurnManager{
             }
 
         }
+
         panic!("this player doesnt have a total ticks count");
+    }
+
+
+    //call this when the players should start taking 2 turns in a row
+    pub fn players_take_2_turns_in_a_row(&mut self){
+
+
+
+        //player 1 goes, then goes again, 
+        self.turns.insert(0, (1, 60, 1) );
+        self.turns.insert(1, (1, 60, 2) );
+
+        //then 2 goes then goes again
+        self.turns.insert(2, (2, 60, 3) );
+        self.turns.insert(3, (2, 60, 0) );
+
+
+    }
+
+
+    pub fn halve_time_left(&mut self){
+
+
+        for (player, timeleft) in self.playertimeleft.iter_mut(){
+
+            *timeleft = *timeleft / 2;
+        }
+
+
     }
     
 

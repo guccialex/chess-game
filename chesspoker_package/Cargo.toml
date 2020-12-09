@@ -14,21 +14,15 @@ nphysics3d = {version = "0.18", default-features = false, features = [ "dim3", "
 
 rapier3d = { version = "*", features = [ "serde-serialize" ] }
 
-#nphysics_testbed3d = "*"
 
-
-#DISABLE THIS IN WEBASSUMBLY VERSION
-#tungstenite = "*"
 
 serde = { version = "*", features = ["derive"] }
-serde_json = "*"
-ron = "*"
+
 
 
 rand = {version = "*", features = [ "wasm-bindgen" ] }
 
 
-#DISABLE THIS IN SERVER VERSION
-#wasm-bindgen = "*"
 
 
+rust_poker = "*"
