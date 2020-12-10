@@ -277,21 +277,8 @@ class GameApperance{
         
         
         
-        this.scene.autoClear = false; // Color buffer
-        this.scene.autoClearDepthAndStencil = false; // Depth and stencil, obviously
-        //this.scene.setRenderingAutoClearDepthStencil(renderingGroupIdx, autoClear, depth, stencil);
+        var options = BABYLON.SceneOptimizerOptions.ModerateDegradationAllowed(30, 30);
         
-
-        var options = BABYLON.SceneOptimizerOptions.ModerateDegradationAllowed(30, 30);//new BABYLON.SceneOptimizerOptions(40, 900);
-        //options.addOptimization(new BABYLON.HardwareScalingOptimization(0, 1));
-        // Optimizer
-        //var optimizer = new BABYLON.SceneOptimizer(this.scene, options);
-        
-
-        //optimizer.start();
-
-        //BABYLON.SceneOptimizer.OptimizeAsync(this.scene, options);
-
         BABYLON.SceneOptimizer.OptimizeAsync(scene, options);
     }
     
@@ -307,206 +294,114 @@ class GameApperance{
         //for each object in the appearance data
         for (let objectdata of appearancedata.objects){
             
-            
             //get the name of the object
             let objectname = objectdata.name;
             
             //get the mesh if it exists
             let objectmesh = this.scene.getMeshByName(objectname);
+        
             
-            
-            //if the mesh is to be updated
-            let meshupdated = objectdata.meshupdated;
-            
-            
-            //if the mesh doesnt exist, create it
-            //or if the object data says that the mesh is updated
-            if (objectmesh == null || meshupdated == true){
-                
-                
-                //if the object mesh is updated, dispose of the old mesh
-                if (meshupdated == true && objectmesh != null){
-                    console.log("disposing of old mesh");
-                    objectmesh.dispose();
-                }
-                
-                //the type of mesh it is
-                let cubedata = objectdata.mesh.Cube;
-                let cylinderdata = objectdata.mesh.Cylinder;
-                let timerdata = objectdata.mesh.Timer;
-                let circledata = objectdata.mesh.Circle;
-                let buttondata = objectdata.mesh.Button;
 
-                
-                if (cubedata != null){
-                    
+        
+            
+            //if the mesh doesnt exist
+            if (objectmesh == null){
+
+                //console.log(objectdata);
+
+                let shapedata = objectdata.shape.shapetype;
+                let shapetypename = objectdata.shape.shapetype.type;
+
+                if (shapetypename == "Cube"){
+
                     let options = {
-                        height : cubedata.dimensions[0],
-                        width  : cubedata.dimensions[1],
-                        depth  : cubedata.dimensions[2],
+                        height : shapedata.dimensions[0],
+                        width  : shapedata.dimensions[1],
+                        depth  : shapedata.dimensions[2],
                     };
                     
-                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectdata.name, options, this.scene);
-                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
-                    
-                    //if this has a mesh
-                    if (cubedata.texture != null){
-                        objectmesh.material.ambientTexture = new BABYLON.Texture(cubedata.texture, this.scene);
-                    }
-                    
+                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, options, this.scene);
                 }
-                else if (cylinderdata != null){
-                    
+                else if (shapetypename == "Cylinder"){
+
                     let options = {
-                        height : cylinderdata.dimensions[0],
-                        diameter  : cylinderdata.dimensions[1],
+                        height : shapedata.dimensions[0],
+                        diameter  : shapedata.dimensions[1],
                     };
                     
-                    objectmesh = BABYLON.MeshBuilder.CreateCylinder(objectdata.name, options, this.scene);
-                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
-                    
-                    //if this has a mesh
-                    if (cylinderdata.texture != null){
-                        
-                        objectmesh.material.ambientTexture = new BABYLON.Texture(cylinderdata.texture, this.scene);
-                    }
-                    
+                    objectmesh = BABYLON.MeshBuilder.CreateCylinder(objectname, options, this.scene);
                 }
-                else if (circledata != null){
-                    
+                else if (shapetypename == "Circle"){
+
                     let options = {
-                        diameter: circledata.diameter
+                        diameter: shapedata.diameter
                     };
                     
-                    objectmesh = BABYLON.MeshBuilder.CreateSphere(objectdata.name, options, this.scene);
-                    objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
-                    
-                    //if this has a mesh
-                    if (circledata.texture != null){
-                        objectmesh.material.ambientTexture = new BABYLON.Texture(circledata.texture, this.scene);
-                    }
-                    
+                    objectmesh = BABYLON.MeshBuilder.CreateSphere(objectname, options, this.scene);
                 }
-                else if (timerdata != null){
-                    
-                    let options = {
-                        height : 0.01,
-                        width  : 1.4,
-                        depth  : 2,
-                    };
-                    
-                    
-                    objectmesh = BABYLON.MeshBuilder.CreateBox(objectdata.name, options, this.scene);
-                    
-                    
-                    //Create dynamic texture
-                    let texturetimer = new BABYLON.DynamicTexture("dynamic texture", {width:100, height:70}, this.scene);   
-                    
-                    let materialtimer = new BABYLON.StandardMaterial("Mat", this.scene);
 
-                    materialtimer.diffuseTexture = texturetimer;
-                    objectmesh.material = materialtimer;                    
-                    
-                    
-                }
-                else if (buttondata != null){
-                    
-                    let options = {
-                        height : 0.1,
-                        diameter  : 1.2,
-                    };
-                    
-                    objectmesh = BABYLON.MeshBuilder.CreateCylinder(objectdata.name, options, this.scene);
-
-                    
-
-                    let texture = new BABYLON.DynamicTexture("dynamic texture", {width:100, height:100}, this.scene);   
-                    let material = new BABYLON.StandardMaterial("Mat", this.scene);
-
-                    material.diffuseTexture = texture;
-                    objectmesh.material = material;
-
-
-                    let font = "bold 30px monospace";
-                    objectmesh.material.diffuseTexture.drawText(buttondata.text, 5, 55, font, "white", null, true, true);
-
-                    
-                }
-                else{
-                    console.log("THIS CARD DOESNT HAVE A MESH");
-                }
                 
-            }
-            
-            
-            
-            
-            
-            
-            
-            //set its position and rotation values
-            //interpolate it a bit, probably can do this a better way
-            objectmesh.position.x = (objectmesh.position.x * 0.5) + (objectdata.position[0] * 0.5);
-            objectmesh.position.y = (objectmesh.position.y * 0.5) + (objectdata.position[1] * 0.5);
-            objectmesh.position.z = (objectmesh.position.z * 0.5) + (objectdata.position[2] * 0.5);
-            
-            
-            
-            objectmesh.rotation.x = objectdata.rotation[0];
-            objectmesh.rotation.y = objectdata.rotation[1];
-            objectmesh.rotation.z = objectdata.rotation[2];
-            
-            
-            objectmesh.material.diffuseColor = new BABYLON.Color3( objectdata.colour[0] / 255, objectdata.colour[1] / 255, objectdata.colour[2] /255);
-            
-            
-            
-            
-            let timerdata = objectdata.mesh.Timer;
-            
-            //if its a timer, scale it according to the time left
-            if (timerdata != null){
-                
-                let bgcolour = new BABYLON.Color3( objectdata.colour[0] / 255, objectdata.colour[1] / 255, objectdata.colour[2] /255);
-                
-                //clear background and update timer text
-                
-                if (timerdata.currentlyturn){
-                    let font = "bold 40px monospace";
-                    objectmesh.material.diffuseTexture.drawText(timerdata.timeleft, 0, 40, font, "black", "green", true, true);
-                    
-                }
-                else{
-                    let font = "bold 40px monospace";
-                    objectmesh.material.diffuseTexture.drawText(timerdata.timeleft, 0, 40, font, "black", "white", true, true);
-                }
-                
-                //Add text
-                let font = "bold 10px monospace";
-                objectmesh.material.diffuseTexture.drawText("and then you lose", 0, 60, font, "black", null, true, true);
-                
+
+                console.log(objectmesh);
             }
 
 
-
-              
-            /*
-            let buttondata = objectdata.mesh.Button;
+            //if this mesh was just created, or the shape needs to updated
+            objectmesh.position.x = (objectmesh.position.x * 0.5) + (objectdata.shape.position[0] * 0.5);
+            objectmesh.position.y = (objectmesh.position.y * 0.5) + (objectdata.shape.position[1] * 0.5);
+            objectmesh.position.z = (objectmesh.position.z * 0.5) + (objectdata.shape.position[2] * 0.5);
             
-            //if its a timer, scale it according to the time left
-            if (buttondata != null){
-                
-                let font = "bold 40px monospace";
-                objectmesh.material.diffuseTexture.drawText("THING", 0, 40, font, "black", "green", true, true);
-                    
-                //Add text
-                font = "bold 10px monospace";
-                objectmesh.material.diffuseTexture.drawText("and then you lose", 0, 60, font, "black", null, true, true);
-                
+            
+            objectmesh.rotation.x = objectdata.shape.rotation[0];
+            objectmesh.rotation.y = objectdata.shape.rotation[1];
+            objectmesh.rotation.z = objectdata.shape.rotation[2];
+            
+
+
+
+
+
+            //if this mesh doesnt have a material
+            if (objectmesh.material == null){
+
+                objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
+
             }
-            */
+
+            let colour = new BABYLON.Color3( objectdata.texture.colour[0] / 255, objectdata.texture.colour[1] / 255, objectdata.texture.colour[2] /255);
+            objectmesh.material.diffuseColor = colour;
 
 
+
+            //if this object has an image for its texture
+            if (objectdata.texture.image != null){
+                objectmesh.material.ambientTexture = new BABYLON.Texture(objectdata.texture.image, this.scene);
+            }
+
+
+            
+            //if this object has text
+            let textdata = objectdata.texture.text;
+            if (textdata != null){
+
+                let texture = new BABYLON.DynamicTexture("dynamic texture", {width:100, height:100}, this.scene);   
+                objectmesh.material.diffuseTexture = texture;
+
+                let text = textdata.text;
+                let font = "bold "+textdata.fontsize+"px monospace";
+                let xpos = textdata.position[0];
+                let ypos = textdata.position[1];
+
+                objectmesh.material.diffuseTexture.drawText(text, xpos, ypos, font, "white", "transparent", true, true);
+
+                objectmesh.material.useAlphaFromDiffuseTexture = true;
+
+
+            }
+            
+
+            
+            
             
             
             objectspassedtorender.push(objectname);

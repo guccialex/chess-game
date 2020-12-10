@@ -335,10 +335,6 @@ impl CardsInterface{
         the river in the game           5
         */
         
-        let mut field = 0;
-        
-        let mut positioninfield = 0;
-        
         
         for (playerid, hand) in &self.hands{
 
@@ -353,7 +349,7 @@ impl CardsInterface{
                 
                 if cardidinhand == &cardid{
                     
-                    return (field,positioninfield,fieldsize);
+                    return (*playerid,curcardpos,fieldsize);
                 }
             }
         }

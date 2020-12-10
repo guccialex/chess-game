@@ -308,6 +308,9 @@ impl MainGame{
         
         (canflick, toreturn)
     }
+
+
+    
     
     //get the input that a player sends and set it to be performed next tick
     //return whether this input is valid for this player to have queued
@@ -849,11 +852,13 @@ impl ConnectedToGame{
 
 
 
+//all the information the frontend needs to display the state of the game
 pub struct GameState{
 
 
 
-    
+
+
 }
 
 

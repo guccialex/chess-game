@@ -41,7 +41,7 @@ mod interface;
 use interface::LocalGameInterface;
 use interface::ObjectType;
 use interface::FullAppearanceState;
-use interface::ObjectAppearance;
+use interface::AppearanceData;
 use interface::objectname_to_objecttype;
 use interface::objecttype_to_objectname;
 
@@ -73,9 +73,6 @@ pub struct FullGame{
     //the name of the object that is selected
     selectedobject: Option<ObjectType>,
     
-    //the list of objects that will be added to the game appearance
-    gameappearancetoappend: Vec<ObjectAppearance>,
-    
     
     dragged: Option<Dragged>,
     
@@ -104,7 +101,6 @@ impl FullGame{
             localgame: LocalGameInterface::new(playerid),
             queuedoutgoingsocketmessages: Vec::new(),
             selectedobject: None,
-            gameappearancetoappend: Vec::new(),
             dragged: None,
             piecesforoffer: HashSet::new(),
         }
@@ -155,43 +151,64 @@ impl FullGame{
         
         if let Some(selectedobject) = self.selectedobject{
             highlightedobjects = self.localgame.get_this_objects_selectable_objects(selectedobject);
-            toreturn.make_object_selected( objecttype_to_objectname(selectedobject) );
+            toreturn.make_object_colour( objecttype_to_objectname(selectedobject), (10.0,10.0,254.0) );
         }
         
         
         //set those objects to highlighted in the struct being returned
         for highlightedobject in highlightedobjects{
             let highlightedobjectname = objecttype_to_objectname(highlightedobject);
-            toreturn.make_object_highlighted(highlightedobjectname);
+            toreturn.make_object_colour(highlightedobjectname, (0.0,255.0,0.0));
         }
         
         
-        //append the "gameappearancetoappend" to the appearance data being returned
-        toreturn.append_object_list( self.gameappearancetoappend.clone() );
+        
+        /*
+        //if theres a piece being dragged
+        //append the cue to the appearance data being returned
+        
+        if let Some(dragged) = self.dragged{
+            
+            if let Dragged::piece(position, rotation) = dragged{
+                
+                
+                
+                
+                
+            }
+            
+        }
+        let cueappearance = AppearanceData::new_cue(pos: (f32,f32,f32), rot: (f32,f32,f32))
+        
+        toreturn.add_object(  );
+        */
+        
+        
         
         
         //highlight the list of objects up for offer
         for pieceid in &self.piecesforoffer{
-
+            
             let objecttype = ObjectType::piece(*pieceid);
             let highlightedobjectname = objecttype_to_objectname(objecttype);
-            toreturn.make_object_highlighted(highlightedobjectname);
+            
+            toreturn.make_object_colour(highlightedobjectname, (0.0,255.0,0.0));
         }
-
-
-
+        
+        
+        
         let vecofpieces: Vec<u16> = self.piecesforoffer.clone().into_iter().collect();
         let valueoffered = self.localgame.get_value_of_offered_pieces(vecofpieces);
         let valuetocheck = self.localgame.get_cost_to_check();
-
+        
         if let Some(valueoffered) = valueoffered{
             if let Some(valuetocheck) = valuetocheck{
-
+                
                 toreturn.append_value_out_of_value(valueoffered, valuetocheck);
-
+                
             }
         }
-
+        
         
         
         //turn it into a json object and return as a jsvalue
@@ -251,19 +268,19 @@ impl FullGame{
                 }
             }
         }
-
+        
         //the check fold and raise buttons should only be available to be clicked if
         //the pieces for offer add to the valid amount
         //and clear the list of pieces for offer
-
+        
         //if its name is "check button"
         else if ObjectType::checkbutton == objecttype{
-
+            
             let vecofpieces: Vec<u16> = self.piecesforoffer.clone().into_iter().collect();
             
             let input = self.localgame.try_to_check(vecofpieces);
             self.queuedoutgoingsocketmessages.push(input);
-
+            
             self.piecesforoffer = HashSet::new();
         }
         //if its name is "fold button"
@@ -271,7 +288,7 @@ impl FullGame{
             
             let input = self.localgame.try_to_fold();
             self.queuedoutgoingsocketmessages.push(input);
-
+            
             self.piecesforoffer = HashSet::new();
         }
         //if its name is "raise button"
@@ -281,7 +298,7 @@ impl FullGame{
             
             let input = self.localgame.try_to_raise(vecofpieces);
             self.queuedoutgoingsocketmessages.push(input);
-
+            
             self.piecesforoffer = HashSet::new();
         }
         
@@ -308,17 +325,6 @@ impl FullGame{
                 //click the pieces in the value gathering mode
                 self.click_in_value_gathering_mode(pickedobject);
             }
-            //if the selected object is currently none
-            else if self.selectedobject == None{
-                
-                //if the picked object is owned by me
-                //or selectable by me (button / deck)
-                if self.localgame.do_i_own_object(pickedobject){
-                    
-                    //set that object to be the selected one
-                    self.selectedobject = Some( pickedobject );
-                }
-            }
             //if theres an object already selected
             else if let Some(currentlyselectedobject) = self.selectedobject{
                 
@@ -339,6 +345,26 @@ impl FullGame{
                 let input = self.localgame.try_to_draw_card();
                 self.queuedoutgoingsocketmessages.push(input);
             }
+            //if its a card, play the card
+            else if let ObjectType::card(cardid) = pickedobject{
+
+                let input = self.localgame.try_to_play_card(cardid);
+                self.queuedoutgoingsocketmessages.push(input);
+                
+            }
+            //if the selected object is currently none
+            else if self.selectedobject == None{
+                
+                //if the picked object is owned by me
+                //or selectable by me (button / deck)
+                if self.localgame.do_i_own_object(pickedobject){
+                    
+                    //set that object to be the selected one
+                    self.selectedobject = Some( pickedobject );
+                }
+            }
+            
+            
             //if the object selected is some other object i didnt handle
             else{
                 self.selectedobject = None;
@@ -384,9 +410,6 @@ impl FullGame{
                 
                 let (position, rotation) = get_position_and_rotation_of_cue_indicator(selectedposition, relativedistancex, relativedistancey);
                 
-                let dragindicatorappearance = ObjectAppearance::new_cue(position, rotation);
-                self.gameappearancetoappend.push( dragindicatorappearance );
-                
                 
                 //only make a flick mission if the mouse is further away from the piece than 1
                 if let Some( (rotation, distance) ) = get_flick_force(relativedistancex, relativedistancey){
@@ -423,12 +446,8 @@ impl FullGame{
         }
         
         
-        //clear the drag indicator
-        self.gameappearancetoappend = Vec::new();
-        
         //clear the object being dragged
         self.dragged = None;
-        
     }
     
     

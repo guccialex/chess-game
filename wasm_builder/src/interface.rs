@@ -25,9 +25,6 @@ pub struct LocalGameInterface{
     thegame: MainGame,
     
     
-    //the MeshType of each object in the game
-    //to the mesh it was previously
-    objecttolastmesh: HashMap<String, MeshType>,
     
     
 }
@@ -47,7 +44,6 @@ impl LocalGameInterface{
             
             playerid: playerid,
             thegame:thegame,
-            objecttolastmesh: HashMap::new(),
             
         }
     }
@@ -359,7 +355,7 @@ impl LocalGameInterface{
     
     
     //get the appearance of this object
-    fn get_object_appearance(&mut self, objectid: ObjectType) -> ObjectAppearance{
+    fn get_object_appearance(&mut self, objectid: ObjectType) -> AppearanceData{
         
         //if its a card
         if let ObjectType::card(cardid) = objectid{
@@ -401,7 +397,7 @@ impl LocalGameInterface{
             
             
             
-            let toreturn = ObjectAppearance::new_card( objectname, (xpos, ypos, zpos), (xrot, yrot, zrot), card );
+            let toreturn = AppearanceData::new_card( objectname, (xpos, ypos, zpos), (xrot, yrot, zrot), card );
             
             
             return toreturn ;
@@ -419,7 +415,7 @@ impl LocalGameInterface{
             
             //if this is a new mesh
             
-            let toreturn = ObjectAppearance::new_piece( objectname, typename, position, rotation, ownerid, &mut self.objecttolastmesh );
+            let toreturn = AppearanceData::new_piece( objectname, typename, position, rotation, ownerid );
             
             
             return toreturn;
@@ -432,7 +428,7 @@ impl LocalGameInterface{
             
             let issquarewhite = self.thegame.is_boardsquare_white(bsid);
             
-            let toreturn = ObjectAppearance::new_boardsquare( objectname, position, rotation, issquarewhite );
+            let toreturn = AppearanceData::new_boardsquare( objectname, position, rotation, issquarewhite );
             
             
             return toreturn;
@@ -555,7 +551,7 @@ impl LocalGameInterface{
         let objectids = self.get_objects();
         
         //get the object appearance of these objects
-        let mut objectsappearance: Vec<ObjectAppearance> = Vec::new();
+        let mut objectsappearance: Vec<AppearanceData> = Vec::new();
         
         for objectid in objectids{
             let objectappearance = self.get_object_appearance(objectid);
@@ -571,32 +567,32 @@ impl LocalGameInterface{
         
         
         
-        let deckappearance = ObjectAppearance::new_deck();
+        let deckappearance = AppearanceData::new_deck();
         toreturn.add_object(deckappearance);
         
         //add the appearance of the timer for the player and the opponent
         let player1totaltimeleft = self.thegame.get_players_total_ticks_left(1);
         let iscurrentlyturn = (self.thegame.get_players_turn_ticks_left(1) > 0);
-        let player1timer = ObjectAppearance::new_timer(1, player1totaltimeleft, iscurrentlyturn);
+        let player1timer = AppearanceData::new_timer(1, player1totaltimeleft, iscurrentlyturn);
         toreturn.add_object(player1timer);
         
         
         let player2totaltimeleft = self.thegame.get_players_total_ticks_left(2);
         let iscurrentlyturn = (self.thegame.get_players_turn_ticks_left(2) > 0);
-        let player2timer = ObjectAppearance::new_timer(2, player2totaltimeleft, iscurrentlyturn);
+        let player2timer = AppearanceData::new_timer(2, player2totaltimeleft, iscurrentlyturn);
         toreturn.add_object(player2timer);
         
         
         
         //if theres a poker game going on
         //give the check, fold and raise buttons
-        let checkbutton = ObjectAppearance::new_check_button();
+        let checkbutton = AppearanceData::new_check_button();
         toreturn.add_object(checkbutton);
 
-        let foldbutton = ObjectAppearance::new_fold_button();
+        let foldbutton = AppearanceData::new_fold_button();
         toreturn.add_object(foldbutton);
 
-        let raisebutton = ObjectAppearance::new_raise_button();
+        let raisebutton = AppearanceData::new_raise_button();
         toreturn.add_object(raisebutton);
         
         
@@ -608,78 +604,103 @@ impl LocalGameInterface{
 
 
 
+
+
+
 use serde::{Serialize, Deserialize};
 
 
 
-//appearance data for an object
-#[derive(Serialize, Deserialize, Clone)]
-pub struct ObjectAppearance{
+impl AppearanceData{
     
-    //the shared elements
-    position: (f32,f32,f32),
-    rotation: (f32,f32,f32),
-    name: String,
-    colour: (u8,u8,u8),
-    
-    meshupdated: bool,
-    
-    
-    mesh: MeshType,
-}
+    pub fn new_cue(pos: (f32,f32,f32), rot: (f32,f32,f32)) -> AppearanceData{
+        
 
-impl ObjectAppearance{
-    
-    pub fn new_cue(pos: (f32,f32,f32), rot: (f32,f32,f32)) -> ObjectAppearance{
-        
-        let mesh = CubeMesh{
-            dimensions: (0.2, 0.2, 1.2),
-            texture: None,
+        let texture = Texture{
+
+            colour: (200,200,200),
+            image: None,
+            text: None,
         };
-        
-        let meshtype = MeshType::Cube(mesh);
-        
-        ObjectAppearance{
-            name: "dragindicator".to_string(),
+
+
+        let shape = CubeShape{
+            dimensions:  (0.2, 0.2, 1.2),
+        };
+
+        let shapetype = ShapeType::Cube(shape);
+
+
+        let shape = Shape{
+
+            shapetype: shapetype,
+
             position: pos,
+
             rotation: rot,
-            colour: (0,0,0),
-            
-            meshupdated: false,
-            
-            mesh: meshtype,
-        }
-    }
-    
-    
-    
-    pub fn new_deck() -> ObjectAppearance{
-        
-        let texturename = "cardart/cardback.jpg".to_string();
-        
-        let mesh = CubeMesh{
-            dimensions: (0.6, 1.96, 1.4),
-            texture: Some(texturename),
+
         };
-        
-        let meshtype = MeshType::Cube(mesh);
-        
-        
-        ObjectAppearance{
-            name: "deck".to_string(),
-            position: (-7.0,0.0,0.0),
-            rotation: (0.0,0.0,0.0),
-            colour: (255,255,255),
-            
-            meshupdated: false,
-            
-            mesh: meshtype,
-        }
-        
+
+        let appearancedata = AppearanceData{
+
+            name: "dragindicator".to_string(),
+
+            shape: shape,
+
+            texture: texture,
+        };
+
+
+        appearancedata
     }
     
     
-    pub fn new_timer(playerid: u32, ticksleft: u32, currentlyturn: bool) -> ObjectAppearance{
+    pub fn new_deck() -> AppearanceData{
+        
+        let imagename = "cardart/cardback.jpg".to_string();
+        
+
+
+        let texture = Texture{
+
+            colour: (200,200,200),
+            image: Some(imagename),
+            text: None,
+        };
+
+
+        let shape = CubeShape{
+            dimensions: (0.6, 1.96, 1.4),
+        };
+
+        let shapetype = ShapeType::Cube(shape);
+
+
+        let shape = Shape{
+
+            shapetype: shapetype,
+
+            position: (-7.0,0.0,0.0),
+
+            rotation: (0.0,0.0,0.0),
+
+        };
+
+        let appearancedata = AppearanceData{
+
+            name: "deck".to_string(),
+
+            shape: shape,
+
+            texture: texture,
+        };
+
+
+        appearancedata
+    }
+    
+    
+    pub fn new_timer(playerid: u32, ticksleft: u32, currentlyturn: bool) -> AppearanceData{
         
         
         //the time left should be as minutes then seconds
@@ -687,7 +708,6 @@ impl ObjectAppearance{
         
         let minutestext = (seconds / 60).to_string();
         let secondstext = format!("{:02}", seconds % 60);
-        
         
         
         let timeleft = minutestext + ":" + &secondstext;
@@ -707,28 +727,55 @@ impl ObjectAppearance{
         else{
             panic!("ahhh");
         }
-        
-        let mesh = TimerMesh{
-            timeleft: timeleft,
-            currentlyturn: currentlyturn,
+
+        let text = format!("timeleft");
+
+        let text = Text{
+            fontsize: 10,
+            position: (10.0,10.0),
+            text: text,
         };
-        
-        let meshtype = MeshType::Timer(mesh);
-        
-        ObjectAppearance{
+
+        let texture = Texture{
+
+            colour: (200,200,200),
+            image: None,
+            text: Some(text),
+        };
+
+
+        let shape = CubeShape{
+            dimensions: (1.0, 2.0, 1.0),
+        };
+
+        let shapetype = ShapeType::Cube(shape);
+
+
+        let shape = Shape{
+
+            shapetype: shapetype,
+
             position: position,
-            rotation: (0.0,0.0,-0.5),
+
+            rotation: (0.0,0.0,0.0),
+
+        };
+
+        let appearancedata = AppearanceData{
+
             name: name,
-            colour: (255,200,255),
-            
-            meshupdated: false,
-            
-            mesh: meshtype,
-        }
+
+            shape: shape,
+
+            texture: texture,
+        };
+
+
+        appearancedata
         
     }
     
-    pub fn new_piece(objectname: String, typename: String ,position: (f32,f32,f32), rotation: (f32,f32,f32), ownerid: u8, prevmeshmap: &mut HashMap<String, MeshType>) -> ObjectAppearance{
+    pub fn new_piece(objectname: String, typename: String ,position: (f32,f32,f32), rotation: (f32,f32,f32), ownerid: u8) -> AppearanceData{
         
         let texturename;
         let colour;
@@ -738,106 +785,118 @@ impl ObjectAppearance{
             texturename = "pieceart/".to_string() + &typename + &".png";
         }
         else{
-            colour = (255,255,255);
+            colour = (12,12,12);
             texturename = "pieceart/b_".to_string() + &typename + &".png";
             
         }
         
-        let meshtype;
+        let shapetype;
         
         if typename == "poolball"{
             
-            let mesh = CircleMesh{
+            let shape = CircleShape{
                 diameter: 0.7,
-                texture: Some("testball.png".to_string()),
             };
-            
-            meshtype = MeshType::Circle(mesh);
+
+            shapetype = ShapeType::Circle(shape);
             
         }
         else{
             
-            let mesh = CylinderMesh{
-                dimensions: (0.5, 0.72),
-                texture: Some(texturename),
+            let shape = CylinderShape{
+                dimensions: (0.5, 0.7),
             };
-            
-            meshtype = MeshType::Cylinder(mesh);
+    
+            shapetype = ShapeType::Cylinder(shape);
+        
         }
         
         
-        let meshupdated;
-        
-        //if theres a meshtype for this object name
-        if let Some(prevmeshtype) = prevmeshmap.get(&objectname){
-            
-            //if that mesh type is the same as this mesh type, set meshupdated to true
-            if prevmeshtype != &meshtype{
-                meshupdated = true;
-            }
-            else{
-                meshupdated = false;
-            }
-            
-        }
-        else{
-            meshupdated = true;
-        }
-        
-        prevmeshmap.insert(objectname.clone(), meshtype.clone());
-        
-        
-        
-        ObjectAppearance{
-            name: objectname,
-            position: position,
-            rotation: rotation,
+
+
+                        
+
+        let texture = Texture{
             colour: colour,
-            meshupdated: meshupdated,
-            mesh: meshtype,
-        }
+            image: Some(texturename),
+            text: None,
+        };
+
+
+        let shape = Shape{
+
+            shapetype: shapetype,
+
+            position: position,
+
+            rotation: rotation,
+
+        };
+
+        let appearancedata = AppearanceData{
+
+            name: objectname,
+
+            shape: shape,
+
+            texture: texture,
+        };
+
+
+        appearancedata
+
         
     }
     
-    pub fn new_card(name: String, position: (f32,f32,f32), mut rotation: (f32,f32,f32), card: Card ) -> ObjectAppearance{
+    pub fn new_card(name: String, position: (f32,f32,f32), mut rotation: (f32,f32,f32), card: Card ) -> AppearanceData{
         
         let texturename = LocalGameInterface::get_name_of_cards_texture(&card);
         
         
-        let mesh = CubeMesh{
-            dimensions: (0.1, 1.96, 1.4),
-            texture: Some(texturename),
-        };
-        
-        let meshtype = MeshType::Cube(mesh);
-        
-        
         rotation.1 += 3.14159 / 2.0;
-        
-        ObjectAppearance{
-            name: name,
+                
+
+        let texture = Texture{
+            colour: (200,200,200),
+            image: Some(texturename),
+            text: None,
+        };
+
+
+        let shape = CubeShape{
+            dimensions: (0.1, 1.96, 1.4),
+        };
+
+        let shapetype = ShapeType::Cube(shape);
+
+
+        let shape = Shape{
+
+            shapetype: shapetype,
+
             position: position,
+
             rotation: rotation,
-            colour: (255,255,255),
-            
-            meshupdated: false,
-            
-            mesh: meshtype,
-        }
-        
+
+        };
+
+        let appearancedata = AppearanceData{
+
+            name: name,
+
+            shape: shape,
+
+            texture: texture,
+        };
+
+
+        appearancedata
         
     }
     
     
-    pub fn new_boardsquare(name: String, position: (f32,f32,f32), rotation: (f32,f32,f32), white: bool ) -> ObjectAppearance{
+    pub fn new_boardsquare(name: String, position: (f32,f32,f32), rotation: (f32,f32,f32), white: bool ) -> AppearanceData{
         
-        
-        let mesh = CubeMesh{
-            dimensions: (1.0, 1.0, 1.0),
-            texture: None,
-        };
-        
-        let meshtype = MeshType::Cube(mesh);
         
         let colour;
         
@@ -847,181 +906,248 @@ impl ObjectAppearance{
         else{
             colour = (0,0,0);
         }
-        
-        
-        ObjectAppearance{
-            name: name,
-            position: position,
-            rotation: rotation,
+
+
+        let texture = Texture{
             colour: colour,
-            
-            meshupdated: false,
-            
-            mesh: meshtype,
-        }
-        
-        
-    }
-    
-
-    
-    pub fn new_check_button() -> ObjectAppearance{
-
-        let mesh = ButtonMesh{
-            text: "check".to_string(),
+            image: None,
+            text: None,
         };
 
-        let meshtype = MeshType::Button(mesh);
-        
-     
-        ObjectAppearance{
 
-            position: (9.5, 0.0, -4.0),
-            rotation: (0.0, 0.0, 0.0),
-            name: "check button".to_string(),
-            colour: (100,100,100),
-
-            meshupdated: false,
-
-            mesh: meshtype,
-        }
-    }
-    
-    
-    pub fn new_fold_button() -> ObjectAppearance{
-
-        let mesh = ButtonMesh{
-            text: " fold".to_string(),
+        let shape = CubeShape{
+            dimensions: (1.0, 1.0, 1.0),
         };
 
-        let meshtype = MeshType::Button(mesh);
+        let shapetype = ShapeType::Cube(shape);
 
 
-        ObjectAppearance{
+        let shape = Shape{
 
-            position: (11.5, 0.0, -4.0),
-            rotation: (0.0, 0.0, 0.0),
-            name: "fold button".to_string(),
-            colour: (100,100,100),
+            shapetype: shapetype,
 
-            meshupdated: false,
+            position: position,
 
-            mesh: meshtype,   
-        }
-    }
+            rotation: rotation,
 
-    
-    pub fn new_raise_button() -> ObjectAppearance{
-
-        let mesh = ButtonMesh{
-            text: "raise".to_string(),
         };
 
-        let meshtype = MeshType::Button(mesh);
-     
+        let appearancedata = AppearanceData{
 
-        ObjectAppearance{
+            name: name,
 
-            position: (13.5, 0.0, -4.0),
-            rotation: (0.0, 0.0, 0.0),
-            name: "raise button".to_string(),
-            colour: (100,100,100),
+            shape: shape,
 
-            meshupdated: false,
+            texture: texture,
+        };
 
-            mesh: meshtype,            
-        }
+
+        appearancedata
         
     }
+    
+    
+    pub fn new_check_button() -> AppearanceData{
 
-    pub fn new_piece_value_offered(valuex: u8, valuey: u8) -> ObjectAppearance{
+        let text = format!("check");
 
-        let text = format!("{}/{}", valuex, valuey);
-
-        let appearance = ButtonMesh{
+        let text = Text{
+            fontsize: 10,
+            position: (10.0,10.0),
             text: text,
         };
 
-        let meshtype = MeshType::Button(appearance);
+        let texture = Texture{
 
-        ObjectAppearance{
+            colour: (200,200,200),
+            image: None,
+            text: Some(text),
+        };
 
-            //top left
-            position: (0.0,3.0,0.0),
+
+        let shape = CylinderShape{
+            dimensions: (1.0, 2.0),
+        };
+
+        let shapetype = ShapeType::Cylinder(shape);
+
+
+        let shape = Shape{
+
+            shapetype: shapetype,
+
+            position: (9.5,2.0,-4.0),
+
             rotation: (0.0,0.0,0.0),
-            name: "value offered overlay".to_string(),
-            colour: (255,255,255),
 
-            meshupdated: true,
+        };
 
-            mesh: meshtype,
-        }
+        let appearancedata = AppearanceData{
 
+            name: "check button".to_string(),
+
+            shape: shape,
+
+            texture: texture,
+        };
+
+
+        appearancedata
+    }
+    
+    
+    pub fn new_fold_button() -> AppearanceData{
+
+        let text = format!("fold");
+
+        let text = Text{
+            fontsize: 10,
+            position: (10.0,10.0),
+            text: text,
+        };
+
+        let texture = Texture{
+
+            colour: (200,200,200),
+            image: None,
+            text: Some(text),
+        };
+
+
+        let shape = CylinderShape{
+            dimensions: (1.0, 2.0),
+        };
+
+        let shapetype = ShapeType::Cylinder(shape);
+
+
+        let shape = Shape{
+
+            shapetype: shapetype,
+
+            position: (11.5,2.0,-4.0),
+
+            rotation: (0.0,0.0,0.0),
+
+        };
+
+        let appearancedata = AppearanceData{
+
+            name: "fold button".to_string(),
+
+            shape: shape,
+
+            texture: texture,
+        };
+
+
+        appearancedata
     }
 
     
+    pub fn new_raise_button() -> AppearanceData{
+
+        let text = format!("raise");
+
+        let text = Text{
+            fontsize: 10,
+            position: (10.0,10.0),
+            text: text,
+        };
+
+        let texture = Texture{
+
+            colour: (200,200,200),
+            image: None,
+            text: Some(text),
+        };
+
+
+        let shape = CylinderShape{
+            dimensions: (1.0, 2.0),
+        };
+
+        let shapetype = ShapeType::Cylinder(shape);
+
+
+        let shape = Shape{
+
+            shapetype: shapetype,
+
+            position: (13.0,0.0,-4.0),
+
+            rotation: (0.0,0.0,0.0),
+
+        };
+
+        let appearancedata = AppearanceData{
+
+            name: "raise button".to_string(),
+
+            shape: shape,
+
+            texture: texture,
+        };
+
+
+        appearancedata
+        
+    }
+
+    pub fn new_piece_value_offered(valuex: u8, valuey: u8) -> AppearanceData{
+
+        let text = format!("{}/{}", valuex, valuey);
+
+        let text = Text{
+            fontsize: 10,
+            position: (10.0,10.0),
+            text: text,
+        };
+
+        let texture = Texture{
+
+            colour: (200,200,200),
+            image: None,
+            text: Some(text),
+        };
+
+
+        let shape = CylinderShape{
+            dimensions: (1.0, 2.0),
+        };
+
+        let shapetype = ShapeType::Cylinder(shape);
+
+
+        let shape = Shape{
+
+            shapetype: shapetype,
+
+            position: (7.0,2.0,-4.0),
+
+            rotation: (0.0,0.0,0.0),
+
+        };
+
+        let appearancedata = AppearanceData{
+
+            name: "piece value".to_string(),
+
+            shape: shape,
+
+            texture: texture,
+        };
+
+
+        appearancedata
+
+    }
+
 }
 
 
 
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
-pub enum MeshType{
-    Cube(CubeMesh),
-    Cylinder(CylinderMesh),
-    Circle(CircleMesh),
-    Timer(TimerMesh),
-    Button(ButtonMesh),
-}
-
-
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
-struct TimerMesh{
-    
-    timeleft: String,
-    currentlyturn: bool,
-}
-
-
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
-struct CubeMesh{
-    
-    //the size
-    dimensions: (f32,f32,f32),
-    
-    //the name of the texture
-    texture: Option<String>,
-}
-
-
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
-struct CylinderMesh{
-    
-    //the size
-    dimensions: (f32,f32),
-    
-    //the name of the texture
-    texture: Option<String>,
-}
-
-
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
-struct CircleMesh{
-    
-    //the size
-    diameter: f32,
-    
-    //the name of the texture
-    texture: Option<String>,
-}
-
-
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
-struct ButtonMesh{
-
-    //the text on the button
-    text: String,
-}
 
 
 
@@ -1030,110 +1156,59 @@ struct ButtonMesh{
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FullAppearanceState{
     
-    //this is optional but used when the position of the camera is to be set
-    cameraposition: Option<u32>,
-    
     //the list of every object and its appearance
-    objects: Vec<ObjectAppearance>,
+    objects: Vec<AppearanceData>,
     
 }
 
 impl FullAppearanceState{
     
     fn new() -> FullAppearanceState{
-        
         FullAppearanceState{
-            cameraposition: None,
             objects: Vec::new(),
         }   
     }
     
-    fn add_object(&mut self, objectappearance: ObjectAppearance){
+    fn add_object(&mut self, objectappearance: AppearanceData){
         
         self.objects.push(objectappearance);
     }
     
-    pub fn make_object_highlighted(&mut self, objectname: String){
+    
+    pub fn make_object_colour(&mut self, objectname: String, colour: (f32,f32,f32)){
         
         for curobject in self.objects.iter_mut(){
             
             if curobject.name == objectname{
                 
-                let greencolourfloat = (0.0,255.0,0.0);
-                let colourfloat = (curobject.colour.0 as f32, curobject.colour.1 as f32, curobject.colour.2 as f32);
+                let unmixedcolourfloat = colour;
+                let colourfloat = (curobject.texture.colour.0 as f32, curobject.texture.colour.1 as f32, curobject.texture.colour.2 as f32);
                 
-                
-                let mixedr = greencolourfloat.0 * 0.8 + colourfloat.0 * 0.2;
-                let mixedg = greencolourfloat.1 * 0.8 + colourfloat.1 * 0.2;
-                let mixedb = greencolourfloat.2 * 0.8 + colourfloat.2 * 0.2;
+                let mixedr = unmixedcolourfloat.0 * 0.8 + colourfloat.0 * 0.2;
+                let mixedg = unmixedcolourfloat.1 * 0.8 + colourfloat.1 * 0.2;
+                let mixedb = unmixedcolourfloat.2 * 0.8 + colourfloat.2 * 0.2;
                 
                 //make its colour closer to green
-                curobject.colour = (mixedr as u8, mixedg as u8, mixedb as u8);
+                curobject.texture.colour = (mixedr as u8, mixedg as u8, mixedb as u8);
                 
             }
         }
     }
     
-    pub fn make_object_selected(&mut self, objectname: String){
-        
-        for curobject in self.objects.iter_mut(){
-            
-            if curobject.name == objectname{
-                
-                let yellowcolourfloat = (255.0,255.0,0.0);
-                let colourfloat = (curobject.colour.0 as f32, curobject.colour.1 as f32, curobject.colour.2 as f32);
-                
-                
-                let mixedr = yellowcolourfloat.0 * 0.8 + colourfloat.0 * 0.2;
-                let mixedg = yellowcolourfloat.1 * 0.8 + colourfloat.1 * 0.2;
-                let mixedb = yellowcolourfloat.2 * 0.8 + colourfloat.2 * 0.2;
-                
-                //make its colour closer to green
-                curobject.colour = (mixedr as u8, mixedg as u8, mixedb as u8);
-                
-                
-                
-            }
-        }
-    }
-    
-    pub fn append_object_list(&mut self, objectlist: Vec<ObjectAppearance>){
-        
-        for object in objectlist{
-            
-            self.objects.push(object);
-        }
-    }
-
 
 
     //add an object to display that displays X / X
     pub fn append_value_out_of_value(&mut self, valuex: u8, valuey: u8){
 
-
-        self.add_object( ObjectAppearance::new_piece_value_offered(valuex, valuey) );
-
+        self.add_object( AppearanceData::new_piece_value_offered(valuex, valuey) );
     }
 
-    
     
 }
 
 
 
 
-/*
-object types:
-
-card and ID
-board square and ID
-piece and ID
-
-if its a check, fold or raise button
-
-if its the deck
-
-*/
 
 
 #[derive(PartialEq, Copy, Clone, Hash, Eq, Debug)]
@@ -1257,17 +1332,82 @@ pub fn objecttype_to_objectname(inputobjecttype: ObjectType) -> String {
 
 
 
-//the state of the frontend, passed in to the "interface"
-//when i need to get the fullgameappearance
-struct FrontEndState{
 
 
-    selectedobject: Option<ObjectType>,
 
+//the most complete way form of an object
+//for babylon to take and display
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub struct AppearanceData{
+
+    name: String,
+
+    //the shape
+    shape: Shape,
+
+    //the texture
+    texture: Texture,
+
+}
+
+
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub struct Shape{
+
+    shapetype: ShapeType,
+
+    position: (f32,f32,f32),
+    rotation: (f32,f32,f32),
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[serde(tag = "type")]
+pub enum ShapeType{
+    Cube(CubeShape),
+    Cylinder(CylinderShape),
+    Circle(CircleShape),
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+struct CubeShape{
     
+    dimensions: (f32,f32,f32),
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+struct CylinderShape{
+    
+    dimensions: (f32,f32),
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+struct CircleShape{
+    diameter: f32,
+}
 
 
 
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+struct Texture{
+    
+    colour: (u8,u8,u8),
+    
+    image: Option<String>,
 
+    text: Option<Text>,
+}
+
+
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+struct Text{
+
+    text: String,
+
+    position: (f32,f32),
+
+    fontsize: u32,
 
 }
