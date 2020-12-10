@@ -215,9 +215,9 @@ impl FullGame{
         JsValue::from_serde( &toreturn ).unwrap()
     }
     
-    
+
     //return whether the object passed in is the selected one or not
-    pub fn is_object_selected(&self, objectname: String) -> bool{
+    pub fn is_object_selected_and_flickable(&self, objectname: String) -> bool{
         
         //if it can be converted from an object name to an objecttype
         if let Some(pickedobject) = objectname_to_objecttype(objectname){
@@ -225,12 +225,24 @@ impl FullGame{
             if let Some(selectedobject) = self.selectedobject{
                 
                 if selectedobject == pickedobject{
-                    return true;
+
+                    if let ObjectType::piece(pieceid) = selectedobject{
+                        
+                        if self.localgame.can_piece_be_flicked(pieceid){
+
+                            return true;
+                        }
+                        else{
+                            return false;
+                        }
+                    }
+                    else{
+                        return false;
+                    }
                 }
                 else{
                     return false;
                 }
-                
             }
             else{
                 return false;
@@ -272,7 +284,20 @@ impl FullGame{
         //the check fold and raise buttons should only be available to be clicked if
         //the pieces for offer add to the valid amount
         //and clear the list of pieces for offer
-        
+
+        //if its the debt owed button
+        else if ObjectType::debtbutton == objecttype{
+
+
+            let vecofpieces: Vec<u16> = self.piecesforoffer.clone().into_iter().collect();
+            
+            let input = self.localgame.try_to_settle_debt(vecofpieces);
+            self.queuedoutgoingsocketmessages.push(input);
+            
+            self.piecesforoffer = HashSet::new();
+
+
+        }        
         //if its name is "check button"
         else if ObjectType::checkbutton == objecttype{
             
@@ -336,7 +361,7 @@ impl FullGame{
                     self.queuedoutgoingsocketmessages.push(input);
                 }
                 
-                
+
                 self.selectedobject = None;
                 
             }
@@ -344,13 +369,6 @@ impl FullGame{
             else if ObjectType::deck == pickedobject{
                 let input = self.localgame.try_to_draw_card();
                 self.queuedoutgoingsocketmessages.push(input);
-            }
-            //if its a card, play the card
-            else if let ObjectType::card(cardid) = pickedobject{
-
-                let input = self.localgame.try_to_play_card(cardid);
-                self.queuedoutgoingsocketmessages.push(input);
-                
             }
             //if the selected object is currently none
             else if self.selectedobject == None{

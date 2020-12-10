@@ -66,6 +66,10 @@ pub struct MainGame{
     //if the game is finished, and who the winner is
     gameover: Option<u8>,
     
+    
+    //if the player has performed a draw action yet
+    playerdrewcard: HashMap<u8, bool>,
+    
 }
 
 impl MainGame{
@@ -84,22 +88,21 @@ impl MainGame{
             queuedinputs: HashMap::new(),
             gamesettings: GameSettings::new(),
             gameover: None,
+            playerdrewcard: HashMap::new(),
         };
         
         //add two players
         toreturn.add_player();
         toreturn.add_player();
         
-        toreturn.queuedinputs.insert(1, None);
-        toreturn.queuedinputs.insert(2, None);
         
         //toreturn.cards.start_poker_game(1,2);
         
         toreturn        
     }
     
-
-
+    
+    
     pub fn can_piece_be_offered(&self, playerid: u8, pieceid: u16) -> bool{
         
         let mut piecelist = Vec::new();
@@ -107,8 +110,8 @@ impl MainGame{
         
         self.boardgame.are_pieces_offered_valid(playerid, piecelist)
     }
-
-
+    
+    
     
     pub fn is_game_over(&self) -> Option<u8>{
         
@@ -208,18 +211,18 @@ impl MainGame{
     }
     
     
-
+    
     //return if theres an active pokergame or not
     pub fn is_pokergame_ongoing(&self) -> bool{
-
+        
         self.cards.is_pokergame_ongoing()
     }
-
+    
     pub fn get_value_of_offered_pieces(&self, playerid: u8, piecesoffered: Vec<u16>) -> Option<u8>{
-
+        
         self.boardgame.get_value_of_offered_pieces(playerid, piecesoffered)
     }
-
+    
     pub fn get_debt_of_player(&self, playerid: &u8) -> u8{
         
         //is the debt settled?
@@ -236,7 +239,7 @@ impl MainGame{
         
         return debtofplayer;
     }
-
+    
     pub fn get_cost_to_check(&self, playerid: &u8) -> Option<u8>{
         self.cards.pokergame_options(*playerid)
     }
@@ -308,8 +311,8 @@ impl MainGame{
         
         (canflick, toreturn)
     }
-
-
+    
+    
     
     
     //get the input that a player sends and set it to be performed next tick
@@ -401,11 +404,21 @@ impl MainGame{
         
         
         //if the player doesnt have a king
+        //and neither player has drawn a card yet
         if ! self.boardgame.does_player_have_king(1){
-            self.gameover = Some(2);
+            
+            if self.playerdrewcard.get(&1).unwrap() == &false && self.playerdrewcard.get(&2).unwrap() == &false{
+                
+                self.gameover = Some(2);
+            }
+            
         }
         if ! self.boardgame.does_player_have_king(2){
-            self.gameover = Some(1);
+            
+            if self.playerdrewcard.get(&1).unwrap() == &false && self.playerdrewcard.get(&2).unwrap() == &false{
+                
+                self.gameover = Some(1);
+            }
         }
         
         
@@ -422,14 +435,14 @@ impl MainGame{
     }
     
     
-
-
     
     
     
     
-
-
+    
+    
+    
+    
     //add a player
     fn add_player(&mut self){
         
@@ -439,8 +452,11 @@ impl MainGame{
         
         self.players.insert(currentplayer);
         
-        self.totalplayers += 1;
+        self.queuedinputs.insert(currentplayer, None);
         
+        self.playerdrewcard.insert(currentplayer, false);
+        
+        self.totalplayers += 1;
     }
     
     //check if input is valid rather than just if the action is
@@ -457,11 +473,11 @@ impl MainGame{
         }
         
         else if let PlayerInput::blackjackaction(action) = input{
-            return self.is_blackjack_action_valid(playerid, action);
+            panic!("blackjack not implemented");
+            //return self.is_blackjack_action_valid(playerid, action);
         }
         
         else if let PlayerInput::pieceaction(pieceid, pieceaction) = input.clone(){
-            
             return self.is_piece_action_valid( &playerid, &(pieceid as u16), &pieceaction);
         }
         
@@ -469,32 +485,8 @@ impl MainGame{
             return true
         }
         
-        else if let PlayerInput::settledebt(piecesandvalue) = input{
-            
-            //if the pieces and value are valid and equal to the amount of debt owed by the player
-            if let Some(value) = self.boardgame.get_value_of_offered_pieces(*playerid, piecesandvalue.clone()){
-                
-                if value == self.get_debt_of_player(playerid){
-                    
-                    //and also make sure that the debt of the player isnt already zero
-                    if value != 0{
-                        return true;
-                    }
-                    else{
-                        return false;
-                    }
-                    
-                }
-                else{
-                    return false;
-                }
-                
-            }
-            else{
-                return false;
-            }
-            
-            
+        else if let PlayerInput::settledebt(pieces) = input{
+            return self.is_settle_debt_action_valid(playerid, pieces);
         }
         
         
@@ -681,12 +673,35 @@ impl MainGame{
         false
     }
     
-    fn is_blackjack_action_valid(&self, playerid: &u8, blackjackaction: &BlackJackAction) -> bool{
+    fn is_settle_debt_action_valid(&self, playerid: &u8, pieces: &Vec<u16>) -> bool{
         
-        panic!("not implemented");
+        //if the pieces and value are valid
+        if let Some(value) = self.boardgame.get_value_of_offered_pieces(*playerid, pieces.clone()){
+            
+            // and equal to the amount of debt owed by the player
+            if value == self.get_debt_of_player(playerid){
+                
+                //and also make sure that the debt of the player isnt already zero
+                if value != 0{
+                    return true;
+                }
+                else{
+                    return false;
+                }
+            }
+            else{
+                return false;
+            }
+        }
+        else{
+            return false;
+        }
+        
     }
     
     
+
+
     //perform an input that is valid, and it is the turn of the player
     fn perform_input(&mut self, playerid: &u8, playerinput: &PlayerInput) {
         
@@ -741,7 +756,7 @@ impl MainGame{
             }
             
             
-            //remove the card from the hand
+            //remove the card from the game
             self.cards.remove_card_from_game(*playerid, *cardid);
             
         }
@@ -784,12 +799,13 @@ impl MainGame{
         }
         else if let PlayerInput::drawcard = playerinput{
             
+            *self.playerdrewcard.get_mut(playerid).unwrap() = true;
+            
             self.cards.draw_card(*playerid);
         }
         else if let PlayerInput::settledebt(piecesandvalue) = playerinput{
             
             self.boardgame.put_pieces_in_pool(piecesandvalue.clone());
-            
         }
         else{
             panic!("unhandled input to be performed {:?}", playerinput);
@@ -798,7 +814,7 @@ impl MainGame{
     }
     
     
-
+    
     
 }
 
@@ -848,18 +864,6 @@ impl ConnectedToGame{
     }
 }
 
-
-
-
-
-//all the information the frontend needs to display the state of the game
-pub struct GameState{
-
-
-
-
-
-}
 
 
 

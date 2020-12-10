@@ -248,9 +248,25 @@ impl LocalGameInterface{
     //return if an input was sent to the game, and if it was, what the serialized string of it is
     pub fn try_to_perform_action(&mut self, object1: ObjectType, object2: ObjectType) -> Option<String>{
         
+    
+        //if object 1 and 2 are the same card, play that card
+        if let ObjectType::card(cardid1) = object1{
+
+            if let ObjectType::card(cardid2) = object2{
+
+                if cardid1 == cardid2{
+
+                    //if onl
+
+                    return Some( self.try_to_play_card(cardid1) );
+                }
+            }
+        }
+
+
+
         let objecttoinput = self.get_inputs_of_object(object1);
-        
-        
+
         //if there is a player input that lets object1 perform some action on object 2
         if let Some(playerinput) = objecttoinput.get(&object2){
             
@@ -260,6 +276,8 @@ impl LocalGameInterface{
             return Some( serde_json::to_string(playerinput).unwrap() );
             
         };
+
+
         
         
         //otherwise do nothing and return false
@@ -581,6 +599,14 @@ impl LocalGameInterface{
         let iscurrentlyturn = (self.thegame.get_players_turn_ticks_left(2) > 0);
         let player2timer = AppearanceData::new_timer(2, player2totaltimeleft, iscurrentlyturn);
         toreturn.add_object(player2timer);
+
+
+        let debtowed = self.thegame.get_debt_of_player(&self.playerid);
+
+        if debtowed != 0{
+
+            toreturn.add_object( AppearanceData::new_debt_owed_button(debtowed) );
+        }
         
         
         
@@ -728,12 +754,11 @@ impl AppearanceData{
             panic!("ahhh");
         }
 
-        let text = format!("timeleft");
 
         let text = Text{
-            fontsize: 10,
-            position: (10.0,10.0),
-            text: text,
+            fontsize: 30,
+            position: (0.0,30.0),
+            text: timeleft,
         };
 
         let texture = Texture{
@@ -745,7 +770,7 @@ impl AppearanceData{
 
 
         let shape = CubeShape{
-            dimensions: (1.0, 2.0, 1.0),
+            dimensions: (2.0, 2.0, 2.0),
         };
 
         let shapetype = ShapeType::Cube(shape);
@@ -812,9 +837,6 @@ impl AppearanceData{
         }
         
         
-
-
-                        
 
         let texture = Texture{
             colour: colour,
@@ -952,8 +974,8 @@ impl AppearanceData{
         let text = format!("check");
 
         let text = Text{
-            fontsize: 10,
-            position: (10.0,10.0),
+            fontsize: 20,
+            position: (10.0,40.0),
             text: text,
         };
 
@@ -1001,8 +1023,8 @@ impl AppearanceData{
         let text = format!("fold");
 
         let text = Text{
-            fontsize: 10,
-            position: (10.0,10.0),
+            fontsize: 20,
+            position: (10.0,40.0),
             text: text,
         };
 
@@ -1050,8 +1072,8 @@ impl AppearanceData{
         let text = format!("raise");
 
         let text = Text{
-            fontsize: 10,
-            position: (10.0,10.0),
+            fontsize: 20,
+            position: (10.0,40.0),
             text: text,
         };
 
@@ -1099,8 +1121,8 @@ impl AppearanceData{
         let text = format!("{}/{}", valuex, valuey);
 
         let text = Text{
-            fontsize: 10,
-            position: (10.0,10.0),
+            fontsize: 20,
+            position: (10.0,40.0),
             text: text,
         };
 
@@ -1132,6 +1154,55 @@ impl AppearanceData{
         let appearancedata = AppearanceData{
 
             name: "piece value".to_string(),
+
+            shape: shape,
+
+            texture: texture,
+        };
+
+
+        appearancedata
+
+    }
+
+    pub fn new_debt_owed_button(debt: u8) -> AppearanceData{
+
+        let text = format!("OWE {}", debt);
+
+        let text = Text{
+            fontsize: 20,
+            position: (10.0,40.0),
+            text: text,
+        };
+
+        let texture = Texture{
+
+            colour: (200,200,200),
+            image: None,
+            text: Some(text),
+        };
+
+
+        let shape = CylinderShape{
+            dimensions: (1.0, 2.0),
+        };
+
+        let shapetype = ShapeType::Cylinder(shape);
+
+
+        let shape = Shape{
+
+            shapetype: shapetype,
+
+            position: (0.0,2.0,0.0),
+
+            rotation: (0.0,0.0,0.0),
+
+        };
+
+        let appearancedata = AppearanceData{
+
+            name: "debt button".to_string(),
 
             shape: shape,
 
@@ -1196,7 +1267,6 @@ impl FullAppearanceState{
     }
     
 
-
     //add an object to display that displays X / X
     pub fn append_value_out_of_value(&mut self, valuex: u8, valuey: u8){
 
@@ -1222,6 +1292,7 @@ pub enum ObjectType{
     foldbutton,
     raisebutton,
     checkbutton,
+    debtbutton,
     
 }
 
@@ -1248,7 +1319,11 @@ pub fn objectname_to_objecttype(objectname: String) -> Option<ObjectType> {
     else if objectname == "check button"{
 
         return Some( ObjectType::checkbutton );
-    }    
+    }
+    else if objectname == "debt button"{
+
+        return Some( ObjectType::debtbutton );
+    }
     //if the first character of the objects name is "P"
     else if objectname.chars().nth(0).unwrap() == 'P'{
         
@@ -1318,6 +1393,10 @@ pub fn objecttype_to_objectname(inputobjecttype: ObjectType) -> String {
     }
     else if let ObjectType::checkbutton = inputobjecttype{
         return "check button".to_string();
+    }
+    else if let ObjectType::debtbutton = inputobjecttype{
+
+        return "debt button".to_string();
     }
     else{
         panic!("cant convert object type to a string");

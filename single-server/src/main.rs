@@ -107,7 +107,7 @@ fn handle_connection(mut stream: TcpStream, game: Arc< Mutex< Game >>){
     
     //the password needed to connect to the game as a certain player
     let player1password = "somepassword";
-    let player2password = "1241354353";
+    let player2password = "123423";
     
     
     
@@ -140,7 +140,35 @@ fn handle_connection(mut stream: TcpStream, game: Arc< Mutex< Game >>){
         //if the message im receiving is a string
         if let Ok(textmsg) = msg.into_text(){
             
+
+
+            //if its the password
+            if textmsg == player1password{
+                
+                if let Ok(unlockedgame) = &mut game.lock(){
+
+
+                    if unlockedgame.player1websocket.is_none(){
+                        //if player 1 doesnt exist, connect this websocket as player 1
+                        unlockedgame.connect_player1(websocket);
+
+                    }
+                    //or if player 2 doesnt exist, connect this websocket as player 2
+                    else if unlockedgame.player2websocket.is_none(){
+
+                        //if player 1 doesnt exist, connect this websocket as player 1
+                        unlockedgame.connect_player2(websocket);
+                    }
+                
+                }
+
+
+            }
+
+
             
+
+            /*
             //if that string is the password for player 1
             if textmsg == player1password{
                 
@@ -164,6 +192,7 @@ fn handle_connection(mut stream: TcpStream, game: Arc< Mutex< Game >>){
                 }
                 
             }
+            */
             
             
             //if its not the password for either, do nothing
@@ -230,8 +259,6 @@ impl Game{
 
             tosendupdate: false,
             
-            
-            
         }
         
     }
@@ -248,7 +275,7 @@ impl Game{
             
             
             
-            let player1msg = Message::text("connected to game");
+            let player1msg = Message::text("connected to game as player 1");
             self.player1websocket.as_mut().unwrap().write_message(player1msg).unwrap();
         }
         
@@ -267,7 +294,7 @@ impl Game{
             self.player2active = true;
             
             
-            let player2msg = Message::text("connected to game");
+            let player2msg = Message::text("connected to game as player 2");
             self.player2websocket.as_mut().unwrap().write_message(player2msg).unwrap();
             
         }
@@ -320,17 +347,30 @@ impl Game{
                         self.thegame.receive_input(1, playerinput);
                         
                     }
-                    
-                    
                 }
-                
                 
             }
             //receive player 2's queued input if there is any
             {
+
+                use physicsengine::PlayerInput;
                 
-                
-                
+                if let Some(socket) = &mut self.player2websocket{
+                    
+                    if let Ok(receivedmessage) = socket.read_message(){
+                        
+                        self.tosendupdate = true;
+
+                        let message = receivedmessage.to_string();
+                        
+                        //convert this to a player input
+                        let playerinput = serde_json::from_str::<PlayerInput>(&message).unwrap();
+                        
+                        //give the player input to the game
+                        self.thegame.receive_input(2, playerinput);
+                        
+                    }
+                }
                 
             }
             
@@ -344,22 +384,19 @@ impl Game{
                 let gamebinto1 = bincode::serialize(&self.thegame).unwrap();
                 let vecofchar = gamebinto1.iter().map(|b| *b as char).collect::<Vec<_>>();
                 let stringmessage = vecofchar.iter().collect::<String>();
-                
-                
                 let player1msg = Message::text(stringmessage);
-                
                 if let Some(thing) = self.player1websocket.as_mut(){
                     thing.write_message(player1msg).unwrap();
                 }
                 
                 
-                let gamestatestringto2 = ron::to_string(&self.thegame).unwrap();
-                let player2msg = Message::text(gamestatestringto2);
-                
+                let gamebinto2 = bincode::serialize(&self.thegame).unwrap();
+                let vecofchar = gamebinto2.iter().map(|b| *b as char).collect::<Vec<_>>();
+                let stringmessage = vecofchar.iter().collect::<String>();
+                let player2msg = Message::text(stringmessage);
                 if let Some(thing) = self.player2websocket.as_mut(){
                     thing.write_message(player2msg).unwrap();
                 }
-
 
 
                 self.tosendupdate = false;

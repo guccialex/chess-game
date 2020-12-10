@@ -49,26 +49,26 @@ async function run() {
         console.log("connected to game");
         
         //if its a message that im connected to the game
-        if (event.data == "connected to game"){
-            
+        if (event.data == "connected to game as player 1"){
             
             //remove the "onmessage "event listener
             socket.onmessage = null;
             
+            //start the game and give it the socket connection with the server
+            start(socket, 1);
+        }
+        //if its a message that im connected to the game
+        else if (event.data == "connected to game as player 2"){
+            
+            //remove the "onmessage "event listener
+            socket.onmessage = null;
             
             //start the game and give it the socket connection with the server
-            start(socket);
-            
-            
+            start(socket, 2 );
         }
         
         
     };
-    
-    
-    
-    
-    
     
     
     
@@ -78,34 +78,29 @@ async function run() {
 
 
 
-async function start(socket){
+
+async function start(socket, playerid){
     
     
     let canvas = document.getElementById("renderCanvas"); // Get the canvas element
     let engine = new BABYLON.Engine(canvas, true); // Generate the BABYLON 3D engine
     
-    let mygame = new GameInterface(engine, socket);
+    let mygame = new GameInterface(engine, socket, playerid);
     
     console.log("started");
     
     
     
-    
-    
-    
-    
     //create an event listener that when a message is received, it is sent to the game
     mygame.socket.onmessage = function (event) {
-        
+
         mygame.get_message(event.data);
-        
     };
     
     
     
     //run the game
     rungame(mygame);
-    
 }
 
 
@@ -116,15 +111,11 @@ async function start(socket){
 
 async function rungame(thegame) {
     
-    console.log("STARtING GAME");
-    
-    
     
     //add an event listener for the mouse going up
     window.addEventListener("click", function () {
         
         thegame.mouseup();
-        
     });
     
     
@@ -132,14 +123,12 @@ async function rungame(thegame) {
     window.addEventListener("pointerdown", function () {
         
         thegame.mousedown();
-        
     });
     
     //add an event for themouse moving
     window.addEventListener("pointermove", function () {
         
         thegame.mousemove();
-        
     });
     
     
@@ -147,13 +136,7 @@ async function rungame(thegame) {
     thegame.gameappearance.engine.runRenderLoop(function () {
         
         thegame.tick();
-        
     });
-    
-    
-    
-    
-    
     
 }
 
@@ -299,21 +282,21 @@ class GameApperance{
             
             //get the mesh if it exists
             let objectmesh = this.scene.getMeshByName(objectname);
-        
             
-
-        
+            
+            
+            
             
             //if the mesh doesnt exist
             if (objectmesh == null){
-
+                
                 //console.log(objectdata);
-
+                
                 let shapedata = objectdata.shape.shapetype;
                 let shapetypename = objectdata.shape.shapetype.type;
-
+                
                 if (shapetypename == "Cube"){
-
+                    
                     let options = {
                         height : shapedata.dimensions[0],
                         width  : shapedata.dimensions[1],
@@ -323,7 +306,7 @@ class GameApperance{
                     objectmesh = BABYLON.MeshBuilder.CreateBox(objectname, options, this.scene);
                 }
                 else if (shapetypename == "Cylinder"){
-
+                    
                     let options = {
                         height : shapedata.dimensions[0],
                         diameter  : shapedata.dimensions[1],
@@ -332,20 +315,20 @@ class GameApperance{
                     objectmesh = BABYLON.MeshBuilder.CreateCylinder(objectname, options, this.scene);
                 }
                 else if (shapetypename == "Circle"){
-
+                    
                     let options = {
                         diameter: shapedata.diameter
                     };
                     
                     objectmesh = BABYLON.MeshBuilder.CreateSphere(objectname, options, this.scene);
                 }
-
                 
-
+                
+                
                 console.log(objectmesh);
             }
-
-
+            
+            
             //if this mesh was just created, or the shape needs to updated
             objectmesh.position.x = (objectmesh.position.x * 0.5) + (objectdata.shape.position[0] * 0.5);
             objectmesh.position.y = (objectmesh.position.y * 0.5) + (objectdata.shape.position[1] * 0.5);
@@ -356,50 +339,50 @@ class GameApperance{
             objectmesh.rotation.y = objectdata.shape.rotation[1];
             objectmesh.rotation.z = objectdata.shape.rotation[2];
             
-
-
-
-
-
+            
+            
+            
+            
+            
             //if this mesh doesnt have a material
             if (objectmesh.material == null){
-
+                
                 objectmesh.material = new BABYLON.StandardMaterial("bs_mat", this.scene);
-
+                
             }
-
+            
             let colour = new BABYLON.Color3( objectdata.texture.colour[0] / 255, objectdata.texture.colour[1] / 255, objectdata.texture.colour[2] /255);
             objectmesh.material.diffuseColor = colour;
-
-
-
+            
+            
+            
             //if this object has an image for its texture
             if (objectdata.texture.image != null){
                 objectmesh.material.ambientTexture = new BABYLON.Texture(objectdata.texture.image, this.scene);
             }
-
-
+            
+            
             
             //if this object has text
             let textdata = objectdata.texture.text;
             if (textdata != null){
-
+                
                 let texture = new BABYLON.DynamicTexture("dynamic texture", {width:100, height:100}, this.scene);   
                 objectmesh.material.diffuseTexture = texture;
-
+                
                 let text = textdata.text;
                 let font = "bold "+textdata.fontsize+"px monospace";
                 let xpos = textdata.position[0];
                 let ypos = textdata.position[1];
-
+                
                 objectmesh.material.diffuseTexture.drawText(text, xpos, ypos, font, "white", "transparent", true, true);
-
+                
                 objectmesh.material.useAlphaFromDiffuseTexture = true;
-
-
+                
+                
             }
             
-
+            
             
             
             
@@ -453,7 +436,7 @@ class GameInterface{
     
     
     
-    constructor(engine, socket){
+    constructor(engine, socket, playerid){
         
         //create the "appearance" object for this game, giving it the scene of the engine
         this.gameappearance = new GameApperance(engine, this);
@@ -461,7 +444,7 @@ class GameInterface{
         this.socket = socket;
         
         //create the wasm game
-        this.wasmgame = FullGame.new(1);
+        this.wasmgame = FullGame.new(playerid);
         
         
         //if an object is being dragged (if the camera movement is disabled)
@@ -616,9 +599,11 @@ class GameInterface{
             if (clickedobjectname != null){
                 
                 
+                
+                
+                
                 //if the object is already selected, and is flickable
-                if (this.wasmgame.is_object_selected(clickedobjectname)){
-                    
+                if (this.wasmgame.is_object_selected_and_flickable(clickedobjectname)){
                     
                     //disable panning rotating, all camera movement basically
                     //and remporarily
@@ -636,6 +621,7 @@ class GameInterface{
                     });
                     
                     this.draggingstartingposition = [pickResult.pickedPoint.x, pickResult.pickedPoint.z];
+                    
                     
                     
                 }
