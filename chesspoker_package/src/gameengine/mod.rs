@@ -59,8 +59,8 @@ impl GameEngine{
 
 
         //the pools for the players
-        gameengine.playertopiece.insert(player1id, HashSet::new());
-        gameengine.playertopiece.insert(player2id, HashSet::new());
+        gameengine.playertopiece.insert(11, HashSet::new());
+        gameengine.playertopiece.insert(12, HashSet::new());
 
         
         gameengine.playertodirection.insert(player1id, 0 );
@@ -93,26 +93,25 @@ impl GameEngine{
     }
     
     
-    pub fn are_pieces_and_values_offered_valid(&self, playerid: u8, piecesandvaluededuction: Vec<(u16, u8)>) -> bool{
+    pub fn are_pieces_offered_valid(&self, playerid: u8, piecesoffered: Vec<u16>) -> bool{
         
         let mut allpiecesvalid = true;
         
         
         //for every piece, get if its owned by the player
         //and is worth at least as much as the value suggested, if true
-        for (pieceid, requestedvalue) in piecesandvaluededuction{
+        for pieceid in piecesoffered{
             
             //if its owned by the player
             if self.playertopiece.get(&playerid).unwrap().contains(&pieceid){
                 
                 let piecedata = self.piecetypedata.get(&pieceid).unwrap();
                 
-                let piecevalue = piecedata.get_value();
-                
-                if requestedvalue > piecevalue{
+                //if the piece has a zero value
+                if piecedata.get_value() == 0{
+
                     allpiecesvalid = false;
                 }
-                
             }
             else{
                 allpiecesvalid = false;
@@ -126,27 +125,25 @@ impl GameEngine{
     
     //if the pieces offered are valid
     //and if so, what their total value is
-    pub fn get_value_of_offered_pieces(&self, playerid: u8, piecesandvaluededuction: Vec<(u16, u8)>) -> Option<u8>{
-        
+    pub fn get_value_of_offered_pieces(&self, playerid: u8, piecesoffered: Vec<u16>) -> Option<u8>{
         
         //if its not valid, return None
-        if ! self.are_pieces_and_values_offered_valid(playerid, piecesandvaluededuction.clone()){
+        if ! self.are_pieces_offered_valid(playerid, piecesoffered.clone()){
             return None;
         };
-        
-        
+                
         let mut totalvaluerequested = 0;
         
-        //for every piece, get if its owned by the player
-        //and is worth at least as much as the value suggested, if true
-        for (pieceid, requestedvalue) in piecesandvaluededuction{
-            
-            totalvaluerequested  += requestedvalue;
+
+        for pieceid in piecesoffered{
+
+            let piecedata = self.piecetypedata.get(&pieceid).unwrap();
+                
+            totalvaluerequested += piecedata.get_value();
         }
         
         
         Some( totalvaluerequested )
-        
     }
     
     
@@ -193,37 +190,15 @@ impl GameEngine{
     
     
     //put the amount of value from these pieces into the pool of player X
-    pub fn put_pieces_in_pool(&mut self, piecesandvaluededuction: Vec<(u16, u8)> ){
+    pub fn put_pieces_in_pool(&mut self, pieces: Vec<u16>){
         
         
         //for each piece and value for it
-        for (pieceid, valuetosacrifice) in piecesandvaluededuction{
-            
-            //get the value of that piece
-            let piecevalue = self.piecetypedata.get(&pieceid).unwrap().get_value();
-            
-            
-            let piecetoputinpool;
-            
-            //if the value to sacrifice is equal to the value of the piece
-            //put that piece in this players pool
-            if piecevalue == valuetosacrifice{
-                piecetoputinpool = pieceid;
-            }
-            //if the value to sacrifice is less than the the value of the piece
-            //split that piece and put the piece split into with the value meant to sacrifice
-            //as the one to put in the pool
-            else{
-                let (pieceofvalue, otherpiece) = self.split_piece(pieceid, valuetosacrifice);
-                piecetoputinpool = pieceofvalue;
-            }
-            
-            
+        for pieceid in pieces{
+
             //transfer the ownership of the piece to put in the pool to the pool of the player who owns it
-            self.transfer_piece_to_pool(piecetoputinpool);
-            
+            self.transfer_piece_to_pool(pieceid);
         };
-        
         
     }
     
@@ -418,6 +393,7 @@ impl GameEngine{
             flickable = false;
         }
         
+
         
         return (flickable, allowedactions);
     }

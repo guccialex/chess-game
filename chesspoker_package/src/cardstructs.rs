@@ -10,17 +10,16 @@ use serde::{Serialize, Deserialize};
 pub enum PokerAction{
     
     //raise
-    //the list of pieces and how much value to take from each
-    raise( Vec<(u16,u8)>),
+    //the list of pieces offered
+    raise( Vec<u16>),
     
     //folding action
     fold,
     
     //checking action
-    //the list of pieces and how much value to take from each
+    //the list of pieces offered
     //if the player needs to 
-    check( Vec<(u16,u8)> ),
-    
+    check( Vec<u16> ),
 }
 
 
@@ -159,6 +158,14 @@ impl CardsInterface{
         
     }
     
+
+
+    //is there a pokergame ongoing
+    pub fn is_pokergame_ongoing(&self) -> bool{
+
+        return self.pokergame.is_some();
+    }
+
     
     
     
@@ -580,8 +587,10 @@ impl PokerGame{
         
         PokerGame{
             
-            player1pool: 0,
-            player2pool: 0,
+            //player 1 is the dealer and needs to put in 1,
+            //player 2 is the non dealer and needs to put in 2
+            player1pool: 1,
+            player2pool: 2,
             
             player1hand: player1hand,
             player2hand: player2hand,
@@ -595,6 +604,8 @@ impl PokerGame{
             
             roundnumber: 0,
         }
+
+
     }
     
     

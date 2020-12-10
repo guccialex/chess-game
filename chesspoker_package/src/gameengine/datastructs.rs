@@ -105,6 +105,8 @@ pub struct PieceData{
     hasperformedaction: bool,
     
     canflick: bool,
+
+    value: u8,
     
 }
 
@@ -120,13 +122,14 @@ impl PieceData{
             canenpassant: false,
             hasperformedaction: false,
             canflick: true,
+            value: 0,
         }
     }
     
 
     pub fn get_value(&self) -> u8{
 
-        return 1;
+        return self.value;
     }
 
 
@@ -135,7 +138,8 @@ impl PieceData{
         
         self.allowedactions = AllowedActions::get_normal_checkers();
         
-        self.typename = "checkers".to_string();        
+        self.typename = "checkers".to_string();
+        self.value = 2;
     }
     
     //set selfs actions to be those of a pawn
@@ -150,31 +154,39 @@ impl PieceData{
         
         self.typename = "pawn".to_string();
         
-        
+        self.value = 1;
     }
     
     pub fn set_knight(&mut self){
         self.allowedactions = AllowedActions::get_knight();
         
         self.typename = "knight".to_string();
+
+        self.value = 2;
     }
     
     pub fn set_king(&mut self){
         self.allowedactions = AllowedActions::get_king();
         
         self.typename = "king".to_string();
+
+        self.value = 0;
     }
     
     pub fn set_queen(&mut self){
         self.allowedactions = AllowedActions::get_queen();
         
         self.typename = "queen".to_string();
+
+        self.value = 4;
     }
     
     pub fn set_bishop(&mut self){
         self.allowedactions = AllowedActions::get_bishop();
         
         self.typename = "bishop".to_string();
+
+        self.value = 2;
     }
     
     pub fn set_rook(&mut self){
@@ -183,6 +195,8 @@ impl PieceData{
         self.typename = "rook".to_string();
         
         self.cancastle = true;
+
+        self.value = 3;
     }
     
     //get rid of its allowed actions and make it flickable
@@ -193,6 +207,8 @@ impl PieceData{
         self.typename = "poolball".to_string();
         
         self.canflick = true;
+
+        self.value = 2;
     }
     
     

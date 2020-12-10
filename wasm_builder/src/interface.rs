@@ -23,8 +23,8 @@ pub struct LocalGameInterface{
     
     //the actual rust game
     thegame: MainGame,
-
-
+    
+    
     //the MeshType of each object in the game
     //to the mesh it was previously
     objecttolastmesh: HashMap<String, MeshType>,
@@ -61,63 +61,35 @@ impl LocalGameInterface{
     }
     
     
-    //the name of an object to the board that object is on
-    //0 none
-    //1 game
-    //2 card
-    pub fn objectname_to_board(&self, objectname: String) -> u32{
-
-        if let Some(objecttype) = objectname_to_objecttype(objectname){
-
-            //if its a piece
-            if let ObjectType::piece(pieceid) = objecttype{
-                return 1;
-            }
-
-            else if let ObjectType::card(cardid) = objecttype{
-
-                //if this card has an owner
-                if let Some(cardowner) = self.thegame.get_card_owner(cardid){
-                    //its not on any board
-                    return 0;
-                }
-                //if it doesnt, its on the card board
-                else{
-                    return 2;
-                }
-
-            }
-            //if its a boardsquare
-            else if let ObjectType::boardsquare(bsid) = objecttype{
-                return 1;
-            }
-
-
-        }
-
-        
-        //otherwise its not a game or a card
-        0
-    }
     
-
-
     pub fn receive_game_update(&mut self, string: Vec<u8>){
-
+        
         if let Ok(newgame) = bincode::deserialize::<MainGame>(&string){
-
+            
             self.thegame = newgame;
         }
         else{
             panic!("didnt work");
         }
-
-
+        
+        
     }
     
+    pub fn get_value_of_offered_pieces(&self, pieces: Vec<u16>) -> Option<u8>{
+
+        self.thegame.get_value_of_offered_pieces(self.playerid, pieces)
+    }
     
+    pub fn get_cost_to_check(&self) -> Option<u8>{
+
+        self.thegame.get_cost_to_check(&self.playerid)
+    }
     
-    //returns true if i am the owner of this object, false otherwise
+
+
+    //returns true if i am the owner of this object
+    //OR if its an object which im allowed to select, like raise, check, deck
+    //false otherwise
     pub fn do_i_own_object(&self, object: ObjectType) -> bool{
         
         
@@ -137,6 +109,18 @@ impl LocalGameInterface{
                     return true;
                 }
             }
+            else if let ObjectType::deck = object{
+                return true;
+            }
+            else if let ObjectType::foldbutton = object{
+                return true;
+            }
+            else if let ObjectType::raisebutton = object{
+                return true;
+            }
+            else if let ObjectType::checkbutton = object{
+                return true;
+            }
             
         }
         
@@ -145,6 +129,21 @@ impl LocalGameInterface{
         return false;
         
     }
+
+
+    //if this piece can be proposed to be offered by this player
+    pub fn can_piece_be_offered(&self, pieceid: u16) -> bool{
+
+        self.thegame.can_piece_be_offered(self.playerid, pieceid)
+    }
+
+
+    //if theres a cardgame going on
+    pub fn is_cardgame_ongoing(&mut self) -> bool{
+
+        self.thegame.is_pokergame_ongoing()
+    }
+
     
     //gets a map of every valid player input for this given object
     //mapped by the id of the object that needs to be clicked on for it to be performed
@@ -234,6 +233,21 @@ impl LocalGameInterface{
         
     }
     
+
+    //returns if this piece can be flicked or not
+    pub fn can_piece_be_flicked(&self, pieceid: u16) -> bool{
+
+        //if i own this piece
+        //and its not a boardgame active
+        if self.do_i_own_object( ObjectType::piece(pieceid) ){
+
+            return self.thegame.get_actions_allowed_by_piece(pieceid).0;
+        }
+
+        return false;
+    }
+
+
     //given the id of an main object, and then an object that its trying to perform an action on
     //return if an input was sent to the game, and if it was, what the serialized string of it is
     pub fn try_to_perform_action(&mut self, object1: ObjectType, object2: ObjectType) -> Option<String>{
@@ -246,7 +260,7 @@ impl LocalGameInterface{
             
             //send that input to the game and return true
             self.thegame.receive_input( self.playerid, playerinput.clone());
-
+            
             return Some( serde_json::to_string(playerinput).unwrap() );
             
         };
@@ -266,37 +280,82 @@ impl LocalGameInterface{
         
         //give the flick input to the game
         self.thegame.receive_input(self.playerid, flickinput.clone());
-
-
+        
+        
         return serde_json::to_string(&flickinput).unwrap() ;
         
     }
     
     pub fn try_to_play_card(&mut self, cardid: u16) -> String{
         
-
+        
         let action = CardAction::playcardonboard;
         let input = PlayerInput::cardaction(cardid, action);
         
         self.thegame.receive_input( self.playerid, input.clone());
         
-
+        
         return serde_json::to_string( &input).unwrap() ;
-
+        
     }
-    
     
     pub fn try_to_draw_card(&mut self) -> String{
         
         let input = PlayerInput::drawcard;
         
         self.thegame.receive_input(self.playerid, input.clone());
-
-
+        
+        
         return serde_json::to_string( &input).unwrap() ;
         
     }
-    
+
+
+    pub fn try_to_check(&mut self, pieces: Vec<u16>) -> String{
+
+        let action = PokerAction::check(pieces);
+        let input = PlayerInput::pokeraction(action);
+
+        self.thegame.receive_input(self.playerid, input.clone());
+
+
+        return serde_json::to_string( &input).unwrap() ;
+    }
+
+    pub fn try_to_raise(&mut self, pieces: Vec<u16>) -> String{
+
+        let action = PokerAction::raise(pieces);
+        let input = PlayerInput::pokeraction(action);
+
+        self.thegame.receive_input(self.playerid, input.clone());
+
+
+        return serde_json::to_string( &input).unwrap() ;
+    }
+    pub fn try_to_fold(&mut self) -> String{
+
+        let action = PokerAction::fold;
+        let input = PlayerInput::pokeraction(action);
+
+        self.thegame.receive_input(self.playerid, input.clone());
+
+
+        return serde_json::to_string( &input).unwrap() ;
+    }
+    pub fn try_to_settle_debt(&mut self, pieces: Vec<u16>) -> String{
+
+        let input = PlayerInput::settledebt(pieces);
+
+        self.thegame.receive_input(self.playerid, input.clone());
+
+
+        return serde_json::to_string( &input).unwrap() ;
+    }
+
+
+
+
+
     
     
     //get the appearance of this object
@@ -329,15 +388,15 @@ impl LocalGameInterface{
             }
             else if field == 3{
                 zpos = -4.0;
-                xpos += 4.0;
+                xpos += 5.5;
             }
             else if field == 4{
                 zpos = 4.0;
-                xpos += 4.0;
+                xpos += 5.5;
             }
             else{
                 zpos = 0.0;
-                xpos += 4.0;
+                xpos += 5.5;
             }
             
             
@@ -357,7 +416,7 @@ impl LocalGameInterface{
             let ownerid = self.thegame.get_board_game_object_owner(pieceid);
             
             let typename = self.thegame.get_piece_type_name(pieceid);
-
+            
             //if this is a new mesh
             
             let toreturn = ObjectAppearance::new_piece( objectname, typename, position, rotation, ownerid, &mut self.objecttolastmesh );
@@ -444,7 +503,7 @@ impl LocalGameInterface{
         
         //giving a card of every suit and value a unique ID
         let toreturn =  4 * (card.numbervalue() -1) + card.suitvalue()  + 1;
-
+        
         toreturn as u32
     }
     
@@ -483,12 +542,12 @@ impl LocalGameInterface{
             return true ;
         };
     }
-    
-    
+
+
     pub fn get_full_appearance_state(&mut self) -> FullAppearanceState{
         
         let mut toreturn = FullAppearanceState::new();
-
+        
         
         //get the piece ids
         //get the board square ids
@@ -529,7 +588,17 @@ impl LocalGameInterface{
         
         
         
-        //if theres a card game going on, get a poker board to render
+        //if theres a poker game going on
+        //give the check, fold and raise buttons
+        let checkbutton = ObjectAppearance::new_check_button();
+        toreturn.add_object(checkbutton);
+
+        let foldbutton = ObjectAppearance::new_fold_button();
+        toreturn.add_object(foldbutton);
+
+        let raisebutton = ObjectAppearance::new_raise_button();
+        toreturn.add_object(raisebutton);
+        
         
         
         toreturn
@@ -537,15 +606,6 @@ impl LocalGameInterface{
     
 }
 
-
-#[derive(PartialEq, Copy, Clone, Hash, Eq, Debug)]
-pub enum ObjectType{
-    
-    card(u16),
-    boardsquare(u16),
-    piece(u16),
-    
-}
 
 
 use serde::{Serialize, Deserialize};
@@ -561,9 +621,9 @@ pub struct ObjectAppearance{
     rotation: (f32,f32,f32),
     name: String,
     colour: (u8,u8,u8),
-
+    
     meshupdated: bool,
-
+    
     
     mesh: MeshType,
 }
@@ -584,9 +644,9 @@ impl ObjectAppearance{
             position: pos,
             rotation: rot,
             colour: (0,0,0),
-
+            
             meshupdated: false,
-
+            
             mesh: meshtype,
         }
     }
@@ -610,9 +670,9 @@ impl ObjectAppearance{
             position: (-7.0,0.0,0.0),
             rotation: (0.0,0.0,0.0),
             colour: (255,255,255),
-
+            
             meshupdated: false,
-
+            
             mesh: meshtype,
         }
         
@@ -621,18 +681,18 @@ impl ObjectAppearance{
     
     pub fn new_timer(playerid: u32, ticksleft: u32, currentlyturn: bool) -> ObjectAppearance{
         
-
+        
         //the time left should be as minutes then seconds
         let seconds = ticksleft / 30;
-
+        
         let minutestext = (seconds / 60).to_string();
         let secondstext = format!("{:02}", seconds % 60);
-
-
-
+        
+        
+        
         let timeleft = minutestext + ":" + &secondstext;
-
-
+        
+        
         let position;
         let name;
         
@@ -660,9 +720,9 @@ impl ObjectAppearance{
             rotation: (0.0,0.0,-0.5),
             name: name,
             colour: (255,200,255),
-
+            
             meshupdated: false,
-
+            
             mesh: meshtype,
         }
         
@@ -682,21 +742,21 @@ impl ObjectAppearance{
             texturename = "pieceart/b_".to_string() + &typename + &".png";
             
         }
-
+        
         let meshtype;
         
         if typename == "poolball"{
-
+            
             let mesh = CircleMesh{
                 diameter: 0.7,
                 texture: Some("testball.png".to_string()),
             };
-
+            
             meshtype = MeshType::Circle(mesh);
-
+            
         }
         else{
-
+            
             let mesh = CylinderMesh{
                 dimensions: (0.5, 0.72),
                 texture: Some(texturename),
@@ -704,13 +764,13 @@ impl ObjectAppearance{
             
             meshtype = MeshType::Cylinder(mesh);
         }
-
-
+        
+        
         let meshupdated;
-
+        
         //if theres a meshtype for this object name
         if let Some(prevmeshtype) = prevmeshmap.get(&objectname){
-
+            
             //if that mesh type is the same as this mesh type, set meshupdated to true
             if prevmeshtype != &meshtype{
                 meshupdated = true;
@@ -718,15 +778,15 @@ impl ObjectAppearance{
             else{
                 meshupdated = false;
             }
-
+            
         }
         else{
             meshupdated = true;
         }
-
+        
         prevmeshmap.insert(objectname.clone(), meshtype.clone());
-
-
+        
+        
         
         ObjectAppearance{
             name: objectname,
@@ -759,9 +819,9 @@ impl ObjectAppearance{
             position: position,
             rotation: rotation,
             colour: (255,255,255),
-
+            
             meshupdated: false,
-
+            
             mesh: meshtype,
         }
         
@@ -794,23 +854,110 @@ impl ObjectAppearance{
             position: position,
             rotation: rotation,
             colour: colour,
-
+            
             meshupdated: false,
-
+            
             mesh: meshtype,
         }
         
         
     }
     
-    
-    /*
-    //display a large version of the card along with its effect when the mouse hovers over the card or clicks on it
-    pub fn new_card_display(card:Card) -> ObjectAppearance{
 
+    
+    pub fn new_check_button() -> ObjectAppearance{
+
+        let mesh = ButtonMesh{
+            text: "check".to_string(),
+        };
+
+        let meshtype = MeshType::Button(mesh);
+        
+     
+        ObjectAppearance{
+
+            position: (9.5, 0.0, -4.0),
+            rotation: (0.0, 0.0, 0.0),
+            name: "check button".to_string(),
+            colour: (100,100,100),
+
+            meshupdated: false,
+
+            mesh: meshtype,
+        }
+    }
+    
+    
+    pub fn new_fold_button() -> ObjectAppearance{
+
+        let mesh = ButtonMesh{
+            text: " fold".to_string(),
+        };
+
+        let meshtype = MeshType::Button(mesh);
+
+
+        ObjectAppearance{
+
+            position: (11.5, 0.0, -4.0),
+            rotation: (0.0, 0.0, 0.0),
+            name: "fold button".to_string(),
+            colour: (100,100,100),
+
+            meshupdated: false,
+
+            mesh: meshtype,   
+        }
+    }
+
+    
+    pub fn new_raise_button() -> ObjectAppearance{
+
+        let mesh = ButtonMesh{
+            text: "raise".to_string(),
+        };
+
+        let meshtype = MeshType::Button(mesh);
+     
+
+        ObjectAppearance{
+
+            position: (13.5, 0.0, -4.0),
+            rotation: (0.0, 0.0, 0.0),
+            name: "raise button".to_string(),
+            colour: (100,100,100),
+
+            meshupdated: false,
+
+            mesh: meshtype,            
+        }
+        
+    }
+
+    pub fn new_piece_value_offered(valuex: u8, valuey: u8) -> ObjectAppearance{
+
+        let text = format!("{}/{}", valuex, valuey);
+
+        let appearance = ButtonMesh{
+            text: text,
+        };
+
+        let meshtype = MeshType::Button(appearance);
+
+        ObjectAppearance{
+
+            //top left
+            position: (0.0,3.0,0.0),
+            rotation: (0.0,0.0,0.0),
+            name: "value offered overlay".to_string(),
+            colour: (255,255,255),
+
+            meshupdated: true,
+
+            mesh: meshtype,
+        }
 
     }
-    */
 
     
 }
@@ -823,13 +970,14 @@ pub enum MeshType{
     Cube(CubeMesh),
     Cylinder(CylinderMesh),
     Circle(CircleMesh),
-    Timer(TimerMesh)
+    Timer(TimerMesh),
+    Button(ButtonMesh),
 }
 
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 struct TimerMesh{
-
+    
     timeleft: String,
     currentlyturn: bool,
 }
@@ -868,6 +1016,15 @@ struct CircleMesh{
 }
 
 
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+struct ButtonMesh{
+
+    //the text on the button
+    text: String,
+}
+
+
+
 
 //a struct representing the entire state of a games physical appearance
 #[derive(Serialize, Deserialize, Clone)]
@@ -878,7 +1035,7 @@ pub struct FullAppearanceState{
     
     //the list of every object and its appearance
     objects: Vec<ObjectAppearance>,
-
+    
 }
 
 impl FullAppearanceState{
@@ -947,6 +1104,17 @@ impl FullAppearanceState{
             self.objects.push(object);
         }
     }
+
+
+
+    //add an object to display that displays X / X
+    pub fn append_value_out_of_value(&mut self, valuex: u8, valuey: u8){
+
+
+        self.add_object( ObjectAppearance::new_piece_value_offered(valuex, valuey) );
+
+    }
+
     
     
 }
@@ -954,26 +1122,71 @@ impl FullAppearanceState{
 
 
 
+/*
+object types:
+
+card and ID
+board square and ID
+piece and ID
+
+if its a check, fold or raise button
+
+if its the deck
+
+*/
+
+
+#[derive(PartialEq, Copy, Clone, Hash, Eq, Debug)]
+pub enum ObjectType{
+    
+    card(u16),
+    boardsquare(u16),
+    piece(u16),
+
+    deck,
+    foldbutton,
+    raisebutton,
+    checkbutton,
+    
+}
+
+
+
+
+
+
+
 
 //turn an object name into an object type and its ID
 pub fn objectname_to_objecttype(objectname: String) -> Option<ObjectType> {
-    
+
+
+    if objectname == "deck"{
+        return Some( ObjectType::deck  );
+    }
+    else if objectname == "raise button"{
+        return Some( ObjectType::raisebutton );
+    }
+    else if objectname == "fold button"{
+        return Some( ObjectType::foldbutton );
+    }
+    else if objectname == "check button"{
+
+        return Some( ObjectType::checkbutton );
+    }    
     //if the first character of the objects name is "P"
-    if objectname.chars().nth(0).unwrap() == 'P'{
+    else if objectname.chars().nth(0).unwrap() == 'P'{
         
         //get the rest of the name and try to convert it to an int
         let stringpieceid = objectname[1..].to_string();
         let intpieceid = stringpieceid.parse::<u16>().unwrap();
         let toreturn = ObjectType::piece(intpieceid);
         
-        return Some (toreturn) ;
-        
-        
+        return Some (toreturn);
         
     }
     //if the first character of the objects name is "C"
     else if objectname.chars().nth(0).unwrap() == 'C'{
-        
         
         //get the rest of the name and try to convert it to an int
         let stringcardid = objectname[1..].to_string();
@@ -981,7 +1194,6 @@ pub fn objectname_to_objecttype(objectname: String) -> Option<ObjectType> {
         let toreturn = ObjectType::card(intcardid);
         
         return Some (toreturn);
-        
         
     }
     //if the first character of the objects name is "B"
@@ -993,12 +1205,10 @@ pub fn objectname_to_objecttype(objectname: String) -> Option<ObjectType> {
         let toreturn = ObjectType::boardsquare(intbsid);
         
         return Some (toreturn);
-        
     }
     else{
         
         return None;
-        
     }
     
 }
@@ -1011,19 +1221,28 @@ pub fn objecttype_to_objectname(inputobjecttype: ObjectType) -> String {
         
         let toreturn = "P".to_string() + &pieceid.to_string();
         return toreturn ;
-        
     }
     else if let ObjectType::boardsquare(boardsquareid) = inputobjecttype{
         
         let toreturn = "B".to_string() + &boardsquareid.to_string();
         return toreturn ;
-        
     }
     else if let ObjectType::card(cardid) = inputobjecttype{
         
         let toreturn = "C".to_string() + &cardid.to_string();
         return toreturn ;
-        
+    }
+    else if let ObjectType::deck = inputobjecttype{
+        return "deck".to_string();
+    }
+    else if let ObjectType::raisebutton = inputobjecttype{
+        return "raise button".to_string();
+    }
+    else if let ObjectType::foldbutton = inputobjecttype{
+        return "fold button".to_string();
+    }
+    else if let ObjectType::checkbutton = inputobjecttype{
+        return "check button".to_string();
     }
     else{
         panic!("cant convert object type to a string");
@@ -1035,3 +1254,20 @@ pub fn objecttype_to_objectname(inputobjecttype: ObjectType) -> String {
 
 
 
+
+
+
+//the state of the frontend, passed in to the "interface"
+//when i need to get the fullgameappearance
+struct FrontEndState{
+
+
+    selectedobject: Option<ObjectType>,
+
+    
+
+
+
+
+
+}

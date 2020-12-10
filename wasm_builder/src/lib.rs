@@ -53,7 +53,7 @@ use interface::objecttype_to_objectname;
 
 
 
-
+use std::collections::HashSet;
 
 #[wasm_bindgen]
 //the only methods the fullgame should have:
@@ -79,6 +79,14 @@ pub struct FullGame{
     
     dragged: Option<Dragged>,
     
+    
+    
+    //the pieces and values of each put up to offer
+    //for either a need to raise, check, or settle the debt
+    piecesforoffer: HashSet<u16>,
+    
+    
+    
 }
 
 
@@ -98,16 +106,17 @@ impl FullGame{
             selectedobject: None,
             gameappearancetoappend: Vec::new(),
             dragged: None,
+            piecesforoffer: HashSet::new(),
         }
         
     }
     
     //give this wasm struct a message from the server
     pub fn get_incoming_socket_message(&mut self, message: String){
-
+        
         let backtovecofchar = message.chars().collect::<Vec<_>>();
         let backtogamebin = backtovecofchar.iter().map(|c| *c as u8).collect::<Vec<_>>();
-
+        
         self.localgame.receive_game_update( backtogamebin );
     }
     
@@ -129,11 +138,6 @@ impl FullGame{
         
         //tick
         self.localgame.tick();
-        
-        //and queue the outgoing socket messages
-        //which should just be the input of the player, the player actions
-        //the same ones that the local game received
-        //or should this just be done on the "inputs"
     }
     
     
@@ -166,12 +170,33 @@ impl FullGame{
         toreturn.append_object_list( self.gameappearancetoappend.clone() );
         
         
+        //highlight the list of objects up for offer
+        for pieceid in &self.piecesforoffer{
+
+            let objecttype = ObjectType::piece(*pieceid);
+            let highlightedobjectname = objecttype_to_objectname(objecttype);
+            toreturn.make_object_highlighted(highlightedobjectname);
+        }
+
+
+
+        let vecofpieces: Vec<u16> = self.piecesforoffer.clone().into_iter().collect();
+        let valueoffered = self.localgame.get_value_of_offered_pieces(vecofpieces);
+        let valuetocheck = self.localgame.get_cost_to_check();
+
+        if let Some(valueoffered) = valueoffered{
+            if let Some(valuetocheck) = valuetocheck{
+
+                toreturn.append_value_out_of_value(valueoffered, valuetocheck);
+
+            }
+        }
+
+        
+        
         //turn it into a json object and return as a jsvalue
         JsValue::from_serde( &toreturn ).unwrap()
-        
     }
-    
-    
     
     
     //return whether the object passed in is the selected one or not
@@ -182,90 +207,158 @@ impl FullGame{
             
             if let Some(selectedobject) = self.selectedobject{
                 
-                if (selectedobject == pickedobject){
-                    return(true);
+                if selectedobject == pickedobject{
+                    return true;
                 }
                 else{
-                    return(false);
+                    return false;
                 }
                 
             }
             else{
-                return(false);
+                return false;
             }
         }
         else{
             
-            return(false);
+            return false;
         }
         
     }
     
-    pub fn get_selected_object_name(&self) -> Option<String>{
-        
-        if let Some(selectedobject) =self.selectedobject{
-            return Some( objecttype_to_objectname(selectedobject) ) ;
-        }
-        else{
-            return None;
-        }
-    }
     
+    
+    fn click_in_value_gathering_mode(&mut self, objecttype: ObjectType){
+        
+        
+        //if its a piece select / deselect it
+        if let ObjectType::piece(pieceid) = objecttype{
+            
+            //if this piece is already offered
+            if self.piecesforoffer.contains(&pieceid){
+                
+                //remove it from the pieces offered
+                self.piecesforoffer.remove(&pieceid);
+                
+            }
+            //if its not
+            else {
+                
+                //if it can be offered, add it to the pieces that can be offered
+                if self.localgame.can_piece_be_offered(pieceid){
+                    
+                    self.piecesforoffer.insert(pieceid);
+                }
+            }
+        }
 
+        //the check fold and raise buttons should only be available to be clicked if
+        //the pieces for offer add to the valid amount
+        //and clear the list of pieces for offer
+
+        //if its name is "check button"
+        else if ObjectType::checkbutton == objecttype{
+
+            let vecofpieces: Vec<u16> = self.piecesforoffer.clone().into_iter().collect();
+            
+            let input = self.localgame.try_to_check(vecofpieces);
+            self.queuedoutgoingsocketmessages.push(input);
+
+            self.piecesforoffer = HashSet::new();
+        }
+        //if its name is "fold button"
+        else if ObjectType::foldbutton == objecttype{
+            
+            let input = self.localgame.try_to_fold();
+            self.queuedoutgoingsocketmessages.push(input);
+
+            self.piecesforoffer = HashSet::new();
+        }
+        //if its name is "raise button"
+        else if ObjectType::raisebutton == objecttype{
+            
+            let vecofpieces: Vec<u16> = self.piecesforoffer.clone().into_iter().collect();
+            
+            let input = self.localgame.try_to_raise(vecofpieces);
+            self.queuedoutgoingsocketmessages.push(input);
+
+            self.piecesforoffer = HashSet::new();
+        }
+        
+        
+    }
+    
+    
+    
     //player input functions
     
     
     //a player clicks on an object
     pub fn click_object(&mut self, objectname: String){
         
-        //if the object name is empty
-        //set "selectedobject" to None
-        if objectname == ""{
-            self.selectedobject = None;
-        }
-        //if an object been clicked
-        else{
+        
+        
+        //if it can be converted from an object name to an objecttype
+        if let Some(pickedobject) = objectname_to_objecttype(objectname.clone()){
             
-            //if it can be converted from an object name to an objecttype
-            if let Some(pickedobject) = objectname_to_objecttype(objectname.clone()){
+            
+            //if there is a card game going on
+            if self.localgame.is_cardgame_ongoing(){
                 
-                //if the selected object is currently none
-                if self.selectedobject == None{
+                //click the pieces in the value gathering mode
+                self.click_in_value_gathering_mode(pickedobject);
+            }
+            //if the selected object is currently none
+            else if self.selectedobject == None{
+                
+                //if the picked object is owned by me
+                //or selectable by me (button / deck)
+                if self.localgame.do_i_own_object(pickedobject){
                     
-                    //if the picked object is owned by me
-                    if self.localgame.do_i_own_object(pickedobject){
-                        
-                        //set that object to be the selected one
-                        self.selectedobject = Some( pickedobject );
-                    }
-                }
-                //if theres an object already selected
-                else if let Some(currentlyselectedobject) = self.selectedobject{
-                    
-                    //get if the new object selected can form an action with the selected one
-                    //if it can, send that action as input to the game
-                    //and set selected to be none
-                    let possibleinput = self.localgame.try_to_perform_action(currentlyselectedobject, pickedobject);
-                    if let Some(input) = possibleinput{
-                        self.queuedoutgoingsocketmessages.push(input);
-                    }
-
-                    self.selectedobject = None;
+                    //set that object to be the selected one
+                    self.selectedobject = Some( pickedobject );
                 }
             }
+            //if theres an object already selected
+            else if let Some(currentlyselectedobject) = self.selectedobject{
+                
+                //get if the new object selected can form an action with the selected one
+                //if it can, send that action as input to the game
+                //and set selected to be none
+                let possibleinput = self.localgame.try_to_perform_action(currentlyselectedobject, pickedobject);
+                if let Some(input) = possibleinput{
+                    self.queuedoutgoingsocketmessages.push(input);
+                }
+                
+                
+                self.selectedobject = None;
+                
+            }
             //if its name is "deck" create a draw action
-            else if objectname == "deck"{
-
+            else if ObjectType::deck == pickedobject{
                 let input = self.localgame.try_to_draw_card();
                 self.queuedoutgoingsocketmessages.push(input);
             }
+            //if the object selected is some other object i didnt handle
             else{
-
                 self.selectedobject = None;
             }
-
-        }        
-    }
+            
+            
+        }
+        //if it cant be converted to an objecttype
+        else{
+            
+            self.selectedobject = None;
+        }
+        
+        
+    }        
+    
+    
+    
+    
+    
     
     //if the mouse is being dragged
     //and what object its being dragged over
@@ -273,8 +366,6 @@ impl FullGame{
     //maybe i should be getting the objectname its over, and converting the name of the object its over into the board its over here hmmmm
     pub fn drag_selected_object(&mut self, relativedistancex: f32, relativedistancey: f32, objectovername: String ){
         
-        //get the board the cursor is over by what object the object being hovered over is on
-        let boardover = self.localgame.objectname_to_board(objectovername);
         
         //if an object is selected
         if let Some(selectedobject) = self.selectedobject{
@@ -282,62 +373,26 @@ impl FullGame{
             //if the selected object is a piece
             if let ObjectType::piece(pieceid) = selectedobject{
                 
+                //if the piece cant be flicked, end
+                if ! self.localgame.can_piece_be_flicked(pieceid){
+                    return ();
+                }
+                
                 //get the position of the selected piece
                 let selectedposition = self.localgame.get_object_flat_plane_position(selectedobject);
                 
-                //the distance plus the length of half the cue
-                let mut curtotaldistance = (relativedistancex * relativedistancex + relativedistancey * relativedistancey).sqrt();
                 
-                //if the distance of the que is farther or closer than it should be, change the scalar to render it within range
-                let mut distancescalar = 1.0;
-                
-                //if the distance of the que is less than 2 units away from the piece, make it two units away
-                if curtotaldistance <= 1.0{
-                    distancescalar = 1.0 / curtotaldistance ;
-                }
-                
-                //their direction should be that of the rotation
-                //their distance should be that of half the pool cue
-                
-                //0 + the ratio of the hypotenuse length to x length * cue length
-                let xcuedistance = (relativedistancex / curtotaldistance ) * 1.0 ;
-                //0 + the ratio of the hypotenuse length to y length * cue length
-                let ycuedistance = (relativedistancey / curtotaldistance ) * 1.0 ;
-                
-                
-                //i want it to circle around the selected pieces position
-                //facing inwards
-                
-                let xdistancefromselected = (relativedistancex * distancescalar) + xcuedistance;
-                let zdistancefromselected = (relativedistancey * distancescalar) + ycuedistance;
-                
-                let xrotation = relativedistancex.atan2(relativedistancey);
-                
-
-
-                let position = (selectedposition.0 + xdistancefromselected, 0.8, selectedposition.1 + zdistancefromselected);
-                let rotation = (0.0, xrotation, 0.0);
+                let (position, rotation) = get_position_and_rotation_of_cue_indicator(selectedposition, relativedistancex, relativedistancey);
                 
                 let dragindicatorappearance = ObjectAppearance::new_cue(position, rotation);
                 self.gameappearancetoappend.push( dragindicatorappearance );
                 
                 
-                
                 //only make a flick mission if the mouse is further away from the piece than 1
-                if curtotaldistance >= 1.0{
+                if let Some( (rotation, distance) ) = get_flick_force(relativedistancex, relativedistancey){
                     
-                    //and the force is proportional to the distance the cue is pulled back
-                    //not the distance the mouse is from the piece center
-                    //ergo, the minus 1
-                    self.dragged = Some( Dragged::piece(-xrotation - (3.14159 / 2.0), (curtotaldistance - 1.0) * 1.0) );
-
+                    self.dragged = Some( Dragged::piece( rotation, distance ) );
                 }
-                
-            }
-            
-            //if the object is a card (in the hand)
-            else if let ObjectType::card(cardid) = selectedobject{
-                self.dragged = Some ( Dragged::card( (relativedistancex, relativedistancex), boardover) );
             }
         }
     }
@@ -348,7 +403,6 @@ impl FullGame{
         
         //if there is an object being dragged
         if let Some( dragged ) = self.dragged.clone() {
-            
             
             
             //if its a piece being dragged
@@ -364,42 +418,8 @@ impl FullGame{
                 
             }
             
-            //if its a card being dragged
-            else if let Dragged::card( relativepos, boardover ) = dragged{
-                
-                //if there is an object selected and it (what is being dragged) is a card                
-                if let Some(ObjectType::card(cardid)) = self.selectedobject{
-                    
-                    //if its over 0, dont do anything
-                    if boardover == 0{
-                    }
-                    //if its over 1, send a mission to play the card over the game board
-                    else if boardover == 1{
-                        
-                        let input = self.localgame.try_to_play_card(cardid);
-                        self.queuedoutgoingsocketmessages.push(input);
-                        
-                    }
-                    //if its over 2, send a mission to play the card over the card board
-                    else if boardover == 2{
-                        
-                        let input = self.localgame.try_to_play_card(cardid);
-                        self.queuedoutgoingsocketmessages.push(input);
-                        
-                    }
-                    else{
-                        panic!("Why does boardover have a value other than 1,2,3 ?");
-                    }
-                    
-                }
-
-            }
-            
-            
-            
             //if there was an object being dragged, clear the selected object
             self.selectedobject = None;
-            
         }
         
         
@@ -428,5 +448,81 @@ enum Dragged{
     
     //or a card being dragged
     card( (f32,f32), u32),
+    
+}
+
+
+
+//return the distance from the piece
+//and the rotation relative to the piece
+//if its been dragged far enough to flick
+fn get_flick_force(relativedistancex: f32, relativedistancey: f32) -> Option<(f32, f32)>{
+    
+    //the distance plus the length of half the cue
+    let curtotaldistance = (relativedistancex * relativedistancex + relativedistancey * relativedistancey).sqrt();
+    
+    //if the distance of the que is farther or closer than it should be, change the scalar to render it within range
+    let mut distancescalar = 1.0;
+    
+    //if the distance of the que is less than 2 units away from the piece, make it two units away
+    if curtotaldistance <= 1.0{
+        distancescalar = 1.0 / curtotaldistance ;
+    }
+    
+    
+    let xrotation = relativedistancex.atan2(relativedistancey);
+    
+    
+    if curtotaldistance >= 1.0{
+        
+        return Some( (-xrotation - (3.14159 / 2.0), (curtotaldistance - 1.0) * 1.0) );
+        
+    };
+    
+    
+    return None;
+    
+    
+    
+}
+
+
+
+fn get_position_and_rotation_of_cue_indicator(piecepos: (f32,f32), reldistx: f32, reldisty: f32) -> ((f32,f32,f32), (f32,f32,f32)){
+    
+    //the distance plus the length of half the cue
+    let curtotaldistance = (reldistx * reldistx + reldisty * reldisty).sqrt();
+    
+    //if the distance of the que is farther or closer than it should be, change the scalar to render it within range
+    let mut distancescalar = 1.0;
+    
+    //if the distance of the que is less than 2 units away from the piece, make it two units away
+    if curtotaldistance <= 1.0{
+        distancescalar = 1.0 / curtotaldistance ;
+    }
+    
+    
+    //0 + the ratio of the hypotenuse length to x length * cue length
+    let xcuedistance = (reldistx / curtotaldistance ) * 1.0 ;
+    //0 + the ratio of the hypotenuse length to y length * cue length
+    let ycuedistance = (reldisty / curtotaldistance ) * 1.0 ;
+    
+    
+    //i want it to circle around the selected pieces position
+    //facing inwards
+    
+    let xdistancefromselected = (reldistx * distancescalar) + xcuedistance;
+    let zdistancefromselected = (reldisty * distancescalar) + ycuedistance;
+    
+    let xrotation = reldistx.atan2(reldisty);
+    
+    
+    
+    let position = (piecepos.0 + xdistancefromselected, 0.8, piecepos.1 + zdistancefromselected);
+    let rotation = (0.0, xrotation, 0.0);
+    
+    
+    
+    return (position, rotation) ;
     
 }

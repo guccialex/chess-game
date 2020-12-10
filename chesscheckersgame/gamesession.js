@@ -276,7 +276,6 @@ class GameApperance{
         
         
         
-        //mesh.freezeWorldMatrix();
         
         this.scene.autoClear = false; // Color buffer
         this.scene.autoClearDepthAndStencil = false; // Depth and stencil, obviously
@@ -327,6 +326,7 @@ class GameApperance{
                 
                 //if the object mesh is updated, dispose of the old mesh
                 if (meshupdated == true && objectmesh != null){
+                    console.log("disposing of old mesh");
                     objectmesh.dispose();
                 }
                 
@@ -335,6 +335,8 @@ class GameApperance{
                 let cylinderdata = objectdata.mesh.Cylinder;
                 let timerdata = objectdata.mesh.Timer;
                 let circledata = objectdata.mesh.Circle;
+                let buttondata = objectdata.mesh.Button;
+
                 
                 if (cubedata != null){
                     
@@ -401,9 +403,33 @@ class GameApperance{
                     let texturetimer = new BABYLON.DynamicTexture("dynamic texture", {width:100, height:70}, this.scene);   
                     
                     let materialtimer = new BABYLON.StandardMaterial("Mat", this.scene);
+
                     materialtimer.diffuseTexture = texturetimer;
                     objectmesh.material = materialtimer;                    
                     
+                    
+                }
+                else if (buttondata != null){
+                    
+                    let options = {
+                        height : 0.1,
+                        diameter  : 1.2,
+                    };
+                    
+                    objectmesh = BABYLON.MeshBuilder.CreateCylinder(objectdata.name, options, this.scene);
+
+                    
+
+                    let texture = new BABYLON.DynamicTexture("dynamic texture", {width:100, height:100}, this.scene);   
+                    let material = new BABYLON.StandardMaterial("Mat", this.scene);
+
+                    material.diffuseTexture = texture;
+                    objectmesh.material = material;
+
+
+                    let font = "bold 30px monospace";
+                    objectmesh.material.diffuseTexture.drawText(buttondata.text, 5, 55, font, "white", null, true, true);
+
                     
                 }
                 else{
@@ -459,8 +485,28 @@ class GameApperance{
                 let font = "bold 10px monospace";
                 objectmesh.material.diffuseTexture.drawText("and then you lose", 0, 60, font, "black", null, true, true);
                 
+            }
+
+
+
+              
+            /*
+            let buttondata = objectdata.mesh.Button;
+            
+            //if its a timer, scale it according to the time left
+            if (buttondata != null){
+                
+                let font = "bold 40px monospace";
+                objectmesh.material.diffuseTexture.drawText("THING", 0, 40, font, "black", "green", true, true);
+                    
+                //Add text
+                font = "bold 10px monospace";
+                objectmesh.material.diffuseTexture.drawText("and then you lose", 0, 60, font, "black", null, true, true);
                 
             }
+            */
+
+
             
             
             objectspassedtorender.push(objectname);
@@ -487,7 +533,6 @@ class GameApperance{
                 
             }
         }
-        
         
         
         
@@ -608,11 +653,10 @@ class GameInterface{
         if (this.draggingobject){
             
             
-            let selectedobjectname = this.wasmgame.get_selected_object_name();
             
             var objectunder = this.gameappearance.scene.pick(this.gameappearance.scene.pointerX, this.gameappearance.scene.pointerY, function(mesh) {
                 
-                return mesh.name != "plane" && mesh.name != "dragindicator" && mesh.name != selectedobjectname;  // the plane and drag indicator will not be pickable
+                return mesh.name != "plane" && mesh.name != "dragindicator";  // the plane and drag indicator will not be pickable
                 
             });
             

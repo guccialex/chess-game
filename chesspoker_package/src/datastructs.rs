@@ -36,7 +36,7 @@ pub enum PlayerInput{
     //settling the debt in the game
     //the value that a player HAS to reconcile
     //before doing anything else
-    settledebt( Vec<(u16, u8)>)
+    settledebt( Vec<u16> ),
 }
 
 
@@ -137,8 +137,8 @@ impl TurnManager{
 
         let mut turns = HashMap::new();
 
-        turns.insert(0, (player1, 60, 1) );
-        turns.insert(1, (player2, 60, 0) );
+        turns.insert(0, (player1, 120, 1) );
+        turns.insert(1, (player2, 120, 0) );
 
 
         let mut tickssincelastaction = HashMap::new();
@@ -184,7 +184,9 @@ impl TurnManager{
             self.currentturntick = 0;
             self.currentturn = *nextturn;
         }
-        
+
+
+        *self.playertimeleft.get_mut(playerid).unwrap() += -1;
         
     }
 
@@ -192,7 +194,7 @@ impl TurnManager{
     //this player took a turn action
     pub fn player_took_action(&mut self, playerid: u8){
         
-        self.currentturntick += 100;
+        self.currentturntick += 1000000;
         
     }
     
@@ -261,15 +263,18 @@ impl TurnManager{
     //call this when the players should start taking 2 turns in a row
     pub fn players_take_2_turns_in_a_row(&mut self){
 
+        //get the length of the turns currently
+        let (_, length, _) = self.turns.get(&0).unwrap();
+        let length = *length;
 
 
         //player 1 goes, then goes again, 
-        self.turns.insert(0, (1, 60, 1) );
-        self.turns.insert(1, (1, 60, 2) );
+        self.turns.insert(0, (1, length, 1) );
+        self.turns.insert(1, (1, length, 2) );
 
         //then 2 goes then goes again
-        self.turns.insert(2, (2, 60, 3) );
-        self.turns.insert(3, (2, 60, 0) );
+        self.turns.insert(2, (2, length, 3) );
+        self.turns.insert(3, (2, length, 0) );
 
 
     }
