@@ -204,10 +204,30 @@ impl FullGame{
         if let Some(valueoffered) = valueoffered{
             if let Some(valuetocheck) = valuetocheck{
                 
-                toreturn.append_value_out_of_value(valueoffered, valuetocheck);
-                
+                toreturn.append_value_selected(valueoffered);
+
+
+                //highlight the check button if value offered equals value to check
+                if valueoffered == valuetocheck{
+                    toreturn.make_object_colour("check button".to_string(),  (0.0,255.0,0.0));
+                }
+
+                if valueoffered > valuetocheck{
+                    toreturn.make_object_colour("raise button".to_string(), (0.0,255.0,0.0));
+                }
+
+                if valueoffered == 0{
+                    toreturn.make_object_colour("fold button".to_string(), (0.0,255.0,0.0));
+                }
+
+
             }
         }
+
+
+
+
+
         
         
         

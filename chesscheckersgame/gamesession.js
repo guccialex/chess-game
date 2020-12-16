@@ -1,21 +1,31 @@
 
 //when matched up to be put in a game
-
-
 import init, { FullGame } from './wasmfiles/wasm_builder.js';
 
 
 
+
+
+const urlParams = new URLSearchParams(window.location.search);
+
+console.log(urlParams);
+const portnumber = urlParams.get("port");
+const gamepassword = urlParams.get("password");
+
+
+
+
+
+
 //these are gotten from outside or the calling function
+let websocketaddress = 'ws://localhost:'+ portnumber;
 
 
-let websocketaddress = 'ws://localhost:3012';
+//get the port and the password from the query string
+console.log("the query string:");
+console.log("port:" + websocketaddress);
+console.log("password:" + gamepassword);
 
-//whether this is player 1 or 2
-let playerid = 1;
-
-//the password for the game that needs to be given to the server
-let gamepassword = "somepassword";
 
 
 
@@ -254,13 +264,13 @@ class GameApperance{
         image.height = "20%";
         image.left = "-40%";
         image.top = "-40%";
-        this.advancedTexture.addControl(image);
+        //this.advancedTexture.addControl(image);
         
         
         
         
         
-        var options = BABYLON.SceneOptimizerOptions.ModerateDegradationAllowed(30, 30);
+        var options = BABYLON.SceneOptimizerOptions.LowDegradationAllowed(30, 30);
         
         BABYLON.SceneOptimizer.OptimizeAsync(scene, options);
     }
@@ -366,7 +376,7 @@ class GameApperance{
             //if this object has text
             let textdata = objectdata.texture.text;
             if (textdata != null){
-                
+
                 let texture = new BABYLON.DynamicTexture("dynamic texture", {width:100, height:100}, this.scene);   
                 objectmesh.material.diffuseTexture = texture;
                 

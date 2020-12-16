@@ -25,3 +25,7 @@ console_error_panic_hook = "0.1.6"
 
 [lib]
 crate-type = ["cdylib"]
+
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

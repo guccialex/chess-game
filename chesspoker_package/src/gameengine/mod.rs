@@ -405,6 +405,7 @@ impl GameEngine{
         
         //get the owner of this piece
         let owner = self.get_owner_of_piece(pieceid);
+        
         //the direction of the owner
         let ownerdirection = self.playertodirection.get(&owner).unwrap();
         
@@ -755,9 +756,74 @@ impl GameEngine{
     }
     
     pub fn tick(&mut self){
+
+        //if either player doesnt have a king
+        //turn their highest valued piece into a king
+        for playerid in 1..3{
+
+            let playerhasking = self.does_player_have_king(playerid);
+
+
+            //if they dont
+            if ! playerhasking{
+
+                let mut highestvaluepieceid = 0;
+                let mut highestvaluepiecevalue = 0;
+
+                //find their highest valued piece, and turn it into a king
+                for pieceid in self.playertopiece.get(&playerid).unwrap(){
+
+                    let piecedata = self.piecetypedata.get(pieceid).unwrap();
+                    let piecevalue = piecedata.get_value();
+
+                    if piecevalue > highestvaluepiecevalue{
+                        highestvaluepiecevalue = piecevalue;
+                        highestvaluepieceid = *pieceid;
+                    }
+
+                }
+
+
+                let mut piecedata = self.piecetypedata.get_mut(&highestvaluepieceid).unwrap();
+
+                piecedata.set_king();
+            }
+
+        }
+
+
+        //remove the pieces that are lower than -5 in pos
+        for (pieceid, _) in &self.piecetypedata.clone(){
+
+            let pos = self.boardgame.get_translation(*pieceid);
+
+            if pos.1 < -3.0{
+
+                self.remove_piece(*pieceid);
+            }
+        }
+        
+
+
+
         self.boardgame.tick();
     }
     
+
+
+    pub fn remove_piece(&mut self, pieceid: u16){
+
+        //panic!("removed piece");
+
+
+        let playerid = self.get_owner_of_piece(pieceid);
+
+        self.playertopiece.get_mut(&playerid).unwrap().remove(&pieceid);
+
+        self.piecetypedata.remove(&pieceid);
+
+    }
+
     
     //get the id of every board square in the game
     pub fn get_squares(&self) -> Vec<u16>{

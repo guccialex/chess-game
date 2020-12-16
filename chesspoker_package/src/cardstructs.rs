@@ -133,6 +133,19 @@ impl CardsInterface{
         self.deck.push(cardid);
         
     }
+
+
+    //get a card that is to be played when drawn
+    pub fn get_joker_card(&mut self) -> u16{
+
+        //the card should be cleared from existing 
+        //when the cardinterface is ticked
+        let cardid = self.add_random_card_to_game();
+
+        cardid
+        //self.cards.get(&cardid).unwrap().clone()
+    }
+
     
     //and how much debt does this player need to settle
     pub fn pool_debt_of_player(&self, playerid: &u8) -> u8{
@@ -268,39 +281,6 @@ impl CardsInterface{
         
     }
     
-    
-    pub fn get_cards_in_hand(&self, playerid: u8) -> Vec<u16>{
-        
-        let handcardids = self.hands.get(&playerid).unwrap();
-        
-        let mut hand = Vec::new();
-        
-        
-        for cardid in handcardids{
-            
-            hand.push(*cardid);
-            
-        }
-        
-        
-        return hand;
-        
-    }
-    
-    //get a list of the cards in the game by ID
-    pub fn get_cards_in_game(&self) -> Option< Vec<u16> >{
-        
-        if let Some(pokergame) = &self.pokergame{
-            
-            
-            return  Some( pokergame.get_card_ids() ) ;
-            
-        }
-        else{
-            return None;
-        }
-        
-    }
     
     
     pub fn does_player_own_card(&self, playerid: u8, cardid: u16) ->  bool{
@@ -526,7 +506,7 @@ impl CardsInterface{
 
 
 
-use rust_poker;
+use rs_poker;
 
 
 
@@ -683,7 +663,7 @@ impl PokerGame{
     
     
     fn player_checks(&mut self){
-
+        
         //assume the player acting is the player whos turn it is
         let playerid = self.get_current_player();
         
@@ -752,7 +732,6 @@ impl PokerGame{
             else{
                 playerid = 1;
             }
-            
         }
         else
         //if the dealer hasnt gone, the player is the dealer
@@ -768,35 +747,38 @@ impl PokerGame{
     //if the game is finished, get the winner of the pool
     fn get_winner(&self) -> Option<u8>{
         
-        use rust_poker::hand_evaluator::{Hand, CARDS, evaluate};
-        
+        use rs_poker::core::{Hand, Rank, Rankable};
+
         
         //if the game is over
         if self.roundnumber >= 4{
             
-            let mut player1hand = Hand::empty();
-            let mut player2hand = Hand::empty();
+            let mut player1hand = Hand::default();
+            let mut player2hand = Hand::default();
             
             
             for (_, card) in &self.player1hand{
-                player1hand += CARDS[card.get_rust_poker_cardid()];
+                
+                player1hand.push( card.get_rs_poker_card() );
             }
             
             for (_, card) in &self.player2hand{
-                player2hand += CARDS[card.get_rust_poker_cardid()];
+                
+                player2hand.push( card.get_rs_poker_card() );
             }
             
             
             //add the cards in the river to both players hands
             for (_, card) in &self.river{
-                player1hand += CARDS[card.get_rust_poker_cardid()];
-                player2hand += CARDS[card.get_rust_poker_cardid()];
+                
+                player1hand.push( card.get_rs_poker_card() );
+                player2hand.push( card.get_rs_poker_card() );
             }
             
             
             
-            let player1handscore = evaluate(&player1hand);
-            let player2handscore = evaluate(&player2hand);
+            let player1handscore = player1hand.rank();
+            let player2handscore = player2hand.rank();
             
             if player1handscore >= player2handscore{
                 return Some(1);
@@ -806,6 +788,7 @@ impl PokerGame{
             }
             
         }
+        
         
         return None;
     }
@@ -894,7 +877,6 @@ impl PokerGame{
     
     
 }
-
 
 
 
@@ -1095,62 +1077,92 @@ impl Card{
     }
     
     
-    
     //get the cardid of the card in the form the rust_poker crate wants it
     // cards are indexed 0->51 where index is 4 * rank + suit
-    fn get_rust_poker_cardid(&self) -> usize{
+    fn get_rs_poker_card(&self) -> rs_poker::core::Card{
         
-        //i need ace to be highest, not the lowest
-        let numbervalue;
+        
+        let value;// = rs_poker::core::Value::Two;
+        let suit;// = rs_poker::core::Suit::Spade;
+        
         
         {
             if CardValue::ace == self.value{
-                numbervalue = 0;
+                value = rs_poker::core::Value::Ace;
             }
             else if CardValue::king == self.value{
-                numbervalue = 1;
+                value = rs_poker::core::Value::King;
             }
             else if CardValue::queen == self.value{
-                numbervalue = 2;
+                value = rs_poker::core::Value::Queen;
             }
             else if CardValue::jack == self.value{
-                numbervalue = 3;
+                value = rs_poker::core::Value::Jack;
             }
             else if CardValue::ten == self.value{
-                numbervalue = 4;
+                value = rs_poker::core::Value::Ten;
             }
             else if CardValue::nine == self.value{
-                numbervalue = 5;
+                value = rs_poker::core::Value::Nine;
             }
             else if CardValue::eight == self.value{
-                numbervalue = 6;
+                value = rs_poker::core::Value::Eight;
             }
             else if CardValue::seven == self.value{
-                numbervalue = 7;
+                value = rs_poker::core::Value::Seven;
             }
             else if CardValue::six == self.value{
-                numbervalue = 8;
+                value = rs_poker::core::Value::Six;
             }
             else if CardValue::five == self.value{
-                numbervalue = 9;
+                value = rs_poker::core::Value::Five;
             }
             else if CardValue::four == self.value{
-                numbervalue = 10;
+                value = rs_poker::core::Value::Four;
             }
             else if CardValue::three == self.value{
-                numbervalue = 11;
+                value = rs_poker::core::Value::Three;
             }
             else if CardValue::two == self.value{
-                numbervalue = 12;
+                value = rs_poker::core::Value::Two;
             }
             else{
                 panic!("aaa");
             }
-            
+        }
+
+        {
+
+            if CardSuit::clubs == self.suit{
+
+                suit = rs_poker::core::Suit::Club;
+            }
+            else if CardSuit::diamonds == self.suit{
+
+                suit = rs_poker::core::Suit::Diamond;
+            }
+            else if CardSuit::spades == self.suit{
+
+                suit = rs_poker::core::Suit::Spade;
+            }
+            else if CardSuit::hearts == self.suit{
+
+                suit = rs_poker::core::Suit::Heart;
+            }
+            else{
+                panic!("doesnt have a valid suit");
+            }
+
         }
         
         
-        numbervalue * 4 + self.suitvalue() as usize
+        let toreturn = rs_poker::core::Card{
+            suit: suit,
+            value: value,
+        };
+        
+
+        toreturn
         
     }
     
@@ -1208,7 +1220,7 @@ impl Card{
                 panic!("not in the range generated");
             }
         }
-
+        
         effect = CardEffect::pokergame;
         
         

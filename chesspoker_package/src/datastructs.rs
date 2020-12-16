@@ -290,7 +290,21 @@ impl TurnManager{
 
 
     }
-    
+
+
+
+    //start a cardgame 
+    //this player starts
+    //when they perform an action the turn switches
+    //there is no
+    /*
+    pub fn cardgame_mode(&mut self, playerid: u8){
+
+
+
+    }
+    */
+
 
 }
 

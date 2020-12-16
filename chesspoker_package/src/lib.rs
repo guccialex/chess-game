@@ -96,11 +96,8 @@ impl MainGame{
         toreturn.add_player();
         
         
-        //toreturn.cards.start_poker_game(1,2);
-        
         toreturn        
     }
-    
     
     
     pub fn can_piece_be_offered(&self, playerid: u8, pieceid: u16) -> bool{
@@ -110,7 +107,6 @@ impl MainGame{
         
         self.boardgame.are_pieces_offered_valid(playerid, piecelist)
     }
-    
     
     
     pub fn is_game_over(&self) -> Option<u8>{
@@ -420,6 +416,8 @@ impl MainGame{
                 self.gameover = Some(1);
             }
         }
+
+        //does this player have any pieces left?
         
         
         
@@ -727,6 +725,7 @@ impl MainGame{
                 }
                 else if cardeffect == CardEffect::pokergame{
                     self.cards.start_poker_game(1, 2);
+
                 }
                 else if cardeffect == CardEffect::blackjackgame{
                     panic!("blackjack not implemented");
@@ -801,7 +800,17 @@ impl MainGame{
             
             *self.playerdrewcard.get_mut(playerid).unwrap() = true;
             
-            self.cards.draw_card(*playerid);
+
+            //get the card effect of the card drawn
+            let cardid = self.cards.get_joker_card();
+
+            let action = CardAction::playcardonboard;
+
+            //and then make an input out of it
+            let input = PlayerInput::cardaction(cardid, action);
+
+            self.perform_input(playerid, &input);
+
         }
         else if let PlayerInput::settledebt(piecesandvalue) = playerinput{
             
@@ -829,40 +838,6 @@ impl MainGame{
 
 
 
-
-
-//a request for how the client wants to join a game
-#[derive(Serialize, Deserialize)]
-pub enum GameToConnectTo{
-    
-    
-    joinpublicgame,
-    
-    joinprivategame(u32),
-    
-    createprivategame,
-}
-
-
-//the message sent when a client is connected to a game on the server
-//and the game is active
-#[derive(Serialize, Deserialize)]
-pub struct ConnectedToGame{
-    
-    //what is your player id in the game
-    playerid: u32,
-}
-
-impl ConnectedToGame{
-    
-    pub fn new(playerid: u32) -> ConnectedToGame{
-        
-        ConnectedToGame{
-            
-            playerid: playerid
-        }
-    }
-}
 
 
 

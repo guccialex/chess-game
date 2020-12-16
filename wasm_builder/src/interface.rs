@@ -72,17 +72,17 @@ impl LocalGameInterface{
     }
     
     pub fn get_value_of_offered_pieces(&self, pieces: Vec<u16>) -> Option<u8>{
-
+        
         self.thegame.get_value_of_offered_pieces(self.playerid, pieces)
     }
     
     pub fn get_cost_to_check(&self) -> Option<u8>{
-
+        
         self.thegame.get_cost_to_check(&self.playerid)
     }
     
-
-
+    
+    
     //returns true if i am the owner of this object
     //OR if its an object which im allowed to select, like raise, check, deck
     //false otherwise
@@ -125,21 +125,21 @@ impl LocalGameInterface{
         return false;
         
     }
-
-
+    
+    
     //if this piece can be proposed to be offered by this player
     pub fn can_piece_be_offered(&self, pieceid: u16) -> bool{
-
+        
         self.thegame.can_piece_be_offered(self.playerid, pieceid)
     }
-
-
+    
+    
     //if theres a cardgame going on
     pub fn is_cardgame_ongoing(&mut self) -> bool{
-
+        
         self.thegame.is_pokergame_ongoing()
     }
-
+    
     
     //gets a map of every valid player input for this given object
     //mapped by the id of the object that needs to be clicked on for it to be performed
@@ -229,44 +229,44 @@ impl LocalGameInterface{
         
     }
     
-
+    
     //returns if this piece can be flicked or not
     pub fn can_piece_be_flicked(&self, pieceid: u16) -> bool{
-
+        
         //if i own this piece
         //and its not a boardgame active
         if self.do_i_own_object( ObjectType::piece(pieceid) ){
-
+            
             return self.thegame.get_actions_allowed_by_piece(pieceid).0;
         }
-
+        
         return false;
     }
-
-
+    
+    
     //given the id of an main object, and then an object that its trying to perform an action on
     //return if an input was sent to the game, and if it was, what the serialized string of it is
     pub fn try_to_perform_action(&mut self, object1: ObjectType, object2: ObjectType) -> Option<String>{
         
-    
+        
         //if object 1 and 2 are the same card, play that card
         if let ObjectType::card(cardid1) = object1{
-
+            
             if let ObjectType::card(cardid2) = object2{
-
+                
                 if cardid1 == cardid2{
-
+                    
                     //if onl
-
+                    
                     return Some( self.try_to_play_card(cardid1) );
                 }
             }
         }
-
-
-
+        
+        
+        
         let objecttoinput = self.get_inputs_of_object(object1);
-
+        
         //if there is a player input that lets object1 perform some action on object 2
         if let Some(playerinput) = objecttoinput.get(&object2){
             
@@ -276,8 +276,8 @@ impl LocalGameInterface{
             return Some( serde_json::to_string(playerinput).unwrap() );
             
         };
-
-
+        
+        
         
         
         //otherwise do nothing and return false
@@ -323,53 +323,53 @@ impl LocalGameInterface{
         return serde_json::to_string( &input).unwrap() ;
         
     }
-
-
+    
+    
     pub fn try_to_check(&mut self, pieces: Vec<u16>) -> String{
-
+        
         let action = PokerAction::check(pieces);
         let input = PlayerInput::pokeraction(action);
-
+        
         self.thegame.receive_input(self.playerid, input.clone());
-
-
+        
+        
         return serde_json::to_string( &input).unwrap() ;
     }
-
+    
     pub fn try_to_raise(&mut self, pieces: Vec<u16>) -> String{
-
+        
         let action = PokerAction::raise(pieces);
         let input = PlayerInput::pokeraction(action);
-
+        
         self.thegame.receive_input(self.playerid, input.clone());
-
-
+        
+        
         return serde_json::to_string( &input).unwrap() ;
     }
     pub fn try_to_fold(&mut self) -> String{
-
+        
         let action = PokerAction::fold;
         let input = PlayerInput::pokeraction(action);
-
+        
         self.thegame.receive_input(self.playerid, input.clone());
-
-
+        
+        
         return serde_json::to_string( &input).unwrap() ;
     }
     pub fn try_to_settle_debt(&mut self, pieces: Vec<u16>) -> String{
-
+        
         let input = PlayerInput::settledebt(pieces);
-
+        
         self.thegame.receive_input(self.playerid, input.clone());
-
-
+        
+        
         return serde_json::to_string( &input).unwrap() ;
     }
-
-
-
-
-
+    
+    
+    
+    
+    
     
     
     //get the appearance of this object
@@ -401,11 +401,11 @@ impl LocalGameInterface{
                 zpos = 6.0;
             }
             else if field == 3{
-                zpos = -4.0;
+                zpos = -3.0;
                 xpos += 5.5;
             }
             else if field == 4{
-                zpos = 4.0;
+                zpos = 3.0;
                 xpos += 5.5;
             }
             else{
@@ -556,8 +556,8 @@ impl LocalGameInterface{
             return true ;
         };
     }
-
-
+    
+    
     pub fn get_full_appearance_state(&mut self) -> FullAppearanceState{
         
         let mut toreturn = FullAppearanceState::new();
@@ -600,26 +600,39 @@ impl LocalGameInterface{
         let player2timer = AppearanceData::new_timer(2, player2totaltimeleft, iscurrentlyturn);
         toreturn.add_object(player2timer);
 
-
+        
+        
         let debtowed = self.thegame.get_debt_of_player(&self.playerid);
-
+        
         if debtowed != 0{
-
             toreturn.add_object( AppearanceData::new_debt_owed_button(debtowed) );
+            
+        }
+        else{
+
+
+            //if theres a poker game going on
+            //give the check, fold and raise buttons
+            if self.thegame.is_pokergame_ongoing() {
+                
+                let checkbutton = AppearanceData::new_check_button();
+                toreturn.add_object(checkbutton);
+                
+                let foldbutton = AppearanceData::new_fold_button();
+                toreturn.add_object(foldbutton);
+                
+                let raisebutton = AppearanceData::new_raise_button();
+                toreturn.add_object(raisebutton);    
+
+                let costtocheck = AppearanceData::new_cost_to_check(debtowed);
+                toreturn.add_object(costtocheck);
+            }
+
+
+
         }
         
         
-        
-        //if theres a poker game going on
-        //give the check, fold and raise buttons
-        let checkbutton = AppearanceData::new_check_button();
-        toreturn.add_object(checkbutton);
-
-        let foldbutton = AppearanceData::new_fold_button();
-        toreturn.add_object(foldbutton);
-
-        let raisebutton = AppearanceData::new_raise_button();
-        toreturn.add_object(raisebutton);
         
         
         
@@ -641,42 +654,42 @@ impl AppearanceData{
     
     pub fn new_cue(pos: (f32,f32,f32), rot: (f32,f32,f32)) -> AppearanceData{
         
-
+        
         let texture = Texture{
-
+            
             colour: (200,200,200),
             image: None,
             text: None,
         };
-
-
+        
+        
         let shape = CubeShape{
             dimensions:  (0.2, 0.2, 1.2),
         };
-
+        
         let shapetype = ShapeType::Cube(shape);
-
-
+        
+        
         let shape = Shape{
-
+            
             shapetype: shapetype,
-
+            
             position: pos,
-
+            
             rotation: rot,
-
+            
         };
-
+        
         let appearancedata = AppearanceData{
-
+            
             name: "dragindicator".to_string(),
-
+            
             shape: shape,
-
+            
             texture: texture,
         };
-
-
+        
+        
         appearancedata
     }
     
@@ -685,43 +698,43 @@ impl AppearanceData{
         
         let imagename = "cardart/cardback.jpg".to_string();
         
-
-
+        
+        
         let texture = Texture{
-
+            
             colour: (200,200,200),
             image: Some(imagename),
             text: None,
         };
-
-
+        
+        
         let shape = CubeShape{
             dimensions: (0.6, 1.96, 1.4),
         };
-
+        
         let shapetype = ShapeType::Cube(shape);
-
-
+        
+        
         let shape = Shape{
-
+            
             shapetype: shapetype,
-
+            
             position: (-7.0,0.0,0.0),
-
+            
             rotation: (0.0,0.0,0.0),
-
+            
         };
-
+        
         let appearancedata = AppearanceData{
-
+            
             name: "deck".to_string(),
-
+            
             shape: shape,
-
+            
             texture: texture,
         };
-
-
+        
+        
         appearancedata
     }
     
@@ -753,49 +766,59 @@ impl AppearanceData{
         else{
             panic!("ahhh");
         }
-
-
+        
+        
+        let colour;
+        
+        if currentlyturn{
+            colour = (0,255,0);
+        }
+        else{
+            colour = (255,255,255);
+        }
+        
+        
         let text = Text{
             fontsize: 30,
             position: (0.0,30.0),
             text: timeleft,
         };
-
+        
         let texture = Texture{
-
-            colour: (200,200,200),
+            
+            colour: colour,
             image: None,
             text: Some(text),
         };
-
-
+        
+        
         let shape = CubeShape{
-            dimensions: (2.0, 2.0, 2.0),
+            dimensions: (0.01, 2.0, 2.0),
         };
-
+        
         let shapetype = ShapeType::Cube(shape);
-
-
+        
+        
         let shape = Shape{
-
+            
             shapetype: shapetype,
-
+            
             position: position,
-
+            
             rotation: (0.0,0.0,0.0),
-
+            
         };
-
+        
         let appearancedata = AppearanceData{
-
+            
             name: name,
-
+            
             shape: shape,
-
+            
             texture: texture,
         };
-
-
+        
+        
         appearancedata
         
     }
@@ -806,12 +829,21 @@ impl AppearanceData{
         let colour;
         
         if ownerid == 1{
+            
             colour = (255,255,255);
             texturename = "pieceart/".to_string() + &typename + &".png";
+            
+        }
+        else if ownerid == 2{
+            
+            colour = (255,255,255);
+            texturename = "pieceart/b_".to_string() + &typename + &".png";
+            
         }
         else{
-            colour = (12,12,12);
-            texturename = "pieceart/b_".to_string() + &typename + &".png";
+            
+            colour = (255,5,255);
+            texturename = "pieceart/".to_string() + &typename + &".png";
             
         }
         
@@ -822,7 +854,7 @@ impl AppearanceData{
             let shape = CircleShape{
                 diameter: 0.7,
             };
-
+            
             shapetype = ShapeType::Circle(shape);
             
         }
@@ -831,42 +863,42 @@ impl AppearanceData{
             let shape = CylinderShape{
                 dimensions: (0.5, 0.7),
             };
-    
+            
             shapetype = ShapeType::Cylinder(shape);
-        
+            
         }
         
         
-
+        
         let texture = Texture{
             colour: colour,
             image: Some(texturename),
             text: None,
         };
-
-
+        
+        
         let shape = Shape{
-
+            
             shapetype: shapetype,
-
+            
             position: position,
-
+            
             rotation: rotation,
-
+            
         };
-
+        
         let appearancedata = AppearanceData{
-
+            
             name: objectname,
-
+            
             shape: shape,
-
+            
             texture: texture,
         };
-
-
+        
+        
         appearancedata
-
+        
         
     }
     
@@ -876,42 +908,42 @@ impl AppearanceData{
         
         
         rotation.1 += 3.14159 / 2.0;
-                
-
+        
+        
         let texture = Texture{
             colour: (200,200,200),
             image: Some(texturename),
             text: None,
         };
-
-
+        
+        
         let shape = CubeShape{
             dimensions: (0.1, 1.96, 1.4),
         };
-
+        
         let shapetype = ShapeType::Cube(shape);
-
-
+        
+        
         let shape = Shape{
-
+            
             shapetype: shapetype,
-
+            
             position: position,
-
+            
             rotation: rotation,
-
+            
         };
-
+        
         let appearancedata = AppearanceData{
-
+            
             name: name,
-
+            
             shape: shape,
-
+            
             texture: texture,
         };
-
-
+        
+        
         appearancedata
         
     }
@@ -928,292 +960,343 @@ impl AppearanceData{
         else{
             colour = (0,0,0);
         }
-
-
+        
+        
         let texture = Texture{
             colour: colour,
             image: None,
             text: None,
         };
-
-
+        
+        
         let shape = CubeShape{
             dimensions: (1.0, 1.0, 1.0),
         };
-
+        
         let shapetype = ShapeType::Cube(shape);
-
-
+        
+        
         let shape = Shape{
-
+            
             shapetype: shapetype,
-
+            
             position: position,
-
+            
             rotation: rotation,
-
+            
         };
-
+        
         let appearancedata = AppearanceData{
-
+            
             name: name,
-
+            
             shape: shape,
-
+            
             texture: texture,
         };
-
-
+        
+        
         appearancedata
         
     }
     
     
     pub fn new_check_button() -> AppearanceData{
-
+        
         let text = format!("check");
-
+        
         let text = Text{
             fontsize: 20,
             position: (10.0,40.0),
             text: text,
         };
-
+        
         let texture = Texture{
-
+            
             colour: (200,200,200),
             image: None,
             text: Some(text),
         };
-
-
+        
+        
         let shape = CylinderShape{
-            dimensions: (1.0, 2.0),
+            dimensions: (0.1, 1.5),
         };
-
+        
         let shapetype = ShapeType::Cylinder(shape);
-
-
+        
+        
         let shape = Shape{
-
+            
             shapetype: shapetype,
-
-            position: (9.5,2.0,-4.0),
-
+            
+            position: (5.5,0.0,-6.0),
+            
             rotation: (0.0,0.0,0.0),
-
+            
         };
-
+        
         let appearancedata = AppearanceData{
-
+            
             name: "check button".to_string(),
-
+            
             shape: shape,
-
+            
             texture: texture,
         };
-
-
+        
+        
         appearancedata
     }
     
     
     pub fn new_fold_button() -> AppearanceData{
-
+        
         let text = format!("fold");
-
+        
         let text = Text{
             fontsize: 20,
             position: (10.0,40.0),
             text: text,
         };
-
+        
         let texture = Texture{
-
+            
             colour: (200,200,200),
             image: None,
             text: Some(text),
         };
-
-
+        
+        
         let shape = CylinderShape{
-            dimensions: (1.0, 2.0),
+            dimensions: (0.1, 1.5),
         };
-
+        
         let shapetype = ShapeType::Cylinder(shape);
-
-
+        
+        
         let shape = Shape{
-
+            
             shapetype: shapetype,
-
-            position: (11.5,2.0,-4.0),
-
+            
+            position: (7.5,0.0,-6.0),
+            
             rotation: (0.0,0.0,0.0),
-
+            
         };
-
+        
         let appearancedata = AppearanceData{
-
+            
             name: "fold button".to_string(),
-
+            
             shape: shape,
-
+            
             texture: texture,
         };
-
-
+        
+        
         appearancedata
     }
-
+    
     
     pub fn new_raise_button() -> AppearanceData{
-
+        
         let text = format!("raise");
-
+        
         let text = Text{
             fontsize: 20,
             position: (10.0,40.0),
             text: text,
         };
-
+        
         let texture = Texture{
-
+            
             colour: (200,200,200),
             image: None,
             text: Some(text),
         };
-
-
+        
+        
         let shape = CylinderShape{
-            dimensions: (1.0, 2.0),
+            dimensions: (0.1, 1.5),
         };
-
+        
         let shapetype = ShapeType::Cylinder(shape);
-
-
+        
+        
         let shape = Shape{
-
+            
             shapetype: shapetype,
-
-            position: (13.0,0.0,-4.0),
-
+            
+            position: (9.5,0.0,-6.0),
+            
             rotation: (0.0,0.0,0.0),
-
+            
         };
-
+        
         let appearancedata = AppearanceData{
-
+            
             name: "raise button".to_string(),
-
+            
             shape: shape,
-
+            
             texture: texture,
         };
-
-
+        
+        
+        appearancedata
+        
+    }
+    
+    pub fn new_piece_value_offered(valuex: u8) -> AppearanceData{
+        
+        
+        let text = format!("{} selected", valuex);
+        
+        let text = Text{
+            fontsize: 20,
+            position: (10.0,40.0),
+            text: text,
+        };
+        
+        let texture = Texture{
+            
+            colour: (200,200,200),
+            image: None,
+            text: Some(text),
+        };
+        
+        
+        let shape = CylinderShape{
+            dimensions: (0.01, 2.0),
+        };
+        
+        let shapetype = ShapeType::Cylinder(shape);
+        
+        
+        let shape = Shape{
+            
+            shapetype: shapetype,
+            
+            position: (-9.0,0.0,0.0),
+            
+            rotation: (0.0,0.0,0.0),
+            
+        };
+        
+        let appearancedata = AppearanceData{
+            
+            name: "piece value".to_string(),
+            
+            shape: shape,
+            
+            texture: texture,
+        };
+        
+        
+        appearancedata
+        
+    }
+    
+    pub fn new_debt_owed_button(debt: u8) -> AppearanceData{
+        
+        let text = format!("PAY ANTE OF {}", debt);
+        
+        let text = Text{
+            fontsize: 10,
+            position: (10.0,40.0),
+            text: text,
+        };
+        
+        let texture = Texture{
+            
+            colour: (200,200,200),
+            image: None,
+            text: Some(text),
+        };
+        
+        
+        let shape = CubeShape{
+            dimensions: (0.01, 3.0, 3.0),
+        };
+        
+        let shapetype = ShapeType::Cube(shape);
+        
+        
+        let shape = Shape{
+            
+            shapetype: shapetype,
+            
+            position: (-6.0,1.0,0.0),
+            
+            rotation: (0.0,0.0,0.0),
+            
+        };
+        
+        let appearancedata = AppearanceData{
+            
+            name: "debt button".to_string(),
+            
+            shape: shape,
+            
+            texture: texture,
+        };
+        
+        
         appearancedata
         
     }
 
-    pub fn new_piece_value_offered(valuex: u8, valuey: u8) -> AppearanceData{
+    pub fn new_cost_to_check(costtocheck: u8) -> AppearanceData{
 
-        let text = format!("{}/{}", valuex, valuey);
-
+        let text = format!("check {}", costtocheck);
+        
         let text = Text{
             fontsize: 20,
             position: (10.0,40.0),
             text: text,
         };
-
+        
         let texture = Texture{
-
+            
             colour: (200,200,200),
             image: None,
             text: Some(text),
         };
-
-
-        let shape = CylinderShape{
-            dimensions: (1.0, 2.0),
+        
+        
+        let shape = CubeShape{
+            dimensions: (0.0, 2.0, 2.0),
         };
-
-        let shapetype = ShapeType::Cylinder(shape);
-
-
+        
+        let shapetype = ShapeType::Cube(shape);
+        
+        
         let shape = Shape{
-
+            
             shapetype: shapetype,
-
-            position: (7.0,2.0,-4.0),
-
+            
+            position: (12.0, 0.0, -6.0),
+            
             rotation: (0.0,0.0,0.0),
-
         };
-
+        
         let appearancedata = AppearanceData{
-
-            name: "piece value".to_string(),
-
+            
+            name: "cost to check".to_string(),
+            
             shape: shape,
-
+            
             texture: texture,
         };
-
-
+        
+        
         appearancedata
 
-    }
 
-    pub fn new_debt_owed_button(debt: u8) -> AppearanceData{
-
-        let text = format!("OWE {}", debt);
-
-        let text = Text{
-            fontsize: 20,
-            position: (10.0,40.0),
-            text: text,
-        };
-
-        let texture = Texture{
-
-            colour: (200,200,200),
-            image: None,
-            text: Some(text),
-        };
-
-
-        let shape = CylinderShape{
-            dimensions: (1.0, 2.0),
-        };
-
-        let shapetype = ShapeType::Cylinder(shape);
-
-
-        let shape = Shape{
-
-            shapetype: shapetype,
-
-            position: (0.0,2.0,0.0),
-
-            rotation: (0.0,0.0,0.0),
-
-        };
-
-        let appearancedata = AppearanceData{
-
-            name: "debt button".to_string(),
-
-            shape: shape,
-
-            texture: texture,
-        };
-
-
-        appearancedata
 
     }
-
+    
 }
 
 
@@ -1266,13 +1349,13 @@ impl FullAppearanceState{
         }
     }
     
-
+    
     //add an object to display that displays X / X
-    pub fn append_value_out_of_value(&mut self, valuex: u8, valuey: u8){
-
-        self.add_object( AppearanceData::new_piece_value_offered(valuex, valuey) );
+    pub fn append_value_selected(&mut self, valuex: u8){
+        
+        self.add_object( AppearanceData::new_piece_value_offered(valuex) );
     }
-
+    
     
 }
 
@@ -1287,7 +1370,7 @@ pub enum ObjectType{
     card(u16),
     boardsquare(u16),
     piece(u16),
-
+    
     deck,
     foldbutton,
     raisebutton,
@@ -1305,8 +1388,8 @@ pub enum ObjectType{
 
 //turn an object name into an object type and its ID
 pub fn objectname_to_objecttype(objectname: String) -> Option<ObjectType> {
-
-
+    
+    
     if objectname == "deck"{
         return Some( ObjectType::deck  );
     }
@@ -1317,11 +1400,11 @@ pub fn objectname_to_objecttype(objectname: String) -> Option<ObjectType> {
         return Some( ObjectType::foldbutton );
     }
     else if objectname == "check button"{
-
+        
         return Some( ObjectType::checkbutton );
     }
     else if objectname == "debt button"{
-
+        
         return Some( ObjectType::debtbutton );
     }
     //if the first character of the objects name is "P"
@@ -1395,7 +1478,7 @@ pub fn objecttype_to_objectname(inputobjecttype: ObjectType) -> String {
         return "check button".to_string();
     }
     else if let ObjectType::debtbutton = inputobjecttype{
-
+        
         return "debt button".to_string();
     }
     else{
@@ -1419,24 +1502,24 @@ pub fn objecttype_to_objectname(inputobjecttype: ObjectType) -> String {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct AppearanceData{
-
+    
     name: String,
-
+    
     //the shape
     shape: Shape,
-
+    
     //the texture
     texture: Texture,
-
+    
 }
 
 
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Shape{
-
+    
     shapetype: ShapeType,
-
+    
     position: (f32,f32,f32),
     rotation: (f32,f32,f32),
 }
@@ -1474,7 +1557,7 @@ struct Texture{
     colour: (u8,u8,u8),
     
     image: Option<String>,
-
+    
     text: Option<Text>,
 }
 
@@ -1482,11 +1565,11 @@ struct Texture{
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 struct Text{
-
+    
     text: String,
-
+    
     position: (f32,f32),
-
+    
     fontsize: u32,
-
+    
 }
