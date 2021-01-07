@@ -675,7 +675,7 @@ impl BoardGame{
         let xoffset = self.physicsengine.get_translation(&id).0 - physicalbs.0;
         let zoffset = self.physicsengine.get_translation(&id).2 - physicalbs.2;
         
-        return ( 0.0, 0.0 );
+        //return ( 0.0, 0.0 );
         
         return (xoffset, zoffset);
     }

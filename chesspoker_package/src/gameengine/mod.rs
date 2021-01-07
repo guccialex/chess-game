@@ -757,6 +757,10 @@ impl GameEngine{
     
     pub fn tick(&mut self){
 
+        //its if the players opponent hasnt drawn a card yet
+        //create a new king if it doesnt have one
+        //otherwise the main struct ticking will end the game and make this player lose
+
         //if either player doesnt have a king
         //turn their highest valued piece into a king
         for playerid in 1..3{

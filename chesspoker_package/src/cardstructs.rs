@@ -975,8 +975,6 @@ impl Card{
         }
         
         
-        
-        
     }
     
     //get the blackjack value of the card
