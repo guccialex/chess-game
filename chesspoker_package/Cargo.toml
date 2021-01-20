@@ -26,3 +26,6 @@ rand = {version = "*", features = [ "wasm-bindgen" ] }
 
 #rust_poker doesnt work with wasm
 rs_poker = "*"
+
+
+bincode = "*"

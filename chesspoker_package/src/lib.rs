@@ -12,7 +12,6 @@ mod datastructs;
 
 
 
-
 //import the data structures needed
 
 //make these public, and visible to the game interface
@@ -820,6 +819,38 @@ impl MainGame{
             panic!("unhandled input to be performed {:?}", playerinput);
         }
         
+    }
+
+
+
+
+    //get the state of the game as a string
+    pub fn get_string_state(&self) -> String{
+
+        let binstate = bincode::serialize(&self).unwrap();
+        let vecofchar = binstate.iter().map(|b| *b as char).collect::<Vec<_>>();
+        let stringstate = vecofchar.iter().collect::<String>();
+
+        stringstate
+    }
+
+    //set the state of the game using a string, returns error if the string is invalid
+    pub fn set_string_state(&mut self, stringstate: String) -> Result<(), ()>{
+
+        let vecofchar = stringstate.chars().collect::<Vec<_>>();
+        let gamebin = vecofchar.iter().map(|c| *c as u8).collect::<Vec<_>>();
+
+
+        if let Ok(gamestate) = bincode::deserialize::<MainGame>(&gamebin){
+
+            *self = gamestate;
+
+            return Ok( () ); 
+        }
+        else{
+            return Err( () );
+        }
+
     }
     
     
