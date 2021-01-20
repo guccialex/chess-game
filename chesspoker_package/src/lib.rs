@@ -853,7 +853,16 @@ impl MainGame{
 
     }
     
+
+    pub fn receive_string_input(&mut self, stringinput: String) -> Result<(), ()>{
+
+
+        Ok( () )
+    }
     
+
+
+
     
     
 }
