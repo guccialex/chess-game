@@ -310,21 +310,6 @@ impl MainGame{
     
     
     
-    //get the input that a player sends and set it to be performed next tick
-    //return whether this input is valid for this player to have queued
-    pub fn receive_input(&mut self, playerid: u8, input: PlayerInput) -> bool{
-        
-        //get if the input is valid for this player
-        if  self.is_input_valid(&playerid, &input ) {
-            
-            self.queuedinputs.insert(playerid, Some(input));    
-            return true ;
-        }
-        else{
-            
-            return false ;
-        };
-    }
     
     //get what pieces are captures in the game engine and remove them from here
     pub fn tick(&mut self){
@@ -824,6 +809,10 @@ impl MainGame{
 
 
 
+
+
+
+
     //get the state of the game as a string
     pub fn get_string_state(&self) -> String{
 
@@ -854,22 +843,45 @@ impl MainGame{
     }
     
 
-    pub fn receive_string_input(&mut self, stringinput: String) -> Result<(), ()>{
+    pub fn receive_string_input(&mut self, playerid: &u8, stringinput: String) -> Result<(), ()>{
 
+        //try to convert to player input with serde json
 
-        Ok( () )
+        if let Ok(playerinput) = serde_json::from_str::<PlayerInput>(&stringinput){
+
+            self.receive_input(*playerid, playerinput);
+
+            return Ok ( () );
+        }
+
+        return Err( () );
     }
     
 
 
 
+    //get the input that a player sends and set it to be performed next tick
+    //return whether this input is valid for this player to have queued
+    pub fn receive_input(&mut self, playerid: u8, input: PlayerInput) -> Option<String>{
+        
+        //get if the input is valid for this player
+        if  self.is_input_valid(&playerid, &input ) {
+            
+            self.queuedinputs.insert(playerid, Some( input.clone() ));
+
+            return Some( serde_json::to_string(&input).unwrap() );
+
+        }
+        else{
+            
+            return None;
+        };
+    }
+
+
     
     
 }
-
-
-
-
 
 
 
