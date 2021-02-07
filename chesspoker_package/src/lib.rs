@@ -262,8 +262,15 @@ impl MainGame{
     }
     
     //get a string representing teh type of the piece
-    pub fn get_piece_type_name(&self, pieceid: u16) -> String{
-        self.boardgame.get_piece_type_name(pieceid)
+    pub fn get_piece_type_name(&self, pieceid: u16) -> Option<String>{
+
+        //get if the piece exists
+        if self.boardgame.does_piece_have_owner(pieceid){
+            
+            return Some(self.boardgame.get_piece_type_name(pieceid));
+        }
+        
+        return None;
     }
     
     pub fn get_board_game_object_owner(&self, objectid: u16) -> Option<u8>{
