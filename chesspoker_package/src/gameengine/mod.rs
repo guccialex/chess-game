@@ -956,6 +956,7 @@ impl GameEngine{
         self.boardgame.is_board_game_object_piece(objectid)
     }
     
+    
     pub fn get_owner_of_piece(& self, pieceid: u16) -> u8{
         
         for (player, pieces) in self.playertopiece.clone(){
@@ -971,6 +972,26 @@ impl GameEngine{
         
         panic!("cant find the owner of the piece");
         
+    }
+
+
+
+    //only for testing
+    pub fn does_piece_have_owner(&self, pieceid: u16) -> bool{
+
+
+        for (player, pieces) in self.playertopiece.clone(){
+            
+            for playerspieceid in pieces{
+                
+                if playerspieceid == pieceid{
+                    
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
 

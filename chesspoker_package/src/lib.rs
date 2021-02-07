@@ -266,9 +266,15 @@ impl MainGame{
         self.boardgame.get_piece_type_name(pieceid)
     }
     
-    pub fn get_board_game_object_owner(&self, objectid: u16) -> u8{
+    pub fn get_board_game_object_owner(&self, objectid: u16) -> Option<u8>{
         
-        self.boardgame.get_owner_of_piece(objectid)
+        //get if the piece exists
+        if self.boardgame.does_piece_have_owner(objectid){
+
+            return  Some(self.boardgame.get_owner_of_piece(objectid)) ;
+        }
+
+        return None;
         
     }
     
@@ -283,7 +289,8 @@ impl MainGame{
         
         let mut toreturn = Vec::new();
         
-        let owner = self.get_board_game_object_owner(pieceid);
+        let owner = self.get_board_game_object_owner(pieceid).unwrap();
+        
         if ! self.is_debt_settled(&owner){
             return (false, Vec::new());
         }
@@ -842,6 +849,7 @@ impl MainGame{
 
     }
     
+
 
     pub fn receive_string_input(&mut self, playerid: &u8, stringinput: String) -> Result<(), ()>{
 
