@@ -247,17 +247,19 @@ impl BoardGame{
                 let pieceoffset = self.piece_on_square_offset(pieceid, boardsquare);
 
 
-                panic!("totalsteps {:?}, relativepos {:?}, pieceoffset {:?}", totalsteps, relativepos, pieceoffset);                
+                //panic!("totalsteps {:?}, relativepos {:?}, pieceoffset {:?}", totalsteps, relativepos, pieceoffset);                
                 
                 
+                //slide an additional distance that this piece is offset by so it slides
+                //to the center of the new piece
                 relativepos.0 = relativepos.0 - pieceoffset.0;
                 relativepos.1 = relativepos.1 - pieceoffset.1;
-                
+
 
                 
                 
                 //slide to the center of a piece
-                let slidemission = Mission::make_slide_mission( relativepos);
+                let slidemission = Mission::make_slide_mission( relativepos );
                 
                 //put that mission into the lists of future missions
                 self.futuremissions.push( (30, pieceid, slidemission) );
