@@ -264,7 +264,7 @@ impl BoardGame{
 
 
                 //how far the piece slides every tick
-                let slidedistpertick = 2.0;
+                let slidedistpertick = 0.15;
 
 
                 
@@ -284,16 +284,21 @@ impl BoardGame{
 
                 while let Some(curboardsquarepos) = convert_physical_pos_to_board_square_pos(piecestartpos.0 + dmoved.0 , piecestartpos.1 + dmoved.1){
 
-
                     let boardsquareid = self.get_id_of_boardsquare_pos( curboardsquarepos ).unwrap();
-                    self.set_future_drop_and_raise(curtick, boardsquareid);
+
+
+                    
+                    //if this isnt the starting board square
+                    if boardsquareid != boardsquare{
+                        self.set_future_drop_and_raise(curtick, boardsquareid);
+                    }
+
 
 
                     curtick += 1;
                     if curtick > totalticks{
                         break;
                     }
-
 
                     dmoved = (dmoved.0 + tickdmoved.0, dmoved.1 + tickdmoved.1);
                 }
