@@ -256,10 +256,12 @@ impl BoardGame{
                 relativepos.1 = relativepos.1 - pieceoffset.1;
 
 
-                
-                
                 //slide to the center of a piece
                 let slidemission = Mission::make_slide_mission( relativepos );
+
+
+                panic!("the slide mission {:?}", slidemission);
+
                 
                 //put that mission into the lists of future missions
                 self.futuremissions.push( (30, pieceid, slidemission) );
