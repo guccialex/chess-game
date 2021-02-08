@@ -34,7 +34,7 @@ pub struct BoardGame{
     
     
     //the missions that are yet to occur
-    futuremissions: Vec<(u32, u16, Mission)>,
+    futuremissions: Vec<(i32, u16, Mission)>,
     
     
     physicalidtoshapeid: HashMap< u16, u32>,
@@ -243,12 +243,13 @@ impl BoardGame{
             //slide to the center of a piece
             let slidemission = Mission::make_slide_mission( relativepos );
 
-            panic!("the mission made {:?}", slidemission);
+            
 
             //put that mission into the lists of future missions
             self.futuremissions.push( (25, pieceid, slidemission) );
             
 
+            //panic!("the mission made {:?}", self.futuremissions);
 
 
             //make the missions that drop the pieces that its passing over
@@ -315,7 +316,7 @@ impl BoardGame{
         
         let liftanddropmission = Mission::make_drop_and_raise();
         
-        self.futuremissions.push(  (ticks, id , liftanddropmission)  );        
+        self.futuremissions.push(  (ticks as i32, id , liftanddropmission)  );        
         
     }
     
@@ -402,20 +403,15 @@ impl BoardGame{
                 let (tick, objectid, mission) = thing;
                 
                 //if its time to start the mission, just start it by putting it in the list of missions 
-                //if its less than zero, or if its overloaded
-                if *tick <= 0 || *tick >= 1000000000{ 
+                //if its less than zero
+                if *tick <= 0 { 
                     BoardGame::associated_set_mission( &mut self.idtomission, *objectid, mission.clone());
                 }
                 
-                //subtract 1 from it
-                //in a roundabout way becauese unsigned integer subtraction is sending me
-                let temp = *tick as i32;
-                let temp = temp - 1;
-                let temp = temp as u32;
-                *tick = temp;
+                *tick = *tick - 1;
                 
                 
-                if *tick <= 0 || *tick >= 1000000000{ 
+                if *tick <= 0 { 
                     BoardGame::associated_set_mission( &mut self.idtomission, *objectid, mission.clone());
                 }
                 
@@ -426,7 +422,7 @@ impl BoardGame{
             self.futuremissions.retain(|(tick, objectid, mission)|{            
                 
                 //if the tick is 0 or less
-                if *tick <= 0 || *tick >= 1000000000{
+                if *tick <= 0 {
                     
                     //panic!("being removed before started, tick{:?}", tick);
                     //remove it
