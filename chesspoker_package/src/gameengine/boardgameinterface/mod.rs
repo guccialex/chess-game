@@ -252,6 +252,7 @@ impl BoardGame{
             //panic!("the mission made {:?}, mission {:?}", self.futuremissions, slidemission);
 
 
+            
             //make the missions that drop the pieces that its passing over
             {
 
