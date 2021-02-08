@@ -244,7 +244,7 @@ impl BoardGame{
             let slidemission = Mission::make_slide_mission( relativepos );
 
             //put that mission into the lists of future missions
-            self.futuremissions.push( (30, pieceid, slidemission) );
+            self.futuremissions.push( (20, pieceid, slidemission) );
             
 
 
@@ -286,8 +286,6 @@ impl BoardGame{
 
                     let boardsquareid = self.get_id_of_boardsquare_pos( curboardsquarepos ).unwrap();
 
-
-                    
                     //if this isnt the starting board square
                     if boardsquareid != boardsquare{
                         self.set_future_drop_and_raise(curtick, boardsquareid);
@@ -1019,7 +1017,7 @@ impl Mission{
         let slidedistance = (relativepos.0 * relativepos.0 + relativepos.1 * relativepos.1).sqrt();
         
         //the timesteps at which the states change
-        let ticks = (slidedistance as u32 * 10);
+        let ticks = (slidedistance as u32 * 5);
         //how long to wait before starting the movement
         let waitbefore = 0;
         
