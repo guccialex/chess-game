@@ -243,8 +243,10 @@ impl BoardGame{
             //slide to the center of a piece
             let slidemission = Mission::make_slide_mission( relativepos );
 
+            panic!("the mission made {:?}", slidemission);
+
             //put that mission into the lists of future missions
-            self.futuremissions.push( (20, pieceid, slidemission) );
+            self.futuremissions.push( (25, pieceid, slidemission) );
             
 
 
@@ -290,7 +292,6 @@ impl BoardGame{
                     if boardsquareid != boardsquare{
                         self.set_future_drop_and_raise(curtick, boardsquareid);
                     }
-
 
 
                     curtick += 1;
