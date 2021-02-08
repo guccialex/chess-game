@@ -249,7 +249,7 @@ impl BoardGame{
             self.futuremissions.push( (25, pieceid, slidemission.clone()) );
             
 
-            panic!("the mission made {:?}, mission {:?}", self.futuremissions, slidemission);
+            //panic!("the mission made {:?}, mission {:?}", self.futuremissions, slidemission);
 
 
             //make the missions that drop the pieces that its passing over
@@ -1014,7 +1014,7 @@ impl Mission{
         let slidedistance = (relativepos.0 * relativepos.0 + relativepos.1 * relativepos.1).sqrt();
         
         //the timesteps at which the states change
-        let ticks = slidedistance as u32 * 5;
+        let ticks = (slidedistance as u32 * 5) + 1;
         //how long to wait before starting the movement
         let waitbefore = 0;
         
