@@ -223,81 +223,85 @@ impl BoardGame{
     
     
     pub fn slide_piece(&mut self, pieceid: u16, relativeposition: (f32,f32)){
-
-        
-        //how many steps the piece will take
-        let totalsteps = f32::max(relativeposition.0.abs(), relativeposition.1.abs()) as u8;
-
-
-        //get the single step distance (how far it will move every unit)
-        let relativepositionunit: (f32,f32) = (relativeposition.0 / totalsteps as f32, relativeposition.1 / totalsteps as f32);
-
-        //how long it will take to move each unit
-        let unittime = 14;
         
         
         //get the board square this piece is on
         if let Some(boardsquare) = self.get_board_square_piece_is_on(pieceid){
             
 
-            //make the slide mission want to go to the middle of the square its going to
-            {
-                let mut relativepos = relativeposition;
-                
-                let pieceoffset = self.piece_on_square_offset(pieceid, boardsquare);
-
-
-                //panic!("totalsteps {:?}, relativepos {:?}, pieceoffset {:?}", totalsteps, relativepos, pieceoffset);                
-                
-                
-                //slide an additional distance that this piece is offset by so it slides
-                //to the center of the new piece
-                relativepos.0 = relativepos.0 - pieceoffset.0;
-                relativepos.1 = relativepos.1 - pieceoffset.1;
-
-
-                //slide to the center of a piece
-                let slidemission = Mission::make_slide_mission( relativepos );
-
-
-                panic!("the slide mission {:?}", slidemission);
+            let mut relativepos = relativeposition;
 
                 
-                //put that mission into the lists of future missions
-                self.futuremissions.push( (30, pieceid, slidemission) );
-            }
+            let pieceoffset = self.piece_on_square_offset(pieceid, boardsquare);
+            
+                
+            //slide an additional distance that this piece is offset by so it slides
+            //to the center of the new piece
+            relativepos.0 = relativepos.0 - pieceoffset.0;
+            relativepos.1 = relativepos.1 - pieceoffset.1;
+
+            //slide to the center of a piece
+            let slidemission = Mission::make_slide_mission( relativepos );
+
+            //put that mission into the lists of future missions
+            self.futuremissions.push( (30, pieceid, slidemission) );
+            
+
+
 
             //make the missions that drop the pieces that its passing over
             {
+
+                let piecestartpos = self.get_translation(pieceid);
+                let piecestartpos = (piecestartpos.0, piecestartpos.2);
+
                 
-                let mut curboardsquarefloatpos =  convert_board_square_pos_to_physical_pos( self.get_pos_of_boardsquare(boardsquare).unwrap() );
-                curboardsquarefloatpos = (curboardsquarefloatpos.0 + relativepositionunit.0, curboardsquarefloatpos.1 + relativepositionunit.1);
+                //the distance its moved
+                let mut dmoved = (0.0, 0.0);
+
+                //the current tick
+                let mut curtick = 0;
 
 
-                let mut stepnumber = 1;            
-                //how long into the future to drop the piece
-                let mut curdroptick = 10;
+                //how far the piece slides every tick
+                let slidedistpertick = 2.0;
 
 
-                while let Some(curboardsquarepos) = convert_physical_pos_to_board_square_pos( curboardsquarefloatpos.0, curboardsquarefloatpos.1){
+                
+                
+                //the total distance moved
+                let totaldist = (relativepos.0 * relativepos.0 + relativepos.1 * relativepos.1).sqrt();
+                
+                //total amount of ticks it takes to move
+                let totalticks = (totaldist / slidedistpertick).ceil();
 
-                    if let Some(boardsquareid) = self.get_id_of_boardsquare_pos( curboardsquarepos ){
-                        self.set_future_drop_and_raise(curdroptick, boardsquareid);
-                    }
+                //the distance it moves every tick
+                let tickdmoved = (relativepos.0 / totalticks, relativepos.1 / totalticks);
+                
+                
+                let totalticks = totalticks as u32;
 
 
-                    stepnumber += 1;
-                    curdroptick += unittime;
+                while let Some(curboardsquarepos) = convert_physical_pos_to_board_square_pos(piecestartpos.0 + dmoved.0 , piecestartpos.1 + dmoved.1){
 
-                    if stepnumber > totalsteps{
+
+                    let boardsquareid = self.get_id_of_boardsquare_pos( curboardsquarepos ).unwrap();
+                    self.set_future_drop_and_raise(curtick, boardsquareid);
+
+
+                    curtick += 1;
+                    if curtick > totalticks{
                         break;
                     }
 
-                    //update the curboardsquarefloatpos
-                    curboardsquarefloatpos = (curboardsquarefloatpos.0 + relativepositionunit.0, curboardsquarefloatpos.1 + relativepositionunit.1);
+
+                    dmoved = (dmoved.0 + tickdmoved.0, dmoved.1 + tickdmoved.1);
                 }
 
+
+
             }
+
         };
     }
     
@@ -572,7 +576,6 @@ impl BoardGame{
             return None;
         }
 
-
         let u8pos = (pos.0 as u8, pos.1 as u8);
 
         if let Some(bsid) = self.boardsquares.get(&u8pos){
@@ -587,7 +590,7 @@ impl BoardGame{
     }
     
     //get the position of the boardsquare by its id
-    pub fn get_pos_of_boardsquare(&self, id: u16) -> Option<(u8,u8)>{
+    pub fn get_pos_id_of_boardsquare(&self, id: u16) -> Option<(u8,u8)>{
         
         
         for (curpos, curid) in &self.boardsquares{
@@ -626,15 +629,20 @@ impl BoardGame{
     }
     
     //get a pieces offset on the square its on
-    fn piece_on_square_offset(&self, id: u16, square: u16) -> (f32,f32){
-        
-        let physicalbs = self.physicsengine.get_translation(&square);
+    fn piece_on_square_offset(&self, pieceid: u16, square: u16) -> (f32,f32){
+
+        let squareposid = self.get_pos_id_of_boardsquare(square).unwrap();
+
+        //position of the board square
+        let squarepos = convert_board_square_pos_to_physical_pos( squareposid );
+
+        //get the position of the piece
+        let piecepos = self.physicsengine.get_translation(&pieceid);
         
         //get the pieces x and z position and subtract the position of the piece its on from it
-        let xoffset = self.physicsengine.get_translation(&id).0 - physicalbs.0;
-        let zoffset = self.physicsengine.get_translation(&id).2 - physicalbs.2;
+        let xoffset = piecepos.0 - squarepos.0;
+        let zoffset = piecepos.2 - squarepos.1;
         
-        //return ( 0.0, 0.0 );
         
         return (xoffset, zoffset);
     }

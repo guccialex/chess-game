@@ -431,7 +431,7 @@ impl GameEngine{
             }
             
             //the position of the boardsquare its on
-            let boardsquarepos = self.boardgame.get_pos_of_boardsquare(boardsquareid).unwrap();
+            let boardsquarepos = self.boardgame.get_pos_id_of_boardsquare(boardsquareid).unwrap();
             
             
             //if its a lift and move action
@@ -636,7 +636,7 @@ impl GameEngine{
         if let Some(bsid) = self.boardgame.get_board_square_piece_is_on(pieceid){
             
             //the position of the boardsquare its on
-            let startpos = self.boardgame.get_pos_of_boardsquare(bsid).unwrap();
+            let startpos = self.boardgame.get_pos_id_of_boardsquare(bsid).unwrap();
             
             //the board square this action takes the piece
             let pos = action.get_square_pos_that_action_takes_piece_at_pos(startpos);
@@ -923,7 +923,7 @@ impl GameEngine{
     
     pub fn is_boardsquare_white(&self, bsid: u16 ) -> bool{
         
-        let bspos = self.boardgame.get_pos_of_boardsquare(bsid).unwrap();
+        let bspos = self.boardgame.get_pos_id_of_boardsquare(bsid).unwrap();
         
         let bstotal = bspos.0 + bspos.1;
         
