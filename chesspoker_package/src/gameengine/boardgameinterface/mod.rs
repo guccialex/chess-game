@@ -245,13 +245,15 @@ impl BoardGame{
                 let mut relativepos = relativeposition;
                 
                 let pieceoffset = self.piece_on_square_offset(pieceid, boardsquare);
+
+
+                panic!("totalsteps {:?}, relativepos {:?}, pieceoffset {:?}", totalsteps, relativepos, pieceoffset);                
+                
                 
                 relativepos.0 = relativepos.0 - pieceoffset.0;
                 relativepos.1 = relativepos.1 - pieceoffset.1;
+                
 
-
-
-                panic!("totalsteps {:?}, relativepos {:?}", totalsteps, relativepos);
                 
                 
                 //slide to the center of a piece
