@@ -106,6 +106,7 @@ impl RapierPhysicsEngine{
         //save the status of the body before making it static so to restore it to the proper state after
         let mut previousbodystatusbyobjid: HashMap<u16, BodyStatus> = HashMap::new();
 
+        /*
         //make the object static for the objects it should be static for this tick
         for objid in &self.static_for_tick{
             let rbhandle = self.bodyhandles.get(&objid).unwrap();
@@ -115,6 +116,8 @@ impl RapierPhysicsEngine{
                     
             rigidbody.body_status = BodyStatus::Static;
         }
+        */
+
 
         let mut temppipeline = PhysicsPipeline::new();
 
@@ -130,30 +133,8 @@ impl RapierPhysicsEngine{
             None,
             &()
         );
-        temppipeline.step(
-            &self.gravity,
-            &self.integration_parameters,
-            &mut self.broad_phase,
-            &mut self.narrow_phase,
-            &mut self.bodies,
-            &mut self.colliders,
-            &mut self.joints,
-            None,
-            None,
-            &()
-        );
-        temppipeline.step(
-            &self.gravity,
-            &self.integration_parameters,
-            &mut self.broad_phase,
-            &mut self.narrow_phase,
-            &mut self.bodies,
-            &mut self.colliders,
-            &mut self.joints,
-            None,
-            None,
-            &()
-        );
+
+
 
 
         /*
