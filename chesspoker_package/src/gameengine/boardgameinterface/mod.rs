@@ -263,8 +263,8 @@ impl BoardGame{
                 let mut curtick = 0;
 
 
-                //how far the piece slides every tick
-                let slidedistpertick = 0.15;
+                //how far the "what square am i on top of" checker, checks every tick
+                let slidedistpertick = 0.25;
 
 
                 

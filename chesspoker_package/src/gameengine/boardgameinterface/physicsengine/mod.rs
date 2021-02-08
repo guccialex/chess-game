@@ -106,7 +106,6 @@ impl RapierPhysicsEngine{
         //save the status of the body before making it static so to restore it to the proper state after
         let mut previousbodystatusbyobjid: HashMap<u16, BodyStatus> = HashMap::new();
 
-        /*
         //make the object static for the objects it should be static for this tick
         for objid in &self.static_for_tick{
             let rbhandle = self.bodyhandles.get(&objid).unwrap();
@@ -116,7 +115,7 @@ impl RapierPhysicsEngine{
                     
             rigidbody.body_status = BodyStatus::Static;
         }
-        */
+        
 
 
         let mut temppipeline = PhysicsPipeline::new();
@@ -137,19 +136,17 @@ impl RapierPhysicsEngine{
 
 
 
-        /*
-
         
         //restore the objects made static to what they were before
-        for (objid, rbstatus) in previousbodystatusbyobjid{
+        for objid in &self.static_for_tick{
             let rbhandle = self.bodyhandles.get(&objid).unwrap();
             let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
+
+            let rbstatus = previousbodystatusbyobjid.get(&objid).unwrap();
                     
-            rigidbody.body_status = rbstatus;
+            rigidbody.body_status = *rbstatus;
         }
-
-        */
-
+        
         
         
         //clear the objects that had their gravity disabled this tick
