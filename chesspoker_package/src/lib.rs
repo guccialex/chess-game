@@ -98,7 +98,6 @@ impl MainGame{
         toreturn        
     }
     
-    
     pub fn can_piece_be_offered(&self, playerid: u8, pieceid: u16) -> bool{
         
         let mut piecelist = Vec::new();
@@ -106,7 +105,6 @@ impl MainGame{
         
         self.boardgame.are_pieces_offered_valid(playerid, piecelist)
     }
-    
     
     pub fn is_game_over(&self) -> Option<u8>{
         
@@ -131,19 +129,16 @@ impl MainGame{
         }
         
     }
-    
     //get the total amount of time the player has lefts
     pub fn get_players_total_ticks_left(&self, playerid: u8) -> u32{
         
         self.turnmanager.get_players_total_ticks_left(playerid)
         
     }
-    
     //get the id of the cards in the hands and the game
     pub fn get_card_ids(&self) -> Vec<u16>{
         self.cards.get_all_card_ids()
     }
-    
     //get the information about the card
     pub fn get_card_by_id(&self, cardid: u16) -> Card{
         
@@ -159,7 +154,6 @@ impl MainGame{
         self.cards.where_is_card(cardid)
     }
     
-    
     //if the cards is in the hand, get its owner
     pub fn get_card_owner(&self, cardid: u16) -> Option<u8>{
         
@@ -173,7 +167,6 @@ impl MainGame{
             return None;
         }
     }
-    
     
     //get the objects on the board that that the card can interact with, and the associated input for it
     pub fn get_boardobject_actions_allowed_by_card(&self, playerid: u8, cardid: u16) -> HashMap<u16, PlayerInput> {
@@ -212,12 +205,10 @@ impl MainGame{
         
         self.cards.is_pokergame_ongoing()
     }
-    
     pub fn get_value_of_offered_pieces(&self, playerid: u8, piecesoffered: Vec<u16>) -> Option<u8>{
         
         self.boardgame.get_value_of_offered_pieces(playerid, piecesoffered)
     }
-    
     pub fn get_debt_of_player(&self, playerid: &u8) -> u8{
         
         //is the debt settled?
@@ -234,12 +225,9 @@ impl MainGame{
         
         return debtofplayer;
     }
-    
     pub fn get_cost_to_check(&self, playerid: &u8) -> Option<u8>{
         self.cards.pokergame_options(*playerid)
     }
-    
-    
     
     
     pub fn get_board_game_object_ids(&self) -> Vec<u16>{

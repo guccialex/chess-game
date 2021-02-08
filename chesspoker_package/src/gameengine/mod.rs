@@ -898,6 +898,8 @@ impl GameEngine{
             let relativeposition = pieceaction.get_relative_position_action_takes_piece();
             let floatrelpos = (relativeposition.0 as f32, relativeposition.1 as f32);
             
+            panic!("{:?}", floatrelpos);
+
             self.boardgame.slide_piece(piece, floatrelpos);
             
         }
