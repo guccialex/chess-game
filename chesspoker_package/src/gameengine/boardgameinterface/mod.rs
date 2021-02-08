@@ -249,7 +249,7 @@ impl BoardGame{
             self.futuremissions.push( (25, pieceid, slidemission.clone()) );
             
 
-            //panic!("the mission made {:?}, mission {:?}", self.futuremissions, slidemission);
+            panic!("the mission made {:?}, mission {:?}", self.futuremissions, slidemission);
 
 
             //make the missions that drop the pieces that its passing over
