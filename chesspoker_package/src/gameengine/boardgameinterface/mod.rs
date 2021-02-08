@@ -1017,7 +1017,7 @@ impl Mission{
         let slidedistance = (relativepos.0 * relativepos.0 + relativepos.1 * relativepos.1).sqrt();
         
         //the timesteps at which the states change
-        let ticks = (slidedistance as u32 * 5);
+        let ticks = slidedistance as u32 * 5;
         //how long to wait before starting the movement
         let waitbefore = 0;
         

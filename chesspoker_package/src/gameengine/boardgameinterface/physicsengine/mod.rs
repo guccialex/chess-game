@@ -155,6 +155,10 @@ impl RapierPhysicsEngine{
             &()
         );
 
+
+        /*
+
+        
         //restore the objects made static to what they were before
         for (objid, rbstatus) in previousbodystatusbyobjid{
             let rbhandle = self.bodyhandles.get(&objid).unwrap();
@@ -162,6 +166,8 @@ impl RapierPhysicsEngine{
                     
             rigidbody.body_status = rbstatus;
         }
+
+        */
 
         
         
