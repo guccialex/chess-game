@@ -1,57 +1,5 @@
 
 
-
-
-//imposes rules onto the physics engine so it acts like a board game
-//turns a physics engine into a board game with rules
-
-
-/*
-what do I want the board games public interface to be?
-
-
-new_empty_board ()
-
-new_piece (on board square, piece type)
-
-is_boardsquare_empty ()
-
-
-flick_piece
-slide_piece
-lift_and_drop_piece
-
-tick
-
-
-
-
-is that sufficient?
-
-
-
-the main game:
-
-requests a board game with specific settings
-
-
-the game engine:
-
-maps all the pieces and board squares to an ID so they can be referenced consistently
-
-keeps track of who owns each piece
-
-
-
-
-the board game:
-
-
-creates piece of type return ID
-*/
-
-
-
 mod physicsengine;
 
 use physicsengine::RapierPhysicsEngine;
@@ -280,6 +228,7 @@ impl BoardGame{
         //how many steps the piece will take
         let totalsteps = f32::max(relativeposition.0.abs(), relativeposition.1.abs()) as u8;
 
+
         //get the single step distance (how far it will move every unit)
         let relativepositionunit: (f32,f32) = (relativeposition.0 / totalsteps as f32, relativeposition.1 / totalsteps as f32);
 
@@ -299,6 +248,10 @@ impl BoardGame{
                 
                 relativepos.0 = relativepos.0 - pieceoffset.0;
                 relativepos.1 = relativepos.1 - pieceoffset.1;
+
+
+
+                panic!("totalsteps {:?}, relativepos {:?}", totalsteps, relativepos);
                 
                 
                 //slide to the center of a piece
