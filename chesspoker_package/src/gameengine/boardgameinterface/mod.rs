@@ -243,14 +243,8 @@ impl BoardGame{
             //slide to the center of a piece
             let slidemission = Mission::make_slide_mission( relativepos );
 
-            
-
             //put that mission into the lists of future missions
             self.futuremissions.push( (25, pieceid, slidemission.clone()) );
-            
-
-            //panic!("the mission made {:?}, mission {:?}", self.futuremissions, slidemission);
-
 
             
             //make the missions that drop the pieces that its passing over
@@ -1014,8 +1008,11 @@ impl Mission{
         //get the distance so i can determine how long to make the slide
         let slidedistance = (relativepos.0 * relativepos.0 + relativepos.1 * relativepos.1).sqrt();
         
+
         //the timesteps at which the states change
-        let ticks = (slidedistance as u32 * 5) + 1;
+        let ticks = (slidedistance * 5.0).ceil() as u32;
+
+
         //how long to wait before starting the movement
         let waitbefore = 0;
         
