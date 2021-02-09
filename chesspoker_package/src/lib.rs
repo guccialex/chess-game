@@ -135,6 +135,10 @@ impl MainGame{
         self.turnmanager.get_players_total_ticks_left(playerid)
         
     }
+
+    
+
+
     //get the id of the cards in the hands and the game
     pub fn get_card_ids(&self) -> Vec<u16>{
         self.cards.get_all_card_ids()
@@ -199,6 +203,13 @@ impl MainGame{
     }
     
     
+    //get every player with an active turn
+    pub fn get_active_players(&self) -> HashSet<u8>{
+
+        self.turnmanager.get_current_players()
+    }
+
+
     
     //return if theres an active pokergame or not
     pub fn is_pokergame_ongoing(&self) -> bool{

@@ -279,7 +279,6 @@ impl BoardGame{
 
             let piecestartpos = self.get_translation(pieceid);
             let piecestartpos = (piecestartpos.0, piecestartpos.2);
-            
 
             bsdstartpos = piecestartpos;
 

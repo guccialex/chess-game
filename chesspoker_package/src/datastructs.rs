@@ -137,8 +137,8 @@ impl TurnManager{
 
         let mut turns = HashMap::new();
 
-        turns.insert(0, (player1, 120, 1) );
-        turns.insert(1, (player2, 120, 0) );
+        turns.insert(0, (player1, 2, 1) );
+        turns.insert(1, (player2, 2, 0) );
 
 
         let mut tickssincelastaction = HashMap::new();
