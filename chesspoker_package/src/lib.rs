@@ -337,6 +337,8 @@ impl MainGame{
         
         //get the actions allowed by the piece on the board
         let (canflick, actions) = self.boardgame.get_actions_allowed_by_piece(pieceid);
+
+        panic!("actions allowed by piece {:?}", actions);
         
         //get the pieces targeted by every action
         for action in actions{
