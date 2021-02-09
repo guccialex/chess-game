@@ -253,7 +253,7 @@ impl BoardGame{
                 let mut piecestartpos = (piecestartpos.0, piecestartpos.2);
                 
                 
-                let newmethod = true;
+                let newmethod = false;
 
                 //THESE LINES CHANGE THE OLD METHOD OF SQUARE DROPPING TO THE NEW ONE THAT
                 //DOESNT DO TWICE THE DIAGONALS
@@ -265,6 +265,7 @@ impl BoardGame{
                     
                     relativepos = (endpos.0 - piecestartpos.0, endpos.1 - piecestartpos.1);
                 }
+                
                 
                 
                 
