@@ -326,21 +326,7 @@ impl MainGame{
     
     //get what pieces are captures in the game engine and remove them from here
     pub fn tick(&mut self){
-        
-        
-        //if the game is over, dont run
-        if self.gameover != None{
-            
-            panic!("game is over {:?}", self.gameover);
-            
-            //well just tick the boardgame actually
-            self.boardgame.tick();
-            
-            
-            return ();
-        }
-        
-        
+                
         
         //get each player whos turn it currently is
         let currentturnplayers = self.turnmanager.get_current_players();
