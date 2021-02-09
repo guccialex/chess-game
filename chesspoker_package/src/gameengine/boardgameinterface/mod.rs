@@ -155,15 +155,11 @@ impl BoardGame{
         //move it up, or itll sink through the floor when ccd is on
         self.physicsengine.apply_delta_position(objectid , (0.0, 1.0, 0.0));
         
-        
-        
         //elasticity and friction
         self.physicsengine.set_materials(objectid, 1.3, 1.0);
         
         //unlock all the axis of rotation
         //self.physicsengine.set_kinematic_axis_of_rotation_locked( objectid, (false,false,false) );
-        
-        
     }
     
     
@@ -216,9 +212,7 @@ impl BoardGame{
         
         self.physicsengine.set_shape_cylinder(&pieceid, 0.5, 0.7 );
         
-        
-        return  pieceid;
-        
+        return pieceid;
     }
     
     
@@ -228,43 +222,63 @@ impl BoardGame{
         //get the board square this piece is on
         if let Some(boardsquare) = self.get_board_square_piece_is_on(pieceid){
             
-
+            
             let mut relativepos = relativeposition;
-
-                
+            
+            
             let pieceoffset = self.piece_on_square_offset(pieceid, boardsquare);
             
-                
+            
             //slide an additional distance that this piece is offset by so it slides
             //to the center of the new piece
             relativepos.0 = relativepos.0 - pieceoffset.0;
             relativepos.1 = relativepos.1 - pieceoffset.1;
-
+            
             //slide to the center of a piece
             let slidemission = Mission::make_slide_mission( relativepos );
-
+            
             //put that mission into the lists of future missions
             self.futuremissions.push( (25, pieceid, slidemission.clone()) );
-
+            
+            
             
             //make the missions that drop the pieces that its passing over
+            
+            //this is one VALID way to do it, and should be kept commented and not deleted
+            //for a likely future use
+            //but im commenting it out for a more normal procedure for choosing how the bsquares are being chosen
             {
-
+                
                 let piecestartpos = self.get_translation(pieceid);
-                let piecestartpos = (piecestartpos.0, piecestartpos.2);
+                let mut piecestartpos = (piecestartpos.0, piecestartpos.2);
+                
+                
+                let newmethod = true;
 
+                //THESE LINES CHANGE THE OLD METHOD OF SQUARE DROPPING TO THE NEW ONE THAT
+                //DOESNT DO TWICE THE DIAGONALS
+                if newmethod{
+
+                    let endpos = convert_board_square_pos_to_physical_pos( self.get_pos_id_of_boardsquare(boardsquare).unwrap() );
+                    
+                    piecestartpos = convert_board_square_pos_to_physical_pos( self.get_pos_id_of_boardsquare(boardsquare).unwrap() );
+                    
+                    relativepos = (endpos.0 - piecestartpos.0, endpos.1 - piecestartpos.1);
+                }
+                
+                
                 
                 //the distance its moved
                 let mut dmoved = (0.0, 0.0);
-
+                
                 //the current tick
                 let mut curtick = 0;
-
-
+                
+                
                 //how far the "what square am i on top of" checker, checks every tick
                 let slidedistpertick = 0.25;
-
-
+                
+                
                 
                 
                 //the total distance moved
@@ -272,36 +286,32 @@ impl BoardGame{
                 
                 //total amount of ticks it takes to move
                 let totalticks = (totaldist / slidedistpertick).ceil();
-
+                
                 //the distance it moves every tick
                 let tickdmoved = (relativepos.0 / totalticks, relativepos.1 / totalticks);
                 
                 
                 let totalticks = totalticks as u32;
-
-
+                
+                
                 while let Some(curboardsquarepos) = convert_physical_pos_to_board_square_pos(piecestartpos.0 + dmoved.0 , piecestartpos.1 + dmoved.1){
-
+                    
                     let boardsquareid = self.get_id_of_boardsquare_pos( curboardsquarepos ).unwrap();
-
+                    
                     //if this isnt the starting board square
                     if boardsquareid != boardsquare{
                         self.set_future_drop_and_raise(curtick, boardsquareid);
                     }
-
-
+                    
+                    
                     curtick += 1;
                     if curtick > totalticks{
                         break;
                     }
-
+                    
                     dmoved = (dmoved.0 + tickdmoved.0, dmoved.1 + tickdmoved.1);
-                }
-
-
-
+                }   
             }
-
         };
     }
     
@@ -565,14 +575,14 @@ impl BoardGame{
     
     //get the id of the boardsquare by its position
     pub fn get_id_of_boardsquare_i8_pos(&self, pos: (i8,i8) ) -> Option<u16>{
-
+        
         //if either of the positions are negative
         if pos.0 < 0 || pos.1 < 0{
             return None;
         }
-
+        
         let u8pos = (pos.0 as u8, pos.1 as u8);
-
+        
         if let Some(bsid) = self.boardsquares.get(&u8pos){
             
             return Some(*bsid);
@@ -625,12 +635,12 @@ impl BoardGame{
     
     //get a pieces offset on the square its on
     fn piece_on_square_offset(&self, pieceid: u16, square: u16) -> (f32,f32){
-
+        
         let squareposid = self.get_pos_id_of_boardsquare(square).unwrap();
-
+        
         //position of the board square
         let squarepos = convert_board_square_pos_to_physical_pos( squareposid );
-
+        
         //get the position of the piece
         let piecepos = self.physicsengine.get_translation(&pieceid);
         
@@ -1008,11 +1018,11 @@ impl Mission{
         //get the distance so i can determine how long to make the slide
         let slidedistance = (relativepos.0 * relativepos.0 + relativepos.1 * relativepos.1).sqrt();
         
-
+        
         //the timesteps at which the states change
         let ticks = (slidedistance * 5.0).ceil() as u32;
-
-
+        
+        
         //how long to wait before starting the movement
         let waitbefore = 0;
         
