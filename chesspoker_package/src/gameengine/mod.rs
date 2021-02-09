@@ -466,7 +466,7 @@ impl GameEngine{
     
                     let cursquareid = self.boardgame.boardsquare_posid_to_id(curposid).unwrap();
     
-                    toreturn.push( (1, PieceAction::slide(direction, distance), cursquareid) );
+                    toreturn.push( (1, PieceAction::slide(direction, step), cursquareid) );
 
                 };
 
