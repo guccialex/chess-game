@@ -426,7 +426,7 @@ impl GameEngine{
     //and the action at the point which it passes over them
     pub fn get_passed_over_squares(&self, action: PieceAction, pieceid: u16) -> Vec< (u32, PieceAction, u16) >{
         
-        let toreturn = Vec::new();
+        let mut toreturn = Vec::new();
 
         if let PieceAction::liftandmove(relativepos) = action{
 
@@ -458,7 +458,7 @@ impl GameEngine{
 
             for step in 0..distance{
 
-                let relativeposstep = action.get_relative_position_action_takes_piece();
+                let relativeposstep = action.get_relative_position_action_takes_piece().clone();
 
                 cursquarepos = (cursquarepos.0 + relativeposstep.0, cursquarepos.1 + relativeposstep.1);
 

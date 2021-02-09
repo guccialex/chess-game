@@ -24,7 +24,7 @@ pub fn is_square_posid_valid( i8pos: (i8,i8) ) -> Option<(u8,u8)>{
 
 
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Copy)]
 pub enum PieceAction{
     
     flick(f32, f32),
