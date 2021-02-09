@@ -332,9 +332,9 @@ impl MainGame{
         let currentturnplayers = self.turnmanager.get_current_players();
         
 
-        //if the game is over, dont process input
-        //or tick the turn manager
-        if self.gameover.is_some(){
+        //if the game isnt over, process input
+        //and tick the turn manager
+        if self.gameover.is_none(){
 
             for playerid in currentturnplayers.clone(){
             
