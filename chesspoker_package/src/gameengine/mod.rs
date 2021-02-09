@@ -594,7 +594,7 @@ impl GameEngine{
                         }
                     }
                     
-                    
+
                     //if this is final boardsquare the action will arrive at
                     if action == curaction{
                         
@@ -632,7 +632,7 @@ impl GameEngine{
                         //if its not empty, return false
                         //if this square has any pieces on it break
                         if opposingpiecesonsquare || alliedpiecesonsquare{
-                            return false;
+                            break;
                         };
                     }
                     
