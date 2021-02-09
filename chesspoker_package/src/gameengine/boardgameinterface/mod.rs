@@ -264,6 +264,8 @@ impl BoardGame{
                     
                     if let Some(temp2) = convert_physical_pos_to_board_square_pos(temp1.0, temp1.1){
 
+                        let temp2 = self.get_id_of_boardsquare_pos(temp2).unwrap();
+
                         piecestartpos = convert_board_square_pos_to_physical_pos( self.get_pos_id_of_boardsquare(boardsquare).unwrap() );
 
                         let endpos = convert_board_square_pos_to_physical_pos( self.get_pos_id_of_boardsquare(temp2).unwrap() );
