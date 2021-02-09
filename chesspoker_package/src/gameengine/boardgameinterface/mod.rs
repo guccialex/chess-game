@@ -258,12 +258,18 @@ impl BoardGame{
                 //THESE LINES CHANGE THE OLD METHOD OF SQUARE DROPPING TO THE NEW ONE THAT
                 //DOESNT DO TWICE THE DIAGONALS
                 if newmethod{
+ 
 
-                    let endpos = convert_board_square_pos_to_physical_pos( self.get_pos_id_of_boardsquare(boardsquare).unwrap() );
+                    let temp1 = (piecestartpos.0 + relativepos.0, relativepos.1 + relativepos.1);
                     
-                    piecestartpos = convert_board_square_pos_to_physical_pos( self.get_pos_id_of_boardsquare(boardsquare).unwrap() );
-                    
-                    relativepos = (endpos.0 - piecestartpos.0, endpos.1 - piecestartpos.1);
+                    if let Some(temp2) = convert_physical_pos_to_board_square_pos(temp1.0, temp1.1){
+
+                        piecestartpos = convert_board_square_pos_to_physical_pos( self.get_pos_id_of_boardsquare(boardsquare).unwrap() );
+
+                        let endpos = convert_board_square_pos_to_physical_pos( self.get_pos_id_of_boardsquare(temp2).unwrap() );
+                                        
+                        relativepos = (endpos.0 - piecestartpos.0, endpos.1 - piecestartpos.1);
+                    }
                 }
                 
                 
