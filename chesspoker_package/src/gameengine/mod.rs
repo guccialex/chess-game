@@ -12,7 +12,12 @@ pub use datastructs::PieceAction;
 
 
 
+use boardgameinterface::convert_physical_pos_to_board_square_pos;
+use boardgameinterface::convert_board_square_pos_to_physical_pos;
 
+use datastructs::is_square_posid_valid;
+
+//use datastructs::players_perspective_to_objective_perspective_lift;
 
 
 
@@ -421,9 +426,59 @@ impl GameEngine{
     //and the action at the point which it passes over them
     pub fn get_passed_over_squares(&self, action: PieceAction, pieceid: u16) -> Vec< (u32, PieceAction, u16) >{
         
-        
-        Vec::new()
-        
+        let toreturn = Vec::new();
+
+        if let PieceAction::liftandmove(relativepos) = action{
+
+            let startsquareid = self.boardgame.get_board_square_piece_is_on(pieceid).unwrap();
+
+            let startsquareposid = self.boardgame.boardsquare_id_to_posid(startsquareid).unwrap();
+
+
+            let endsquarepos = (startsquareposid.0 as i8 + relativepos.0, startsquareposid.1 as i8 + relativepos.1);
+
+
+            if let Some(endposid) = is_square_posid_valid(endsquarepos){
+
+                let endsquareid = self.boardgame.boardsquare_posid_to_id(endposid).unwrap();
+
+                toreturn.push( (1, action, endsquareid) );
+
+            };
+
+        }
+        else if let PieceAction::slide(direction, distance) = action{
+
+
+            let startsquareid = self.boardgame.get_board_square_piece_is_on(pieceid).unwrap();
+
+            let startsquareposid = self.boardgame.boardsquare_id_to_posid(startsquareid).unwrap();
+
+            let mut cursquarepos = (startsquareposid.0 as i8, startsquareposid.1 as i8);
+
+            for step in 0..distance{
+
+                let relativeposstep = action.get_relative_position_action_takes_piece();
+
+                cursquarepos = (cursquarepos.0 + relativeposstep.0, cursquarepos.1 + relativeposstep.1);
+
+                if let Some(curposid) = is_square_posid_valid(cursquarepos){
+    
+                    let cursquareid = self.boardgame.boardsquare_posid_to_id(curposid).unwrap();
+    
+                    toreturn.push( (1, action, cursquareid) );
+
+                };
+
+            }
+
+
+
+        }
+
+
+
+        toreturn
     }
     
     

@@ -688,12 +688,14 @@ impl BoardGame{
     }
     
     
+    /*
     //gets the squares in order that this piece moves over during its slide with this movement
     pub fn get_squares_moved_over_with_slide(&self,  pieceid: u16, movement: (f32,f32) ) -> Vec<(u32, u16)> {
         
         
         Vec::new()
     } 
+    */
     
     
     
@@ -880,7 +882,7 @@ impl ShapeIDtoConvexHull{
 
 //convert  the object center to what board square its on
 //and if it isnt on any board square, return None
-fn convert_physical_pos_to_board_square_pos( xpos: f32, zpos: f32 ) -> Option<(u8,u8)>{
+pub fn convert_physical_pos_to_board_square_pos( xpos: f32, zpos: f32 ) -> Option<(u8,u8)>{
     
     //add 4 to the center of it
     let newxpos = xpos + 4.0;
@@ -911,7 +913,7 @@ fn convert_physical_pos_to_board_square_pos( xpos: f32, zpos: f32 ) -> Option<(u
 
 
 //convert the id of a board square, to the position at the center of that board square
-fn convert_board_square_pos_to_physical_pos( boardsquare:(u8,u8) ) -> (f32,f32) {
+pub fn convert_board_square_pos_to_physical_pos( boardsquare:(u8,u8) ) -> (f32,f32) {
     
     let mut xpos = boardsquare.0 as f32;
     let mut zpos = boardsquare.1 as f32;

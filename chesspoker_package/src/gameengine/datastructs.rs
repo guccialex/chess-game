@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use ncollide3d::shape::ConvexHull;
 
 
-fn is_square_posid_valid( i8pos: (i8,i8) ) -> Option<(u8,u8)>{
+pub fn is_square_posid_valid( i8pos: (i8,i8) ) -> Option<(u8,u8)>{
     
     //if its in range, return those integers, otherwise return none
     if i8pos.0 >= 0 && i8pos.0 <= 7{
