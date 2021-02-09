@@ -718,7 +718,7 @@ impl MainGame{
         if let PlayerInput::pieceaction(pieceid, pieceaction) = playerinput {
             
             self.boardgame.perform_action( *pieceid, pieceaction.clone() );
-            
+
         }
         else if let PlayerInput::cardaction(cardid, action) = playerinput{
             
@@ -736,11 +736,14 @@ impl MainGame{
                     self.turnmanager.halve_time_left();
                 }
                 else if cardeffect == CardEffect::pokergame{
-                    self.cards.start_poker_game(1, 2);
+                    //self.cards.start_poker_game(1, 2);
+                }
+                else if cardeffect == CardEffect::dropsquare{
+
 
                 }
                 else if cardeffect == CardEffect::blackjackgame{
-                    panic!("blackjack not implemented");
+                    //panic!("blackjack not implemented");
                 }
                 else{
                     //otherwise panic, because this card should not have been allowed to be played

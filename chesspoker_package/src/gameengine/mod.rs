@@ -370,11 +370,6 @@ impl GameEngine{
     
     
     
-    
-    
-    
-    
-    
     pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec<PieceAction>){
         
         
@@ -471,8 +466,6 @@ impl GameEngine{
                 };
 
             }
-
-
 
         }
 
@@ -635,7 +628,6 @@ impl GameEngine{
                             return false;
                         };
                     }
-                    
                 }
             }
         }
