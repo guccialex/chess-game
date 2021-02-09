@@ -326,40 +326,48 @@ impl MainGame{
     
     //get what pieces are captures in the game engine and remove them from here
     pub fn tick(&mut self){
-                
+
         
         //get each player whos turn it currently is
         let currentturnplayers = self.turnmanager.get_current_players();
         
-        
-        for playerid in currentturnplayers.clone(){
+
+        //if the game is over, dont process input
+        //or tick the turn manager
+        if self.gameover.is_some(){
+
+            for playerid in currentturnplayers.clone(){
             
-            //if an action was taken
-            let mut actionwastaken = false;
-            
-            
-            //if this player has a queued input
-            if let Some(playerinput) = self.queuedinputs.get(&playerid).unwrap(){
+                //if an action was taken
+                let mut actionwastaken = false;
                 
-                //if its valid to perform it
-                if self.is_input_valid(&playerid, &playerinput){
+                //if this player has a queued input
+                if let Some(playerinput) = self.queuedinputs.get(&playerid).unwrap(){
                     
-                    self.perform_input(&playerid, &playerinput.clone());
-                    actionwastaken = true;
+                    //if its valid to perform it
+                    if self.is_input_valid(&playerid, &playerinput){
+                        
+                        self.perform_input(&playerid, &playerinput.clone());
+                        actionwastaken = true;
+                    }
+                }
+                
+                
+                //if an action was taken, let the turnmanager know that that player took their turn
+                if actionwastaken{    
+                    self.turnmanager.player_took_action(playerid);
+                    
+                    //and clear queud input for this player
+                    self.queuedinputs.insert(playerid, None);
                 }
             }
             
-            
-            
-            //if an action was taken, let the turnmanager know that that player took their turn
-            if actionwastaken{    
-                self.turnmanager.player_took_action(playerid);
-                
-                //and clear queud input for this player
-                self.queuedinputs.insert(playerid, None);
-            }
+            //let the turn manager know that a tick has happeneds
+            self.turnmanager.tick();
         }
         
+
+
         
         //check the card game if a player has won, and if they have, give them all the cards
         //do this by ticking the card interface
@@ -371,8 +379,6 @@ impl MainGame{
         }
         
         
-        //let the turn manager know that a tick has happeneds
-        self.turnmanager.tick();
         
         //tick the physical game engine
         self.boardgame.tick();
@@ -822,6 +828,7 @@ impl MainGame{
         stringstate
     }
 
+
     //set the state of the game using a string, returns error if the string is invalid
     pub fn set_string_state(&mut self, stringstate: String) -> Result<(), ()>{
 
@@ -840,7 +847,6 @@ impl MainGame{
         }
 
     }
-    
 
 
     pub fn receive_string_input(&mut self, playerid: &u8, stringinput: String) -> Result<(), ()>{
@@ -857,8 +863,6 @@ impl MainGame{
         return Err( () );
     }
     
-
-
 
     //get the input that a player sends and set it to be performed next tick
     //return whether this input is valid for this player to have queued
@@ -879,8 +883,6 @@ impl MainGame{
     }
 
 
-    
-    
 }
 
 
