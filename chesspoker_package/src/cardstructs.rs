@@ -54,6 +54,10 @@ pub enum CardAction{
 
 
 
+//THE DECK CAN ONLY HAVE CARDS WITH JOKER EFFECTS
+//THE HAND CAN HAVE EITHER CARDS WITH JOKER EFFECTS OR NON JOKER EFFECTS
+
+
 
 
 
@@ -127,72 +131,26 @@ impl CardsInterface{
         
         let cardid = self.totalcards;
         self.totalcards += 1;
-        let newcard = Card::new_random_card();
+        let newcard = Card::new_random_joker_card();
         
         self.cards.insert( cardid, newcard );
         self.deck.push(cardid);
         
     }
-
-
-    //get a card that is to be played when drawn
-    pub fn get_joker_card(&mut self) -> u16{
-
-        //the card should be cleared from existing 
-        //when the cardinterface is ticked
-        let cardid = self.add_random_card_to_game();
-
-        cardid
-        //self.cards.get(&cardid).unwrap().clone()
-    }
-
-    
-    //and how much debt does this player need to settle
-    pub fn pool_debt_of_player(&self, playerid: &u8) -> u8{
-        
-        //if there is a pokergame
-        //get the amount of money that player has in their pool in the pokergame
-        //so that the money they can put up the money they owe
-        if let Some(pokergame) = &self.pokergame{
-            
-            
-            if playerid == &1{
-                
-                return pokergame.player1pool;
-            }
-            else{
-                
-                return pokergame.player2pool;
-            }
-            
-        };
-        
-        return 0;
-        
-    }
     
     
-    
-    //is there a pokergame ongoing
-    pub fn is_pokergame_ongoing(&self) -> bool{
-        
-        return self.pokergame.is_some();
+    //get a random card effect playable on the board
+    pub fn get_joker_card_effect() -> CardEffect{
+
+        Card::new_random_joker_card().effect
     }
     
     
     
     
-    //if theres a poker game going on
-    //and the player can perform an action in it RIGHT NOW (aka, its not the opponents turn)
-    //and how much it costs for the player to match the opponents raise
-    pub fn pokergame_options(&self, playerid: u8) -> Option<u8>{
-        
-        if let Some(pokergame) = &self.pokergame{
-            return pokergame.can_player_act(playerid);
-        }
-        
-        return None;
-    }
+    
+    
+    
     
     //this player checks and pays the amount owed to check
     pub fn player_checks(&mut self){
@@ -255,16 +213,17 @@ impl CardsInterface{
     }
     
     
-    pub fn does_card_exist(&self, cardid: u16 ) -> bool{
-        
-        return  self.cards.contains_key(&cardid)  ;
-        
-    }
     
-    //get the card by ID and panic if it doesnt have it
-    pub fn get_card_unsafe(&self, cardid: u16) -> Card{
+    //get the card if it exists
+    pub fn get_card_by_id(&self, cardid: &u16) -> Option<Card>{
         
-        self.cards.get(&cardid).unwrap().clone()
+        if let Some(card) = self.cards.get(&cardid){
+            
+            return Some(card.clone());
+        }
+        else{
+            return None;
+        }
     }
     
     //get all cards that 
@@ -283,27 +242,12 @@ impl CardsInterface{
     
     
     
-    pub fn does_player_own_card(&self, playerid: u8, cardid: u16) ->  bool{
-        
-        //for each card in the players hand
-        for playerscardid in self.hands.get(&playerid).unwrap(){
-            
-            //if that card in the hand matches the card passed in
-            if playerscardid == &cardid{
-                
-                return true;
-            };  
-        };
-        
-        
-        return false;        
-    }
     
     
     //where is the card, what field is it in
     //what is its position in the field
     //what is the size of the field its in (hand size, river size)
-    pub fn where_is_card(&self, cardid: u16) -> (u8, u8, u8){
+    pub fn where_is_card(&self, cardid: u16) -> Option<(u8, u8, u8)>{
         
         /*
         the positions where the card can be
@@ -329,7 +273,7 @@ impl CardsInterface{
                 
                 if cardidinhand == &cardid{
                     
-                    return (*playerid,curcardpos,fieldsize);
+                    return Some( (*playerid,curcardpos,fieldsize) );
                 }
             }
         }
@@ -340,12 +284,12 @@ impl CardsInterface{
             //if the card is in the game
             if pokergame.get_card_ids().contains(&cardid){
                 
-                return pokergame.where_is_card(cardid);
-            }
-        }
+                return Some( pokergame.where_is_card(cardid) );
+            };
+        };
         
         
-        panic!("cant find card");
+        return None;
     }
     
     
@@ -353,14 +297,29 @@ impl CardsInterface{
     
     //remove this card from that players hand
     //if that player has that card in hand (should I panic if they dont?)
-    pub fn remove_card_from_game(&mut self, playerid: u8, cardid: u16){
+    pub fn remove_card_from_game(&mut self, cardid: u16){
         
-        let muthand = self.hands.get_mut(&playerid).unwrap();
         
-        let mut removedcard: Option<&u16> = None;
+        //remove cards with that id from hands and deck, but not from pokergame or from cards, which is removed periodically
         
-        //remove the card from the players hand
-        muthand.retain(|cardidinhand| {
+        
+
+        //remove the card from players hand    
+        for (_, hand) in self.hands.iter_mut(){
+            
+            hand.retain(|cardidinhand| {
+                
+                let delete = {
+                    cardid == *cardidinhand
+                };
+                
+                !delete
+            });
+        }
+        
+        
+        //remove the card from the deck
+        self.deck.retain(|cardidinhand| {
             
             let delete = {
                 cardid == *cardidinhand
@@ -369,7 +328,9 @@ impl CardsInterface{
             !delete
         });
         
-        self.cards.remove(&cardid);
+        
+        
+        self.remove_nonexisting_cards();
     }
     
     
@@ -410,38 +371,6 @@ impl CardsInterface{
         self.pokergame = Some( PokerGame::new(river, player1hand, player2hand)  );
     }
     
-    
-    //if a player has won the card game, end the game
-    //and return the winner of the game
-    pub fn tick(&mut self) -> Option<u8>{
-        
-        let mut toreturn = None;
-        let mut cardgameended = false;
-        
-        //if theres a cardgame going on
-        if let Some(pokergame) = &mut self.pokergame{
-            
-            //if the cardgame is finished
-            if let Some(winnerid) = pokergame.get_winner(){
-                
-                toreturn = Some(winnerid);
-                
-                cardgameended = true;
-            }
-        }
-        
-        if cardgameended{
-            self.pokergame = None;
-        }
-        
-        //the "garbage collecting" step
-        //remove all cards that arent in the players hand or deck or poker game
-        self.remove_nonexisting_cards();
-        
-        
-        
-        return toreturn;
-    }
     
     
     //remove the cards from the list of cards that no longer exist in the
@@ -497,6 +426,114 @@ impl CardsInterface{
         
     }
     
+    
+    
+    
+    
+    //functions that are only used by external functions
+    //not used inside of this class or module
+    //purely public, just getters
+    
+    
+    
+    
+    
+    
+    
+    
+    //if a player has won the card game, end the game
+    //and return the winner of the game
+    pub fn tick(&mut self) -> Option<u8>{
+        
+        let mut toreturn = None;
+        let mut cardgameended = false;
+        
+        //if theres a cardgame going on
+        if let Some(pokergame) = &mut self.pokergame{
+            
+            //if the cardgame is finished
+            if let Some(winnerid) = pokergame.get_winner(){
+                
+                toreturn = Some(winnerid);
+                
+                cardgameended = true;
+            }
+        }
+        
+        if cardgameended{
+            self.pokergame = None;
+        }
+        
+        //the "garbage collecting" step
+        //remove all cards that arent in the players hand or deck or poker game
+        self.remove_nonexisting_cards();
+        
+        
+        
+        return toreturn;
+    }
+    
+    
+    //if theres a poker game going on
+    //and the player can perform an action in it RIGHT NOW (aka, its not the opponents turn)
+    //and how much it costs for the player to match the opponents raise
+    pub fn pokergame_options(&self, playerid: u8) -> Option<u8>{
+        
+        if let Some(pokergame) = &self.pokergame{
+            return pokergame.can_player_act(playerid);
+        }
+        
+        return None;
+    }
+    
+    
+    //and how much debt does this player need to settle
+    pub fn pool_debt_of_player(&self, playerid: &u8) -> Option<u8>{
+        
+        //if there is a pokergame
+        //get the amount of money that player has in their pool in the pokergame
+        //so that the money they can put up the money they owe
+        if let Some(pokergame) = &self.pokergame{
+            
+            
+            if playerid == &1{
+                
+                return Some(pokergame.player1pool);
+            }
+            else{
+                
+                return Some(pokergame.player2pool);
+            }
+        };
+        
+        return None;
+    }
+    
+    
+    
+    //is there a pokergame ongoing
+    pub fn is_pokergame_ongoing(&self) -> bool{
+        
+        return self.pokergame.is_some();
+    }
+    
+    
+    
+    pub fn does_player_own_card(&self, playerid: u8, cardid: u16) ->  bool{
+        
+        //for each card in the players hand
+        for playerscardid in self.hands.get(&playerid).unwrap(){
+            
+            //if that card in the hand matches the card passed in
+            if playerscardid == &cardid{
+                
+                return true;
+            };  
+        };
+        
+        
+        return false;        
+    }
     
 }
 
@@ -748,7 +785,7 @@ impl PokerGame{
     fn get_winner(&self) -> Option<u8>{
         
         use rs_poker::core::{Hand, Rank, Rankable};
-
+        
         
         //if the game is over
         if self.roundnumber >= 4{
@@ -919,15 +956,18 @@ pub enum CardEffect{
     //this card can raise a square to not be able to be moved past by another piece
     raisesquare,
     
-    
     //make the game have pool settings
     makepoolgame,
     
-    
     backtobackturns, 
     
-    
     halvetimeleft,
+    
+    
+    noeffect,
+    
+    
+    
     
     
 }
@@ -942,6 +982,10 @@ pub enum CardSuit{
     
     
 }
+
+
+
+use rand::Rng;
 
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
@@ -1128,29 +1172,29 @@ impl Card{
                 panic!("aaa");
             }
         }
-
+        
         {
-
+            
             if CardSuit::clubs == self.suit{
-
+                
                 suit = rs_poker::core::Suit::Club;
             }
             else if CardSuit::diamonds == self.suit{
-
+                
                 suit = rs_poker::core::Suit::Diamond;
             }
             else if CardSuit::spades == self.suit{
-
+                
                 suit = rs_poker::core::Suit::Spade;
             }
             else if CardSuit::hearts == self.suit{
-
+                
                 suit = rs_poker::core::Suit::Heart;
             }
             else{
                 panic!("doesnt have a valid suit");
             }
-
+            
         }
         
         
@@ -1159,11 +1203,10 @@ impl Card{
             value: value,
         };
         
-
+        
         toreturn
         
     }
-    
     
     pub fn suitvalue(&self) -> u16{
         
@@ -1184,43 +1227,11 @@ impl Card{
     }
     
     
-    pub fn new_random_card() -> Card{
-        
-        use rand::Rng;
+    
+    
+    fn new_effectless_card() -> Card{
         
         let mut rng = rand::thread_rng();
-        
-        let effectnumb = rng.gen_range(0, 7);
-        let mut effect;
-        {
-            if effectnumb == 0{
-                effect = CardEffect::pokergame;
-            }
-            else if effectnumb == 1{
-                effect = CardEffect::pokergame;
-            }
-            else if effectnumb == 2{
-                effect = CardEffect::dropsquare;
-            }
-            else if effectnumb == 3{
-                effect = CardEffect::raisesquare;
-            }
-            else if effectnumb == 4{
-                effect = CardEffect::makepoolgame;
-            }
-            else if effectnumb == 5{
-                effect = CardEffect::backtobackturns;
-            }
-            else if effectnumb == 6{
-                effect = CardEffect::halvetimeleft;
-            }
-            else{
-                panic!("not in the range generated");
-            }
-        }
-        
-        
-        
         
         let valuenumb = rng.gen_range(0, 13);
         let value;
@@ -1275,27 +1286,86 @@ impl Card{
         let suitvalue = rng.gen_range(0,4);
         let suit;
         
-        if suitvalue == 0{
-            suit = CardSuit::diamonds;
+        {
+            if suitvalue == 0{
+                suit = CardSuit::diamonds;
+            }
+            else if suitvalue == 1{
+                suit = CardSuit::clubs;
+            }
+            else if suitvalue == 2{
+                suit = CardSuit::hearts;
+            }
+            else if suitvalue == 3{
+                suit = CardSuit::spades;
+            }
+            else{
+                panic!("not in teh genereated range");
+            }
         }
-        else if suitvalue == 1{
-            suit = CardSuit::clubs;
-        }
-        else if suitvalue == 2{
-            suit = CardSuit::hearts;
-        }
-        else if suitvalue == 3{
-            suit = CardSuit::spades;
-        }
-        else{
-            panic!("not in teh genereated range");
-        }
+        
         
         Card{
             value: value,
             suit: suit,
-            effect: effect,
+            effect: CardEffect::noeffect,
         }
+        
+    }
+    
+    
+    //get a new joker card, card that can be played on board
+    pub fn new_random_joker_card() -> Card{
+        
+        let mut effectlesscard = Card::new_effectless_card();
+        
+        
+        let mut jokereffects = Vec::new();
+        jokereffects.push(CardEffect::pokergame);
+        jokereffects.push(CardEffect::pokergame);
+        jokereffects.push(CardEffect::pokergame);
+        jokereffects.push(CardEffect::pokergame);
+        jokereffects.push(CardEffect::pokergame);
+        jokereffects.push(CardEffect::pokergame);
+        
+        
+        let mut rng = rand::thread_rng();
+        let effectnumb = rng.gen_range(0, jokereffects.len() );
+        let jokereffect = jokereffects[effectnumb].clone();
+        
+        
+        effectlesscard.effect = jokereffect;
+        
+        
+        effectlesscard
+        
+    }
+    
+    
+    //get a random card that can be played from the hand
+    pub fn new_random_card() -> Card{
+        
+        let mut effectlesscard = Card::new_effectless_card();
+        
+        
+        
+        let mut effects = Vec::new();
+        effects.push(CardEffect::pokergame);
+        effects.push(CardEffect::pokergame);
+        effects.push(CardEffect::pokergame);
+        effects.push(CardEffect::pokergame);
+        effects.push(CardEffect::pokergame);
+        effects.push(CardEffect::pokergame);
+        
+        
+        let mut rng = rand::thread_rng();
+        let effectnumb = rng.gen_range(0, effects.len() );
+        let effect = effects[effectnumb].clone();
+        
+        
+        effectlesscard.effect = effect;
+        
+        effectlesscard
         
     }
     

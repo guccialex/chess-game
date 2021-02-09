@@ -68,8 +68,8 @@ pub struct MainGame{
     
     //if the player has performed a draw action yet
     playerdrewcard: HashMap<u8, bool>,
-
-
+    
+    
     //how many ticks the game has been ended for
     //if its been 3000 ticks, panic, to stop running
     ticksgamehasbeenoverfor: u32,
@@ -140,25 +140,25 @@ impl MainGame{
         self.turnmanager.get_players_total_ticks_left(playerid)
         
     }
-
     
-
-
+    
+    
+    
     //get the id of the cards in the hands and the game
     pub fn get_card_ids(&self) -> Vec<u16>{
         self.cards.get_all_card_ids()
     }
     //get the information about the card
-    pub fn get_card_by_id(&self, cardid: u16) -> Card{
+    pub fn get_card_by_id(&self, cardid: &u16) -> Option<Card>{
         
-        self.cards.get_card_unsafe(cardid)
+        self.cards.get_card_by_id(cardid)
     }
     
     
     //where is the card, what field is it in
     //what is its position in the field
     //what is the size of the field its in (hand size, river size)
-    pub fn where_is_card(&self, cardid: u16) -> (u8, u8, u8){
+    pub fn where_is_card(&self, cardid: u16) -> Option<(u8, u8, u8)>{
         
         self.cards.where_is_card(cardid)
     }
@@ -178,12 +178,11 @@ impl MainGame{
     }
     
     //get the objects on the board that that the card can interact with, and the associated input for it
-    pub fn get_boardobject_actions_allowed_by_card(&self, playerid: u8, cardid: u16) -> HashMap<u16, PlayerInput> {
+    pub fn get_boardobject_actions_allowed_by_card(&self, playerid: u8, cardid: &u16) -> HashMap<u16, PlayerInput> {
         
-        //first, does the card exist
-        if self.cards.does_card_exist(cardid){
+        
+        if let Some(card) = self.cards.get_card_by_id(cardid){
             
-            let card = self.cards.get_card_unsafe(cardid);
             
             let mut allowedinputs = HashMap::new();
             
@@ -194,7 +193,7 @@ impl MainGame{
                 for boardsquareid in self.boardgame.get_empty_squares_not_on_mission(){
                     
                     let cardaction = CardAction::playcardonsquare(boardsquareid);
-                    let input = PlayerInput::cardaction(cardid, cardaction);
+                    let input = PlayerInput::cardaction(*cardid, cardaction);
                     
                     allowedinputs.insert( boardsquareid, input );
                 }
@@ -210,11 +209,11 @@ impl MainGame{
     
     //get every player with an active turn
     pub fn get_active_players(&self) -> HashSet<u8>{
-
+        
         self.turnmanager.get_current_players()
     }
-
-
+    
+    
     
     //return if theres an active pokergame or not
     pub fn is_pokergame_ongoing(&self) -> bool{
@@ -227,19 +226,27 @@ impl MainGame{
     }
     pub fn get_debt_of_player(&self, playerid: &u8) -> u8{
         
-        //is the debt settled?
-        let totaldebtofplayer = self.cards.pool_debt_of_player(playerid);
-        
-        //get the value of the players pool
-        let valueinpoolcurrently = self.boardgame.get_value_of_players_pool(*playerid);
-        
-        let debtofplayer = totaldebtofplayer - valueinpoolcurrently;
-        
-        if debtofplayer > 100{
-            panic!("ive done something wrong");
+        //get the debt according to the card games
+        if let Some(totaldebtofplayer) = self.cards.pool_debt_of_player(playerid){
+            
+            //get the value of this players pool
+            let valueinpoolcurrently = self.boardgame.get_value_of_players_pool(*playerid);
+            
+            let debtofplayer = totaldebtofplayer - valueinpoolcurrently;
+            
+            if debtofplayer > 100{
+                return 0;
+                //panic!("ive done something wrong");
+            }
+            
+            return debtofplayer;
+            
+        }
+        else{
+            
+            return 0;
         }
         
-        return debtofplayer;
     }
     pub fn get_cost_to_check(&self, playerid: &u8) -> Option<u8>{
         self.cards.pokergame_options(*playerid)
@@ -265,9 +272,30 @@ impl MainGame{
         self.boardgame.is_board_game_object_piece(objectid)
     }
     
+    //the things that would prevent a card or piece action    
+    fn is_cardgame_ongoing_or_debt_unsettled(&self, playerid: &u8) -> bool{
+        
+        
+        if ! self.is_debt_settled(playerid){
+            return false;
+        }
+        
+        //return false if there is any card game ongoing
+        {
+            if self.cards.is_pokergame_ongoing(){
+                return false;
+            }
+            
+        }
+        
+        
+        true
+    }
+    
+    
     //get a string representing teh type of the piece
     pub fn get_piece_type_name(&self, pieceid: u16) -> Option<String>{
-
+        
         //get if the piece exists
         if self.boardgame.does_piece_have_owner(pieceid){
             
@@ -281,10 +309,10 @@ impl MainGame{
         
         //get if the piece exists
         if self.boardgame.does_piece_have_owner(objectid){
-
+            
             return  Some(self.boardgame.get_owner_of_piece(objectid)) ;
         }
-
+        
         return None;
         
     }
@@ -302,13 +330,10 @@ impl MainGame{
         
         let owner = self.get_board_game_object_owner(pieceid).unwrap();
         
-        if ! self.is_debt_settled(&owner){
+        if self.is_cardgame_ongoing_or_debt_unsettled(&owner){
             return (false, Vec::new());
         }
         
-        if self.cards.is_pokergame_ongoing(){
-            return (false, Vec::new());
-        }
         
         
         //get the actions allowed by the piece on the board
@@ -331,18 +356,18 @@ impl MainGame{
     
     //get what pieces are captures in the game engine and remove them from here
     pub fn tick(&mut self){
-
+        
         
         //get each player whos turn it currently is
         let currentturnplayers = self.turnmanager.get_current_players();
         
-
+        
         //if the game isnt over, process input
         //and tick the turn manager
         if self.gameover.is_none(){
-
-            for playerid in currentturnplayers.clone(){
             
+            for playerid in currentturnplayers.clone(){
+                
                 //if an action was taken
                 let mut actionwastaken = false;
                 
@@ -369,22 +394,22 @@ impl MainGame{
             
             //let the turn manager know that a tick has happeneds
             self.turnmanager.tick();
-
-
+            
+            
             self.ticksgamehasbeenoverfor +=1;
-
+            
             if self.ticksgamehasbeenoverfor > 3000{
                 panic!("Game has been over for long enough. Pod is going to be restarted now");
             }
         }
         
-
+        
         //tick the physical game engine
         self.boardgame.tick();
-
         
-
-
+        
+        
+        
         //check the card game if a player has won, and if they have, give them all the cards
         //do this by ticking the card interface
         let maybewon = self.cards.tick();
@@ -394,19 +419,19 @@ impl MainGame{
             self.boardgame.give_pool_to_player(winner);
         }
         
-
+        
         //if a player doesnt confirm to settle their ante
         //an opponent gets ownership of their lowest cost piece
-
+        
         //if an opponent doesnt make a move in poker without owning any debt
         //its considered a fold
         //a player folds if they have to
-
-
-
         
         
-
+        
+        
+        
+        
         //update if the game is over and what player won
         
         
@@ -427,7 +452,7 @@ impl MainGame{
                 self.gameover = Some(1);
             }
         }
-
+        
         //does this player have any pieces left?
         
         
@@ -505,6 +530,7 @@ impl MainGame{
     }
     
     
+    
     //does this player not have any debt. is this player debt free
     fn is_debt_settled(&self, playerid: &u8) -> bool{
         
@@ -522,19 +548,22 @@ impl MainGame{
     fn is_card_action_valid(&self, playerid: &u8, cardid: &u16, action: &CardAction) -> bool{
         
         
-        if ! self.is_debt_settled(playerid){
+        
+        
+        if self.is_cardgame_ongoing_or_debt_unsettled(playerid){
             return false;
         }
-        if self.cards.is_pokergame_ongoing(){
-            return false;
-        }
         
         
         
-        //first, does the card exist
-        if self.cards.does_card_exist(*cardid){
+        if let Some(card) = self.cards.get_card_by_id(cardid){
             
-            let cardeffect = self.cards.get_card_unsafe( *cardid).effect;
+            
+            //RETURN TRUE ALWAYS FOR TESTING RIGHT NOW
+            return true;
+            
+            
+            let cardeffect = card.effect;
             
             if let CardAction::playcardonpiece(pieceid) = action{
                 return true;
@@ -567,9 +596,11 @@ impl MainGame{
                 if cardeffect == CardEffect::halvetimeleft{
                     return true;
                 }
-                
             }
-        };
+            
+            
+        }
+        
         
         panic!("card doesnt exist, or uncaught action some other how {:?}", action);
         
@@ -578,14 +609,9 @@ impl MainGame{
     
     fn is_piece_action_valid(&self, playerid: &u8, pieceid: &u16,  pieceaction: &PieceAction) -> bool{
         
-        if ! self.is_debt_settled(playerid){
+        if self.is_cardgame_ongoing_or_debt_unsettled(playerid){
             return false;
         }
-        
-        if self.cards.is_pokergame_ongoing(){
-            return false;
-        }
-        
         
         
         
@@ -602,7 +628,6 @@ impl MainGame{
             else{
                 return(false);
             }
-            
             
             
         }
@@ -636,47 +661,41 @@ impl MainGame{
     
     fn is_poker_action_valid(&self, playerid: &u8, pokeraction: &PokerAction) ->  bool{
         
-        if ! self.is_debt_settled(playerid){
-            return false;
-        }
-        
-        
-        //is there a poker game going on?
-        //and is it this players turn currently
-        if let Some(checkvalue) = self.cards.pokergame_options(*playerid){
+        //if the debt is settled, you have to do a settle debt action first
+        if self.is_debt_settled(playerid){
             
-            if let PokerAction::check(piecesandvalue) = pokeraction{
+            
+            //is there a poker game going on?
+            //and is it this players turn currently
+            if let Some(checkvalue) = self.cards.pokergame_options(*playerid){
                 
-                //are the pieces and values being offered valid
-                if let Some(totalvalueoffered) = self.boardgame.get_value_of_offered_pieces(*playerid, piecesandvalue.clone()){
+                
+                if let PokerAction::check(piecesandvalue) = pokeraction{
                     
-                    //is it offering exactly the amount needed to check?
-                    if totalvalueoffered == checkvalue{
-                        return true;
-                    }
-                    else{
-                        return false;
+                    //are the pieces and values being offered valid
+                    if let Some(totalvalueoffered) = self.boardgame.get_value_of_offered_pieces(*playerid, piecesandvalue.clone()){
+                        
+                        //is it offering exactly the amount needed to check?
+                        if totalvalueoffered == checkvalue{
+                            return true;
+                        }
                     }
                 }
-            }
-            else if let PokerAction::raise(piecesandvalue) = pokeraction{
-                
-                //are the pieces and values being offered valid
-                if let Some(totalvalueoffered) = self.boardgame.get_value_of_offered_pieces(*playerid, piecesandvalue.clone()){
+                else if let PokerAction::raise(piecesandvalue) = pokeraction{
                     
-                    //is it offering more than the amount needed to check?
-                    if totalvalueoffered >= checkvalue{
-                        return true;
-                    }
-                    else{
-                        return false;
+                    //are the pieces and values being offered valid
+                    if let Some(totalvalueoffered) = self.boardgame.get_value_of_offered_pieces(*playerid, piecesandvalue.clone()){
+                        
+                        //is it offering more than the amount needed to check?
+                        if totalvalueoffered > checkvalue{
+                            return true;
+                        }
                     }
                 }
+                else if let PokerAction::fold = pokeraction{
+                    return true;
+                }
             }
-            else if let PokerAction::fold = pokeraction{
-                return true;
-            }
-            
         }
         
         false
@@ -684,33 +703,68 @@ impl MainGame{
     
     fn is_settle_debt_action_valid(&self, playerid: &u8, pieces: &Vec<u16>) -> bool{
         
-        //if the pieces and value are valid
+        //if the pieces are valid
         if let Some(value) = self.boardgame.get_value_of_offered_pieces(*playerid, pieces.clone()){
             
             // and equal to the amount of debt owed by the player
             if value == self.get_debt_of_player(playerid){
                 
-                //and also make sure that the debt of the player isnt already zero
+                //and also make sure that its not settling 0 value (maybe?)
                 if value != 0{
                     return true;
                 }
-                else{
-                    return false;
-                }
-            }
-            else{
-                return false;
             }
         }
-        else{
-            return false;
-        }
+        
+        
+        return false;
         
     }
     
     
-
-
+    fn apply_card_effect_to_board(&mut self, playerid: &u8, cardeffect: CardEffect){
+        
+        //dont play cards 
+        /*
+        else if let CardAction::playcardonpiece(pieceid) = action{
+            
+            
+        }
+        else if let CardAction::playcardonsquare(squareid) = action{
+            
+            if let CardEffect::raisesquare = cardeffect{    
+                
+                self.boardgame.raise_square(*squareid);
+            }
+            else if let CardEffect::dropsquare = cardeffect{
+                
+                self.boardgame.drop_square(*squareid);
+            }
+        }
+        */
+        
+        if cardeffect == CardEffect::makepoolgame{
+            self.boardgame.make_pool_game();
+        }
+        else if cardeffect == CardEffect::backtobackturns{
+            self.turnmanager.players_take_2_turns_in_a_row();
+        }
+        else if cardeffect == CardEffect::halvetimeleft{
+            self.turnmanager.halve_time_left();
+        }
+        else if cardeffect == CardEffect::pokergame{
+            self.cards.start_poker_game(1, 2);
+        }
+        else{
+            //otherwise panic, because this card should not have been allowed to be played
+            //and it will fuck shit if i get here without actually having a valid action
+            
+            panic!("I dont know what a {:?} is", cardeffect);
+        }
+    }
+    
+    
+    
     //perform an input that is valid, and it is the turn of the player
     fn perform_input(&mut self, playerid: &u8, playerinput: &PlayerInput) {
         
@@ -718,60 +772,25 @@ impl MainGame{
         if let PlayerInput::pieceaction(pieceid, pieceaction) = playerinput {
             
             self.boardgame.perform_action( *pieceid, pieceaction.clone() );
-
+            
         }
         else if let PlayerInput::cardaction(cardid, action) = playerinput{
             
-            let cardeffect = self.cards.get_card_unsafe(*cardid).effect;
             
-            if let CardAction::playcardonboard = action{
+            if let Some(card) = self.cards.get_card_by_id(cardid){
                 
-                if cardeffect == CardEffect::makepoolgame{
-                    self.boardgame.make_pool_game();
-                }
-                else if cardeffect == CardEffect::backtobackturns{
-                    self.turnmanager.players_take_2_turns_in_a_row();
-                }
-                else if cardeffect == CardEffect::halvetimeleft{
-                    self.turnmanager.halve_time_left();
-                }
-                else if cardeffect == CardEffect::pokergame{
-                    //self.cards.start_poker_game(1, 2);
-                }
-                else if cardeffect == CardEffect::dropsquare{
-
-
-                }
-                else if cardeffect == CardEffect::blackjackgame{
-                    //panic!("blackjack not implemented");
-                }
-                else{
-                    //otherwise panic, because this card should not have been allowed to be played
-                    //and it will fuck shit if i get here without actually having a valid action
+                if let CardAction::playcardonboard = action{
                     
-                    panic!("I dont know what a {:?} is", cardeffect);
-                }
-                
-            }
-            else if let CardAction::playcardonpiece(pieceid) = action{
-                
-                
-            }
-            else if let CardAction::playcardonsquare(squareid) = action{
-                
-                if let CardEffect::raisesquare = cardeffect{    
+                    self.apply_card_effect_to_board(playerid, card.effect);
                     
-                    self.boardgame.raise_square(*squareid);
                 }
-                else if let CardEffect::dropsquare = cardeffect{
-                    
-                    self.boardgame.drop_square(*squareid);
-                }
+                
+                //remove the card from the game
+                self.cards.remove_card_from_game(*cardid);
+                
             }
             
             
-            //remove the card from the game
-            self.cards.remove_card_from_game(*playerid, *cardid);
             
         }
         else if let PlayerInput::blackjackaction(action) = playerinput{
@@ -801,13 +820,10 @@ impl MainGame{
                 let amountoffered = self.boardgame.get_value_of_offered_pieces(*playerid, piecesandvalue.clone()).unwrap();
                 let amountneededtocheck = self.cards.pokergame_options(*playerid).unwrap();
                 
-                self.cards.player_raises( amountoffered - amountneededtocheck);
-                
+                self.cards.player_raises( amountoffered - amountneededtocheck );
                 
                 self.boardgame.put_pieces_in_pool(piecesandvalue.clone());
             }
-            
-            
             
             
         }
@@ -815,17 +831,8 @@ impl MainGame{
             
             *self.playerdrewcard.get_mut(playerid).unwrap() = true;
             
-
-            //get the card effect of the card drawn
-            let cardid = self.cards.get_joker_card();
-
-            let action = CardAction::playcardonboard;
-
-            //and then make an input out of it
-            let input = PlayerInput::cardaction(cardid, action);
-
-            self.perform_input(playerid, &input);
-
+            self.apply_card_effect_to_board(playerid, CardsInterface::get_joker_card_effect());
+            
         }
         else if let PlayerInput::settledebt(piecesandvalue) = playerinput{
             
@@ -836,60 +843,60 @@ impl MainGame{
         }
         
     }
-
-
-
-
-
-
-
-
+    
+    
+    
+    
+    
+    
+    
+    
     //get the state of the game as a string
     pub fn get_string_state(&self) -> String{
-
+        
         let binstate = bincode::serialize(&self).unwrap();
         let vecofchar = binstate.iter().map(|b| *b as char).collect::<Vec<_>>();
         let stringstate = vecofchar.iter().collect::<String>();
-
+        
         stringstate
     }
-
-
+    
+    
     //set the state of the game using a string, returns error if the string is invalid
     pub fn set_string_state(&mut self, stringstate: String) -> Result<(), ()>{
-
+        
         let vecofchar = stringstate.chars().collect::<Vec<_>>();
         let gamebin = vecofchar.iter().map(|c| *c as u8).collect::<Vec<_>>();
-
-
+        
+        
         if let Ok(gamestate) = bincode::deserialize::<MainGame>(&gamebin){
-
+            
             *self = gamestate;
-
+            
             return Ok( () ); 
         }
         else{
             return Err( () );
         }
-
+        
     }
-
-
+    
+    
     pub fn receive_string_input(&mut self, playerid: &u8, stringinput: String) -> Result<(), ()>{
-
+        
         //try to convert to player input with serde json
-
+        
         if let Ok(playerinput) = serde_json::from_str::<PlayerInput>(&stringinput){
-
+            
             self.receive_input(*playerid, playerinput);
-
+            
             return Ok ( () );
         }
-
+        
         return Err( () );
     }
     
-
+    
     //get the input that a player sends and set it to be performed next tick
     //return whether this input is valid for this player to have queued
     pub fn receive_input(&mut self, playerid: u8, input: PlayerInput) -> Option<String>{
@@ -898,30 +905,18 @@ impl MainGame{
         if  self.is_input_valid(&playerid, &input ) {
             
             self.queuedinputs.insert(playerid, Some( input.clone() ));
-
+            
             return Some( serde_json::to_string(&input).unwrap() );
-
+            
         }
         else{
             
             return None;
         };
     }
-
-
+    
+    
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
