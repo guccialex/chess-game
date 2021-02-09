@@ -278,19 +278,17 @@ impl MainGame{
         
         if ! self.is_debt_settled(playerid){
 
-            panic!("debt unsettled");
-            return false;
+            return true;
         }
         
         //return false if there is any card game ongoing
         if self.cards.is_pokergame_ongoing(){
 
-            panic!("game ongoing");
-            return false;
+            return true;
         }
         
         
-        true
+        false
     }
     
     
@@ -347,6 +345,7 @@ impl MainGame{
             
             toreturn.push( (action, objects) );
         }
+
         
         (canflick, toreturn)
     }
