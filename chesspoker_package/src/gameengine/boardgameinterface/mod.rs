@@ -270,6 +270,13 @@ impl BoardGame{
 
         if newmethod{
 
+            bsdstartpos = startsquarepos;
+
+            bsdtotalmovement = (endsquarepos.0 - startsquarepos.0, endsquarepos.1 - startsquarepos.1);
+
+        }
+        else{
+
             let piecestartpos = self.get_translation(pieceid);
             let piecestartpos = (piecestartpos.0, piecestartpos.2);
             
@@ -278,12 +285,6 @@ impl BoardGame{
 
             bsdtotalmovement = (endsquarepos.0 - piecestartpos.0, endsquarepos.1 - piecestartpos.1);
 
-        }
-        else{
-
-            bsdstartpos = startsquarepos;
-
-            bsdtotalmovement = (endsquarepos.0 - startsquarepos.0, endsquarepos.1 - startsquarepos.1);
         }
 
 
@@ -331,14 +332,7 @@ impl BoardGame{
             }
             
             dmoved = (dmoved.0 + tickdmoved.0, dmoved.1 + tickdmoved.1);
-        }   
-        
-        
-        
-        
-        
-        
-        
+        }
         
     }
     
