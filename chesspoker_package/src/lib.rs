@@ -277,15 +277,16 @@ impl MainGame{
         
         
         if ! self.is_debt_settled(playerid){
+
+            panic!("debt unsettled");
             return false;
         }
         
         //return false if there is any card game ongoing
-        {
-            if self.cards.is_pokergame_ongoing(){
-                return false;
-            }
-            
+        if self.cards.is_pokergame_ongoing(){
+
+            panic!("game ongoing");
+            return false;
         }
         
         
