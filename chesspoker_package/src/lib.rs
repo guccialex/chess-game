@@ -396,7 +396,8 @@ impl MainGame{
         
 
         //if a player doesnt confirm to settle their ante
-        //an opponent gets a card of theirs
+        //an opponent gets ownership of their lowest cost piece
+
         //if an opponent doesnt make a move in poker without owning any debt
         //its considered a fold
         //a player folds if they have to
@@ -717,6 +718,7 @@ impl MainGame{
         if let PlayerInput::pieceaction(pieceid, pieceaction) = playerinput {
             
             self.boardgame.perform_action( *pieceid, pieceaction.clone() );
+            
         }
         else if let PlayerInput::cardaction(cardid, action) = playerinput{
             

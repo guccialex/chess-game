@@ -4,6 +4,26 @@ use std::collections::HashSet;
 use ncollide3d::shape::ConvexHull;
 
 
+fn is_square_posid_valid( i8pos: (i8,i8) ) -> Option<(u8,u8)>{
+    
+    //if its in range, return those integers, otherwise return none
+    if i8pos.0 >= 0 && i8pos.0 <= 7{
+        
+        if i8pos.1 >= 0 && i8pos.1 <= 7{
+            
+            //return the board square id
+            return Some(  (i8pos.0 as u8, i8pos.1 as u8)  )  ;
+            
+        };
+    };
+    
+    
+    return None;
+}
+
+
+
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum PieceAction{
     
@@ -23,7 +43,7 @@ impl PieceAction{
     
     //get the square that this action takes the piece on this certain square
     //dont check if its a valid  board square
-    pub fn get_square_pos_that_action_takes_piece_at_pos(&self, piecepos: (u8,u8)) -> (i8,i8){
+    pub fn get_square_posid_that_action_takes_piece_at_posid(&self, piecepos: (u8,u8)) -> Option<(u8,u8)>{
         
         let intpiecepos = (piecepos.0 as i8, piecepos.1 as i8);
         
@@ -31,7 +51,8 @@ impl PieceAction{
             
             let newpos = (intpiecepos.0 + relativepos.0 , intpiecepos.1 + relativepos.1);
             
-            return  (newpos.0, newpos.1);
+            
+            return  is_square_posid_valid( newpos );
         } 
         else if let PieceAction::slide( direction, distance ) = *self{
             
@@ -42,7 +63,7 @@ impl PieceAction{
             let newpos = (intpiecepos.0 + relativepos.0 , intpiecepos.1 + relativepos.1);
             
             //otherwise, return it
-            return (newpos.0, newpos.1);
+            return is_square_posid_valid(newpos);
             
         }
         else if let PieceAction::flick(_,_) = *self{
@@ -51,7 +72,6 @@ impl PieceAction{
         else{
             panic!("IDK");
         }
-        
         
     }
     
@@ -78,9 +98,7 @@ impl PieceAction{
             panic!("IDK");
         }
         
-        
     }
-    
 }
 
 
@@ -105,7 +123,7 @@ pub struct PieceData{
     hasperformedaction: bool,
     
     canflick: bool,
-
+    
     value: u8,
     
 }
@@ -126,13 +144,13 @@ impl PieceData{
         }
     }
     
-
+    
     pub fn get_value(&self) -> u8{
-
+        
         return self.value;
     }
-
-
+    
+    
     
     pub fn set_checkers(&mut self){
         
@@ -161,7 +179,7 @@ impl PieceData{
         self.allowedactions = AllowedActions::get_knight();
         
         self.typename = "knight".to_string();
-
+        
         self.value = 2;
     }
     
@@ -169,7 +187,7 @@ impl PieceData{
         self.allowedactions = AllowedActions::get_king();
         
         self.typename = "king".to_string();
-
+        
         self.value = 0;
     }
     
@@ -177,7 +195,7 @@ impl PieceData{
         self.allowedactions = AllowedActions::get_queen();
         
         self.typename = "queen".to_string();
-
+        
         self.value = 4;
     }
     
@@ -185,7 +203,7 @@ impl PieceData{
         self.allowedactions = AllowedActions::get_bishop();
         
         self.typename = "bishop".to_string();
-
+        
         self.value = 2;
     }
     
@@ -195,7 +213,7 @@ impl PieceData{
         self.typename = "rook".to_string();
         
         self.cancastle = true;
-
+        
         self.value = 3;
     }
     
@@ -207,7 +225,7 @@ impl PieceData{
         self.typename = "poolball".to_string();
         
         self.canflick = true;
-
+        
         self.value = 2;
     }
     
@@ -389,7 +407,7 @@ impl AllowedActions{
         
         //for every slide action allowed
         for (direction, distance, mustcapture, cancapture) in &self.slidedirection{
-
+            
             let direction = players_perspective_to_objective_perspective_slide(&ownerdirection, &direction);
             
             if reqdirection == direction && reqdistance <= *distance{
