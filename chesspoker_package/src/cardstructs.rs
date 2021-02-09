@@ -1219,7 +1219,6 @@ impl Card{
             }
         }
         
-        effect = CardEffect::pokergame;
         
         
         

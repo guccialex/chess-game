@@ -68,7 +68,11 @@ pub struct MainGame{
     
     //if the player has performed a draw action yet
     playerdrewcard: HashMap<u8, bool>,
-    
+
+
+    //how many ticks the game has been ended for
+    //if its been 3000 ticks, panic, to stop running
+    ticksgamehasbeenoverfor: u32,
 }
 
 impl MainGame{
@@ -88,6 +92,7 @@ impl MainGame{
             gamesettings: GameSettings::new(),
             gameover: None,
             playerdrewcard: HashMap::new(),
+            ticksgamehasbeenoverfor: 0,
         };
         
         //add two players
@@ -364,11 +369,22 @@ impl MainGame{
             
             //let the turn manager know that a tick has happeneds
             self.turnmanager.tick();
+
+
+            self.ticksgamehasbeenoverfor +=1;
+
+            if self.ticksgamehasbeenoverfor > 3000{
+                panic!("Game has been over for long enough. Pod is going to be restarted now");
+            }
         }
         
 
+        //tick the physical game engine
+        self.boardgame.tick();
 
         
+
+
         //check the card game if a player has won, and if they have, give them all the cards
         //do this by ticking the card interface
         let maybewon = self.cards.tick();
@@ -378,13 +394,18 @@ impl MainGame{
             self.boardgame.give_pool_to_player(winner);
         }
         
+
+        //if a player doesnt confirm to settle their ante
+        //an opponent gets a card of theirs
+        //if an opponent doesnt make a move in poker without owning any debt
+        //its considered a fold
+        //a player folds if they have to
+
+
+
         
         
-        //tick the physical game engine
-        self.boardgame.tick();
-        
-        
-        
+
         //update if the game is over and what player won
         
         
