@@ -466,7 +466,7 @@ impl GameEngine{
     
                     let cursquareid = self.boardgame.boardsquare_posid_to_id(curposid).unwrap();
     
-                    toreturn.push( (1, action, cursquareid) );
+                    toreturn.push( (1, PieceAction::slide(direction, distance), cursquareid) );
 
                 };
 
@@ -632,14 +632,12 @@ impl GameEngine{
                         //if its not empty, return false
                         //if this square has any pieces on it break
                         if opposingpiecesonsquare || alliedpiecesonsquare{
-                            break;
+                            return false;
                         };
                     }
                     
                 }
             }
-
-
         }
         
         
