@@ -216,112 +216,130 @@ impl BoardGame{
     }
     
     
-    pub fn slide_piece(&mut self, pieceid: u16, relativeposition: (f32,f32)){
+    
+    pub fn slide_piece(&mut self, pieceid: u16, mut relativepos: (f32,f32)){
         
         
-        //get the board square this piece is on
-        if let Some(boardsquare) = self.get_board_square_piece_is_on(pieceid){
-            
-            
-            let mut relativepos = relativeposition;
-            
-            
-            let pieceoffset = self.piece_on_square_offset(pieceid, boardsquare);
-            
-            
-            //slide an additional distance that this piece is offset by so it slides
-            //to the center of the new piece
-            relativepos.0 = relativepos.0 - pieceoffset.0;
-            relativepos.1 = relativepos.1 - pieceoffset.1;
-            
-            //slide to the center of a piece
-            let slidemission = Mission::make_slide_mission( relativepos );
-            
-            //put that mission into the lists of future missions
-            self.futuremissions.push( (25, pieceid, slidemission.clone()) );
-            
-            
-            
-            //make the missions that drop the pieces that its passing over
-            
-            //this is one VALID way to do it, and should be kept commented and not deleted
-            //for a likely future use
-            //but im commenting it out for a more normal procedure for choosing how the bsquares are being chosen
-            {
-                
-                let piecestartpos = self.get_translation(pieceid);
-                let mut piecestartpos = (piecestartpos.0, piecestartpos.2);
-                
-                
-                let newmethod = true;
+        if self.get_board_square_piece_is_on(pieceid).is_none() {
+            return ();
+        }
+        
+        let startsquareid = self.get_board_square_piece_is_on(pieceid).unwrap();
+        let startsquareposid = self.get_pos_id_of_boardsquare(startsquareid).unwrap();
+        let startsquarepos = convert_board_square_pos_to_physical_pos(startsquareposid);
+        
+        
+        let endsquarepos = (startsquarepos.0 + relativepos.0, startsquarepos.1 + relativepos.1);
+        if convert_physical_pos_to_board_square_pos(endsquarepos.0, endsquarepos.1).is_none(){
+            return ();
+        }
+        let endsquareposid = convert_physical_pos_to_board_square_pos(endsquarepos.0, endsquarepos.1).unwrap();
+        let endsquareid = self.get_id_of_boardsquare_pos(endsquareposid);
+        
+        
+        
+        
+        let pieceoffset = self.piece_on_square_offset(pieceid, startsquareid);
+        
+        //slide an additional distance that this piece is offset by so it slides
+        //to the center of the new piece
+        relativepos.0 = relativepos.0 - pieceoffset.0;
+        relativepos.1 = relativepos.1 - pieceoffset.1;
+        
+        //slide to the center of a piece
+        let slidemission = Mission::make_slide_mission( relativepos );
+        
+        //put that mission into the lists of future missions
+        self.futuremissions.push( (25, pieceid, slidemission.clone()) );
+        
+        
+        
+        
+        
+        
+        
 
-                //THESE LINES CHANGE THE OLD METHOD OF SQUARE DROPPING TO THE NEW ONE THAT
-                //DOESNT DO TWICE THE DIAGONALS
-                if newmethod{
- 
+        //bsd stands for "board square dropper" the fictional thing that moves over the board squares every tick
+        //and drops the ones it passes over
 
-                    let temp1 = (piecestartpos.0 + relativepos.0, relativepos.1 + relativepos.1);
-                    
-                    if let Some(temp2) = convert_physical_pos_to_board_square_pos(temp1.0, temp1.1){
+        let newmethod = true;
 
-                        let temp2 = self.get_id_of_boardsquare_pos(temp2).unwrap();
+        let bsdstartpos;
+        let bsdtotalmovement;
 
-                        piecestartpos = convert_board_square_pos_to_physical_pos( self.get_pos_id_of_boardsquare(boardsquare).unwrap() );
 
-                        let endpos = convert_board_square_pos_to_physical_pos( self.get_pos_id_of_boardsquare(temp2).unwrap() );
-                                        
-                        relativepos = (endpos.0 - piecestartpos.0, endpos.1 - piecestartpos.1);
-                    }
-                }
+        if newmethod{
+
+            let piecestartpos = self.get_translation(pieceid);
+            let piecestartpos = (piecestartpos.0, piecestartpos.2);
+            
+
+            bsdstartpos = piecestartpos;
+
+            bsdtotalmovement = (endsquarepos.0 - piecestartpos.0, endsquarepos.1 - piecestartpos.1);
+
+        }
+        else{
+
+            bsdstartpos = startsquarepos;
+
+            bsdtotalmovement = (endsquarepos.0 - startsquarepos.0, endsquarepos.1 - startsquarepos.1);
+        }
+
+
+
+
+        //the distance its moved
+        let mut dmoved = (0.0, 0.0);
+        
+        //the current tick
+        let mut curtick = 0;
+        
+        //how far the "what square am i on top of" checker, checks every tick
+        let slidedistpertick = 0.25;
+        
+        //the total distance moved
+        let totaldist = (bsdtotalmovement.0 * bsdtotalmovement.0 + bsdtotalmovement.1 * bsdtotalmovement.1).sqrt();
+        
+        //total amount of ticks it takes to move
+        let totalticks = (totaldist / slidedistpertick).ceil();
+        
+        //the distance it moves every tick
+        let tickdmoved = (bsdtotalmovement.0 / totalticks, bsdtotalmovement.1 / totalticks);
+        
+        //total amount of ticks it moves
+        let totalticks = totalticks as u32;
+
+
+
+
+
+  
+        while let Some(curboardsquarepos) = convert_physical_pos_to_board_square_pos(bsdstartpos.0 + dmoved.0 , bsdstartpos.1 + dmoved.1){
                 
-                
-                
-                
-                //the distance its moved
-                let mut dmoved = (0.0, 0.0);
-                
-                //the current tick
-                let mut curtick = 0;
-                
-                
-                //how far the "what square am i on top of" checker, checks every tick
-                let slidedistpertick = 0.25;
-                
-                
-                
-                
-                //the total distance moved
-                let totaldist = (relativepos.0 * relativepos.0 + relativepos.1 * relativepos.1).sqrt();
-                
-                //total amount of ticks it takes to move
-                let totalticks = (totaldist / slidedistpertick).ceil();
-                
-                //the distance it moves every tick
-                let tickdmoved = (relativepos.0 / totalticks, relativepos.1 / totalticks);
-                
-                
-                let totalticks = totalticks as u32;
-                
-                
-                while let Some(curboardsquarepos) = convert_physical_pos_to_board_square_pos(piecestartpos.0 + dmoved.0 , piecestartpos.1 + dmoved.1){
-                    
-                    let boardsquareid = self.get_id_of_boardsquare_pos( curboardsquarepos ).unwrap();
-                    
-                    //if this isnt the starting board square
-                    if boardsquareid != boardsquare{
-                        self.set_future_drop_and_raise(curtick, boardsquareid);
-                    }
-                    
-                    
-                    curtick += 1;
-                    if curtick > totalticks{
-                        break;
-                    }
-                    
-                    dmoved = (dmoved.0 + tickdmoved.0, dmoved.1 + tickdmoved.1);
-                }   
+            let boardsquareid = self.get_id_of_boardsquare_pos( curboardsquarepos ).unwrap();
+            
+            //if this isnt the starting board square
+            if boardsquareid != startsquareid{
+                self.set_future_drop_and_raise(curtick, boardsquareid);
             }
-        };
+            
+            
+            curtick += 1;
+            if curtick > totalticks{
+                break;
+            }
+            
+            dmoved = (dmoved.0 + tickdmoved.0, dmoved.1 + tickdmoved.1);
+        }   
+        
+        
+        
+        
+        
+        
+        
+        
     }
     
     
@@ -546,6 +564,19 @@ impl BoardGame{
     }
     
     
+    
+    /*
+    the functions I need conversion between
+    
+    bs float pos
+    <->
+    bs posid
+    <->
+    bs id
+    
+    what piece on top of this square
+    what square under this piece
+    */
     
     
     //get the id of every object
