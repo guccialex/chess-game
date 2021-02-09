@@ -141,7 +141,7 @@ impl CardsInterface{
     
     //get a random card effect playable on the board
     pub fn get_joker_card_effect() -> CardEffect{
-
+        
         Card::new_random_joker_card().effect
     }
     
@@ -303,7 +303,7 @@ impl CardsInterface{
         //remove cards with that id from hands and deck, but not from pokergame or from cards, which is removed periodically
         
         
-
+        
         //remove the card from players hand    
         for (_, hand) in self.hands.iter_mut(){
             
@@ -944,11 +944,31 @@ pub enum CardValue{
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
 pub enum CardEffect{
     
+    
+    //joker effects
+    
+    backtobackturns, 
+    
+    halvetimeleft,
+    
     //this card can initiate a blackjack game with it as the starting card
     blackjackgame,
     
     //this card can initiate a poker game with it as the starting card
     pokergame,
+    
+    //make the game have pool settings
+    makepoolgame,
+
+
+    //effects
+    
+    
+    
+
+
+
+    //non joker effects
     
     //this card can remove a square from the board
     dropsquare,
@@ -956,20 +976,11 @@ pub enum CardEffect{
     //this card can raise a square to not be able to be moved past by another piece
     raisesquare,
     
-    //make the game have pool settings
-    makepoolgame,
+        
     
-    backtobackturns, 
-    
-    halvetimeleft,
-    
-    
+
     noeffect,
-    
-    
-    
-    
-    
+
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
@@ -1321,12 +1332,11 @@ impl Card{
         
         
         let mut jokereffects = Vec::new();
+        jokereffects.push(CardEffect::backtobackturns);
+        jokereffects.push(CardEffect::halvetimeleft);
+        jokereffects.push(CardEffect::blackjackgame);
         jokereffects.push(CardEffect::pokergame);
-        jokereffects.push(CardEffect::pokergame);
-        jokereffects.push(CardEffect::pokergame);
-        jokereffects.push(CardEffect::pokergame);
-        jokereffects.push(CardEffect::pokergame);
-        jokereffects.push(CardEffect::pokergame);
+        jokereffects.push(CardEffect::makepoolgame);
         
         
         let mut rng = rand::thread_rng();
@@ -1347,15 +1357,15 @@ impl Card{
         
         let mut effectlesscard = Card::new_effectless_card();
         
-        
-        
         let mut effects = Vec::new();
+        effects.push(CardEffect::backtobackturns);
+        effects.push(CardEffect::halvetimeleft);
+        effects.push(CardEffect::blackjackgame);
         effects.push(CardEffect::pokergame);
-        effects.push(CardEffect::pokergame);
-        effects.push(CardEffect::pokergame);
-        effects.push(CardEffect::pokergame);
-        effects.push(CardEffect::pokergame);
-        effects.push(CardEffect::pokergame);
+        effects.push(CardEffect::makepoolgame);
+
+        effects.push(CardEffect::raisesquare);
+        effects.push(CardEffect::dropsquare);
         
         
         let mut rng = rand::thread_rng();
