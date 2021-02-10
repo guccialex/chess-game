@@ -126,6 +126,10 @@ pub struct TurnManager{
 
     //the total amount of ticks a player has left
     playertimeleft: HashMap<u8, i32>,
+
+
+    //how many turns there have been so far
+    turncounter: u16,
 }
 
 
@@ -137,8 +141,8 @@ impl TurnManager{
 
         let mut turns = HashMap::new();
 
-        turns.insert(0, (player1, 2, 1) );
-        turns.insert(1, (player2, 2, 0) );
+        turns.insert(0, (player1, 10000, 1) );
+        turns.insert(1, (player2, 10000, 0) );
 
 
         let mut tickssincelastaction = HashMap::new();
@@ -166,6 +170,8 @@ impl TurnManager{
 
             cooldown: None,
             playertimeleft: playertimeleft,
+
+            turncounter: 0,
         }
 
     }
@@ -183,12 +189,22 @@ impl TurnManager{
 
             self.currentturntick = 0;
             self.currentturn = *nextturn;
+
+            //if a turn ends
+            self.turncounter += 1;
         }
 
 
         *self.playertimeleft.get_mut(playerid).unwrap() += -1;
-        
+
+
     }
+
+    pub fn get_turn_number(&self) -> u16{
+
+        self.turncounter
+    }
+
 
 
     //this player took a turn action

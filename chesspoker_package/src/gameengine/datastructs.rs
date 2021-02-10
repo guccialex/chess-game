@@ -99,6 +99,18 @@ impl PieceAction{
         }
         
     }
+
+
+    pub fn get_single_step_pos_change(&self) -> (i8,i8){
+
+        if let PieceAction::slide( direction, distance ) = *self{
+            
+            return  slide_id_to_direction_change_from_objective_perspective(direction) ;
+        }
+
+        panic!("called on a non-slide action");
+    }
+
 }
 
 

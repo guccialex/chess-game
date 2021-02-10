@@ -66,13 +66,15 @@ pub struct MainGame{
     gameover: Option<u8>,
     
     
-    //if the player has performed a draw action yet
-    playerdrewcard: HashMap<u8, bool>,
+    //the players that have drawn cards
+    playerdrewcard: HashSet<u8>,
     
     
     //how many ticks the game has been ended for
     //if its been 3000 ticks, panic, to stop running
     ticksgamehasbeenoverfor: u32,
+
+
 }
 
 impl MainGame{
@@ -91,7 +93,7 @@ impl MainGame{
             queuedinputs: HashMap::new(),
             gamesettings: GameSettings::new(),
             gameover: None,
-            playerdrewcard: HashMap::new(),
+            playerdrewcard: HashSet::new(),
             ticksgamehasbeenoverfor: 0,
         };
         
@@ -351,6 +353,8 @@ impl MainGame{
         (canflick, toreturn)
     }
     
+
+    //get the last card played and how many ticks its been since its been played
     
     
     
@@ -405,8 +409,6 @@ impl MainGame{
         }
         
         
-        //tick the physical game engine
-        self.boardgame.tick();
         
         
         
@@ -430,33 +432,42 @@ impl MainGame{
         
         
         
+
+
+
         
-        
-        
+
+
+
+        let mut arekingsreplaced = false;
+
+        //if a player has drawn, then the kings get replaced
+        if self.playerdrewcard.is_empty() == false{
+
+            arekingsreplaced = true;
+        }
+
+
+
+        //tick the physical game engine
+        self.boardgame.tick(arekingsreplaced);
+
+
+                
         //update if the game is over and what player won
-        
+
         
         //if the player doesnt have a king
         //and neither player has drawn a card yet
         if ! self.boardgame.does_player_have_king(1){
-            
-            if self.playerdrewcard.get(&1).unwrap() == &false && self.playerdrewcard.get(&2).unwrap() == &false{
-                
-                self.gameover = Some(2);
-            }
-            
+
+            self.gameover = Some(2);
         }
         if ! self.boardgame.does_player_have_king(2){
             
-            if self.playerdrewcard.get(&1).unwrap() == &false && self.playerdrewcard.get(&2).unwrap() == &false{
-                
-                self.gameover = Some(1);
-            }
+            self.gameover = Some(1);
         }
-        
-        //does this player have any pieces left?
-        
-        
+
         
         //check if either player has no time left on their clock
         if self.turnmanager.get_players_total_ticks_left(1) == 0{
@@ -474,6 +485,23 @@ impl MainGame{
     
     
     
+    //can a player do a draw card action
+    pub fn can_player_draw(& self, playerid: &u8) -> bool{
+
+
+        if self.is_cardgame_ongoing_or_debt_unsettled(playerid) {
+
+            return false;
+        };
+
+        //if its past turn 10
+        if self.turnmanager.get_turn_number() > 10{
+            return true;
+        }
+
+
+        return false;
+    }
     
     
     
@@ -488,8 +516,6 @@ impl MainGame{
         self.players.insert(currentplayer);
         
         self.queuedinputs.insert(currentplayer, None);
-        
-        self.playerdrewcard.insert(currentplayer, false);
         
         self.totalplayers += 1;
     }
@@ -517,7 +543,7 @@ impl MainGame{
         }
         
         else if let PlayerInput::drawcard = input{
-            return true
+            return self.can_player_draw(playerid);
         }
         
         else if let PlayerInput::settledebt(pieces) = input{
@@ -830,7 +856,7 @@ impl MainGame{
         }
         else if let PlayerInput::drawcard = playerinput{
             
-            *self.playerdrewcard.get_mut(playerid).unwrap() = true;
+            self.playerdrewcard.insert(*playerid);
             
             self.apply_card_effect_to_board(playerid, CardsInterface::get_joker_card_effect());
             
