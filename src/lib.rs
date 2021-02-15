@@ -113,7 +113,7 @@ impl MainGame{
         self.boardgame.are_pieces_offered_valid(playerid, piecelist)
     }
     
-    pub fn is_game_over(&self) -> Option<u8>{
+    fn is_game_over(&self) -> Option<u8>{
         
         //win / lose conditions
         //no pieces left
@@ -126,7 +126,7 @@ impl MainGame{
     
     //get if it is the players turn, and if it is, how many ticks they have left in their turn
     //0 means it is not their turn
-    pub fn get_players_turn_ticks_left(&self, playerid: u8) -> u32{
+    fn get_players_turn_ticks_left(&self, playerid: u8) -> u32{
         
         if let Some(ticksleft) = self.turnmanager.get_ticks_left_for_players_turn(playerid){
             return ticksleft;
@@ -137,7 +137,7 @@ impl MainGame{
         
     }
     //get the total amount of time the player has lefts
-    pub fn get_players_total_ticks_left(&self, playerid: u8) -> u32{
+    fn get_players_total_ticks_left(&self, playerid: u8) -> u32{
         
         self.turnmanager.get_players_total_ticks_left(playerid)
         
@@ -258,10 +258,10 @@ impl MainGame{
     pub fn get_board_game_object_ids(&self) -> Vec<u16>{
         self.boardgame.get_object_ids()
     }
-    pub fn get_board_game_object_translation(&self, objectid: u16) -> (f32,f32,f32){
+    fn get_board_game_object_translation(&self, objectid: u16) -> (f32,f32,f32){
         self.boardgame.get_object_translation(objectid)
     }
-    pub fn get_board_game_object_rotation(&self, objectid: u16) -> (f32,f32,f32){
+    fn get_board_game_object_rotation(&self, objectid: u16) -> (f32,f32,f32){
         self.boardgame.get_object_rotation(objectid)
     }
     
@@ -295,7 +295,7 @@ impl MainGame{
     
     
     //get a string representing teh type of the piece
-    pub fn get_piece_type_name(&self, pieceid: u16) -> Option<String>{
+    fn get_piece_type_name(&self, pieceid: u16) -> Option<String>{
         
         //get if the piece exists
         if self.boardgame.does_piece_have_owner(pieceid){
@@ -306,7 +306,7 @@ impl MainGame{
         return None;
     }
     
-    pub fn get_board_game_object_owner(&self, objectid: u16) -> Option<u8>{
+    fn get_board_game_object_owner(&self, objectid: u16) -> Option<u8>{
         
         //get if the piece exists
         if self.boardgame.does_piece_have_owner(objectid){
@@ -319,7 +319,7 @@ impl MainGame{
     }
     
     //true if its white false if its black
-    pub fn is_boardsquare_white(&self, boardsquareid: u16) -> bool{
+    fn is_boardsquare_white(&self, boardsquareid: u16) -> bool{
         
         self.boardgame.is_boardsquare_white(boardsquareid)
     }
@@ -486,7 +486,7 @@ impl MainGame{
     
     
     //can a player do a draw card action
-    pub fn can_player_draw(& self, playerid: &u8) -> bool{
+    fn can_player_draw(& self, playerid: &u8) -> bool{
 
 
         if self.is_cardgame_ongoing_or_debt_unsettled(playerid) {
@@ -608,12 +608,6 @@ impl MainGame{
             }
             else if CardAction::playcardonboard == *action{
                 
-                if cardeffect == CardEffect::blackjackgame{
-                    return true;
-                }
-                if cardeffect == CardEffect::pokergame{
-                    return true;
-                }
                 if cardeffect == CardEffect::makepoolgame{
                     return true;
                 }
@@ -779,9 +773,6 @@ impl MainGame{
         else if cardeffect == CardEffect::halvetimeleft{
             self.turnmanager.halve_time_left();
         }
-        else if cardeffect == CardEffect::pokergame{
-            self.cards.start_poker_game(1, 2);
-        }
         else{
             //otherwise panic, because this card should not have been allowed to be played
             //and it will fuck shit if i get here without actually having a valid action
@@ -942,8 +933,208 @@ impl MainGame{
         };
     }
     
+
+
+    //get the state of the game
+    pub fn get_visible_game_state(&self, playerid: &u8) -> VisibleGameState{
+
+
+        let mut boardobjects = Vec::new();
+
+
+        let boardobjectids = self.get_board_game_object_ids();
+
+        for objectid in boardobjectids{
+
+            let position = self.get_board_game_object_translation(objectid);
+            let rotation = self.get_board_game_object_rotation(objectid);
+            
+            //panic!("position {:?}", position);
+            if self.is_board_game_object_piece(objectid){
+
+                let mut towner = 0;
+
+                if let Some(owner) = self.get_board_game_object_owner(objectid){
+                    towner = owner;
+
+                }
+
+                let mut name = "pawn".to_string();
+
+                if let Some(piecename) = self.get_piece_type_name(objectid){
+                    name = piecename;
+                }
+
+
+                let visiblegamepiece = VisibleGamePieceObject{
+                    owner: towner,
+                    typename: name,
+                };
+
+                let boardobject = VisibleGameBoardObject{
+                    position: position,
+    
+                    rotation: rotation,
+    
+                    id: objectid,
+
+                    objecttype: VisibleGameObjectType::Piece(visiblegamepiece),
+                };
+    
+                boardobjects.push(boardobject);
+            }
+
+
+            if self.is_board_game_object_square(objectid){
+
+                let visiblegamesquare = VisibleGameSquareObject{
+
+                    iswhite: self.is_boardsquare_white(objectid),
+
+                };
+
+                let boardobject = VisibleGameBoardObject{
+                    position: position,
+
+                    rotation: rotation,
+
+                    id: objectid,
+
+                    objecttype: VisibleGameObjectType::Square(visiblegamesquare),
+                };
+
+                boardobjects.push(boardobject);
+            }
+
+        }
+
+
+        let playerswithactiveturns = self.get_active_players();
+
+
+        VisibleGameState{
+            
+            isgameover: self.is_game_over(),
+
+            drawactionvalid: self.can_player_draw(playerid),
+
+            player1totalticksleft: self.get_players_total_ticks_left(1),
+
+            player2totalticksleft: self.get_players_total_ticks_left(2),
+
+            player1ticksleft: self.get_players_turn_ticks_left(1),
+            
+            player2ticksleft: self.get_players_turn_ticks_left(2),
+
+            playerswithactiveturns: playerswithactiveturns,
+
+            boardobjects: boardobjects,
+
+        }
+
+    }
     
 }
 
 
 
+
+//the information the client needs to know at every frame to render it
+//the information the client needs to render the current frame
+pub struct VisibleGameState{
+
+    //has either player won
+    pub isgameover: Option<u8>,
+
+
+    //the deck
+    //whether the move is available
+    pub drawactionvalid: bool,
+
+    pub player1totalticksleft: u32,
+    pub player2totalticksleft: u32,
+
+    pub player1ticksleft: u32,
+    pub player2ticksleft: u32,
+
+    //the players whos turn it is right now
+    pub playerswithactiveturns: HashSet<u8>,
+
+
+    pub boardobjects: Vec<VisibleGameBoardObject>,
+
+}
+
+
+impl VisibleGameState{
+
+
+    pub fn get_piece_plane_position(&self, id: u16) -> Option< (f32,f32) >{
+
+        for curobject in &self.boardobjects{
+
+            if id == curobject.id{
+
+                return Some( (curobject.rotation.0, curobject.rotation.2) );
+
+            }
+        }
+
+        None
+    }
+
+}
+
+
+pub struct VisibleGameBoardObject{
+
+    pub position: (f32,f32,f32),
+
+    pub rotation: (f32,f32,f32),
+
+    pub id: u16,
+
+    pub objecttype: VisibleGameObjectType,
+
+}
+
+
+
+
+#[derive(Eq, PartialEq)]
+pub enum VisibleGameObjectType{
+
+    Piece(VisibleGamePieceObject),
+    Square(VisibleGameSquareObject),
+}
+
+
+#[derive(Eq, PartialEq)]
+pub struct VisibleGamePieceObject{
+    
+    pub owner: u8,
+
+    pub typename: String,
+
+}
+
+#[derive(Eq, PartialEq)]
+pub struct VisibleGameSquareObject{
+
+    pub iswhite: bool,
+
+}
+
+
+/*
+//cardobjects: Vec<VisibleGameCardObject>,
+
+pub struct VisibleGameCardObject{
+
+    cardposition:
+
+    cardtexture:
+
+
+}
+*/

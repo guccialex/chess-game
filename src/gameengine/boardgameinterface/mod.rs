@@ -688,14 +688,6 @@ impl BoardGame{
     }
     
     
-    /*
-    //gets the squares in order that this piece moves over during its slide with this movement
-    pub fn get_squares_moved_over_with_slide(&self,  pieceid: u16, movement: (f32,f32) ) -> Vec<(u32, u16)> {
-        
-        
-        Vec::new()
-    } 
-    */
     
     
     

@@ -952,10 +952,10 @@ pub enum CardEffect{
     halvetimeleft,
     
     //this card can initiate a blackjack game with it as the starting card
-    blackjackgame,
+    //blackjackgame,
     
     //this card can initiate a poker game with it as the starting card
-    pokergame,
+    //pokergame,
     
     //make the game have pool settings
     makepoolgame,
@@ -1334,8 +1334,8 @@ impl Card{
         let mut jokereffects = Vec::new();
         jokereffects.push(CardEffect::backtobackturns);
         jokereffects.push(CardEffect::halvetimeleft);
-        jokereffects.push(CardEffect::blackjackgame);
-        jokereffects.push(CardEffect::pokergame);
+        //jokereffects.push(CardEffect::blackjackgame);
+        //jokereffects.push(CardEffect::pokergame);
         jokereffects.push(CardEffect::makepoolgame);
         
         
@@ -1360,8 +1360,8 @@ impl Card{
         let mut effects = Vec::new();
         effects.push(CardEffect::backtobackturns);
         effects.push(CardEffect::halvetimeleft);
-        effects.push(CardEffect::blackjackgame);
-        effects.push(CardEffect::pokergame);
+        //effects.push(CardEffect::blackjackgame);
+        //effects.push(CardEffect::pokergame);
         effects.push(CardEffect::makepoolgame);
 
         effects.push(CardEffect::raisesquare);
