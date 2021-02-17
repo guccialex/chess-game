@@ -8,17 +8,12 @@ use std::collections::HashSet;
 
 use super::PieceAction;
 
-use super::PokerAction;
-use super::BlackJackAction;
-use super::CardAction;
-
 
 
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum PlayerInput{
     
-    cardaction(u16, CardAction),
     
     //perform an action on a piece
     pieceaction(u16, PieceAction),
@@ -26,17 +21,6 @@ pub enum PlayerInput{
     //draw card from the deck
     drawcard,
 
-    //an action for the poker game
-    pokeraction(PokerAction),
-
-    //an action for the blackjack game
-    blackjackaction(BlackJackAction),
-
-
-    //settling the debt in the game
-    //the value that a player HAS to reconcile
-    //before doing anything else
-    settledebt( Vec<u16> ),
 }
 
 
@@ -309,49 +293,7 @@ impl TurnManager{
 
 
 
-    //start a cardgame 
-    //this player starts
-    //when they perform an action the turn switches
-    //there is no
-    /*
-    pub fn cardgame_mode(&mut self, playerid: u8){
-
-
-
-    }
-    */
-
 
 }
 
 
-
-
-#[derive(Serialize, Deserialize)]
-pub struct GameSettings{
-
-
-    //the amount of cards players draw at the start of their turn
-    cardsdrawnatstartofturn: u8,
-
-    //how many cards are drawn by 
-    //if 0 it means the player cant draw
-    cardsdrawnbyaction: u8,
-
-
-
-}
-
-
-impl GameSettings{
-
-    pub fn new() -> GameSettings{
-
-        GameSettings{
-            cardsdrawnatstartofturn: 0,
-            cardsdrawnbyaction: 0,
-        }
-
-    }
-
-}

@@ -598,6 +598,23 @@ impl BoardGame{
             return None;
         }
     }
+
+    pub fn get_row_piece_is_on(&self, pieceid:u16) -> Option<u8>{
+
+        if let Some(bsid) = self.get_board_square_piece_is_on(pieceid){
+
+            if let Some(posid) = self.boardsquare_id_to_posid(bsid){
+
+                return Some(posid.1);
+
+            };
+
+        };
+
+
+        return None;
+
+    }
     
     
     /*

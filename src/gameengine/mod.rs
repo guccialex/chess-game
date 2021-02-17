@@ -81,10 +81,6 @@ impl GameEngine{
         gameengine.playertopiece.insert(player2id, HashSet::new());
         
         
-        //the pools for the players
-        gameengine.playertopiece.insert(11, HashSet::new());
-        gameengine.playertopiece.insert(12, HashSet::new());
-        
         
         gameengine.playertodirection.insert(player1id, 0 );
         gameengine.playertodirection.insert(player2id, 4 );
@@ -127,83 +123,6 @@ impl GameEngine{
     }
     
     
-    //if the pieces offered are valid
-    //and if so, what their total value is
-    pub fn get_value_of_offered_pieces(&self, playerid: u8, piecesoffered: Vec<u16>) -> Option<u8>{
-        
-        //if its not valid, return None
-        if ! self.are_pieces_offered_valid(playerid, piecesoffered.clone()){
-            return None;
-        };
-        
-        let mut totalvaluerequested = 0;
-        
-        
-        for pieceid in piecesoffered{
-            
-            let piecedata = self.piecetypedata.get(&pieceid).unwrap();
-            
-            totalvaluerequested += piecedata.get_value();
-        }
-        
-        
-        Some( totalvaluerequested )
-    }
-    
-    
-    //give every piece in the pool to this player
-    pub fn give_pool_to_player(&mut self, playerid: u8){
-        
-        //give the pieces in player 1s pool
-        for pieceid in self.playertopiece.get(&11).unwrap().clone(){
-            
-            self.transfer_ownership(pieceid, playerid);
-        }
-        
-        
-        //give the pieces in player 2s pool
-        for pieceid in self.playertopiece.get(&12).unwrap().clone(){
-            
-            self.transfer_ownership(pieceid, playerid);
-        }
-        
-    }
-    
-    
-    //get the value of the pieces in the pool of this player
-    pub fn get_value_of_players_pool(&self, playerid: u8) -> u8{
-        
-        let mut totalvalue = 0;
-        
-        let poolid = playerid + 10;
-        
-        //get every piece owned by this players pool and add their values
-        for pieceid in self.playertopiece.get(&poolid).unwrap(){
-            
-            let piecedata = self.piecetypedata.get(pieceid).unwrap();
-            
-            totalvalue += piecedata.get_value();
-        }
-        
-        
-        return totalvalue;
-        
-    }
-    
-    
-    //put the amount of value from these pieces into the pool of player X
-    pub fn put_pieces_in_pool(&mut self, pieces: Vec<u16>){
-        
-        
-        //for each piece and value for it
-        for pieceid in pieces{
-            
-            //transfer the ownership of the piece to put in the pool to the pool of the player who owns it
-            self.transfer_piece_to_pool(pieceid);
-        };
-        
-    }
-    
     
     //split a piece in two, ensuring that one of the pieces split's value is equal to the amount passed in
     //return the ID of both pieces that were made when this one split
@@ -218,17 +137,6 @@ impl GameEngine{
     
     
     
-    
-    fn transfer_piece_to_pool(&mut self, pieceid: u16){
-        
-        
-        let pieceowner = self.get_owner_of_piece(pieceid);
-        
-        let thisplayerspoolid = pieceowner + 10;
-        
-        self.transfer_ownership(pieceid, thisplayerspoolid);
-        
-    }
     
     //transfer the ownership fo this piece to this player
     fn transfer_ownership(&mut self, pieceid: u16, newplayerid: u8){
@@ -789,7 +697,7 @@ impl GameEngine{
 
 
     //tick, with true if kings are replaced and false if theyre not
-    pub fn tick(&mut self, arekingsreplaced: bool){
+    pub fn tick(&mut self, arekingsreplaced: bool, arepawnspromoted: bool){
         
 
 
@@ -840,12 +748,54 @@ impl GameEngine{
         }
 
 
-        
-        
-        
+
+        if arepawnspromoted{
+
+            //if theres a pawn on its opponents back row, promote it
+            for (pieceid, piecedata) in self.piecetypedata.clone(){
+
+                //get the owner
+                let ownerid = self.get_owner_of_piece(pieceid);
+    
+                //get the "objective back row" from that players perspective
+                let backrow = GameEngine::subjective_row_to_objective_row(&ownerid, &7);
+                
+                if let Some(curpiecerow) = self.boardgame.get_row_piece_is_on(pieceid){
+
+                    //if that pawn is on the backrow
+                    if curpiecerow == backrow{
+
+                        self.set_queen(pieceid);
+
+                    }
+                }
+            }
+        }
+
         
         
         self.boardgame.tick();
+    }
+
+
+
+    //get the row from a players perspective (0 is closest row to player, 7 is farther row from player)
+    //and returns what row that is
+    fn subjective_row_to_objective_row(playerid: &u8, subjectiverow: &u8) -> u8{
+
+        if playerid == &1{
+
+            return *subjectiverow;
+        }
+        else if playerid == &2{
+
+            return 7 - subjectiverow;
+        }
+        else{
+            panic!("no player other than 1 and 2");
+        }
+
+
     }
     
     
