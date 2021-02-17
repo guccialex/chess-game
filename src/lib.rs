@@ -12,19 +12,16 @@ mod datastructs;
 
 
 
-//import the data structures needed
-
-//make these public, and visible to the game interface
 pub use datastructs::PlayerInput;
-pub use datastructs::TurnManager;
 
 
 
 
+
+use datastructs::TurnManager;
 
 
 mod cardstructs;
-pub use cardstructs::Card;
 use cardstructs::CardEffect;
 use cardstructs::CardsInterface;
 
@@ -125,6 +122,38 @@ pub struct MainGame{
 
 
 
+    /*
+    the board game stores:
+    
+    the pieces
+    which piece is owned by each player
+    the effects of the pieces
+
+
+
+
+    the turn manager stores:
+
+
+
+
+    the game effects stores:
+
+
+
+
+
+    
+    the states of each of these should be visible to the player
+
+    the game effects are displayed as cards beside the deck
+    
+
+
+    */
+
+
+
 
 
 
@@ -146,13 +175,17 @@ impl MainGame{
     
     //create a game with two players
     pub fn new_two_player() -> MainGame{
+
+        let mut queuedinputs = HashMap::new();
+        queuedinputs.insert(1, None);
+        queuedinputs.insert(2, None);
         
         
         //create a new 2 player game        
         let mut toreturn = MainGame{
             turnmanager: TurnManager::new_two_player(1, 2),            
             boardgame: GameEngine::new(1,2),
-            queuedinputs: HashMap::new(),
+            queuedinputs: queuedinputs,
             gameover: None,
             ticksgamehasbeenoverfor: 0,
             gameeffects: GameEffects::new(),
@@ -501,7 +534,7 @@ impl MainGame{
             
             self.gameeffects.card_drawn();
             
-            self.apply_card_effect_to_board(playerid, CardsInterface::get_joker_card_effect());
+            self.apply_card_effect_to_board(playerid, CardsInterface::get_joker_card_effect() );
             
         }
         else{
