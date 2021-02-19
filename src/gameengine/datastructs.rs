@@ -151,8 +151,8 @@ impl PieceData{
             cancastle: false,
             canenpassant: false,
             hasperformedaction: false,
-            canflick: true,
-            value: 0,
+            canflick: false,
+            value: 1,
         }
     }
     
@@ -171,7 +171,14 @@ impl PieceData{
         self.typename = "checkers".to_string();
         self.value = 2;
     }
-    
+    pub fn set_king(&mut self){
+        self.allowedactions = AllowedActions::get_king();
+        
+        self.typename = "king".to_string();
+        
+        self.value = 0;
+    }
+
     //set selfs actions to be those of a pawn
     pub fn set_pawn(&mut self){
         
@@ -195,30 +202,14 @@ impl PieceData{
         self.value = 2;
     }
     
-    pub fn set_king(&mut self){
-        self.allowedactions = AllowedActions::get_king();
-        
-        self.typename = "king".to_string();
-        
-        self.value = 0;
-    }
-    
-    pub fn set_queen(&mut self){
-        self.allowedactions = AllowedActions::get_queen();
-        
-        self.typename = "queen".to_string();
-        
-        self.value = 4;
-    }
-    
     pub fn set_bishop(&mut self){
         self.allowedactions = AllowedActions::get_bishop();
         
         self.typename = "bishop".to_string();
         
-        self.value = 2;
+        self.value = 3;
     }
-    
+
     pub fn set_rook(&mut self){
         self.allowedactions = AllowedActions::get_rook();
         
@@ -226,8 +217,20 @@ impl PieceData{
         
         self.cancastle = true;
         
-        self.value = 3;
+        self.value = 5;
     }
+    
+    pub fn set_queen(&mut self){
+        self.allowedactions = AllowedActions::get_queen();
+        
+        self.typename = "queen".to_string();
+        
+        self.value = 8;
+    }
+    
+
+    
+
     
     //get rid of its allowed actions and make it flickable
     pub fn set_pool_ball(&mut self){
@@ -238,9 +241,40 @@ impl PieceData{
         
         self.canflick = true;
         
-        self.value = 2;
+        //self.value = 2;
     }
-    
+
+    //turn this piece back into an appropriately valued chess piece
+    pub fn set_chess_piece(&mut self){
+
+        if self.value == 0{
+
+            self.set_king();
+        }
+        else if self.value <= 1{
+
+            self.set_pawn();
+        }
+        else if self.value <= 2{
+            //could be a bishop of a knight
+            self.set_knight();
+        }
+        else if self.value <= 3{
+
+            self.set_bishop();
+        }
+        else if self.value <= 5{
+
+            self.set_rook();
+        }
+        else{
+
+            self.set_queen();
+        }
+
+    }
+
+
     
     pub fn canflick(&self) -> bool{
         self.canflick
@@ -329,7 +363,6 @@ impl PieceData{
         if let PieceAction::flick(_,_) = action{
             return self.canflick();
         }
-        //if its a checkers capture
         
         
         

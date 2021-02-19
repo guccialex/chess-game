@@ -198,6 +198,7 @@ impl BoardGame{
         
     }
     
+
     pub fn make_object_pool_ball(&mut self, objectid: &u16) {
         
         if ! self.pieces.contains(objectid){
@@ -217,6 +218,24 @@ impl BoardGame{
         //unlock all the axis of rotation
         //self.physicsengine.set_kinematic_axis_of_rotation_locked( objectid, (false,false,false) );
     }
+
+
+    pub fn make_object_piece(&mut self, objectid: &u16) {
+        
+        if ! self.pieces.contains(objectid){
+            
+            panic!("What else could this object be other than a piece?");
+        }
+        
+        self.physicsengine.set_shape_cylinder(objectid, 0.5, 0.7 );        
+
+        //elasticity and friction
+        self.physicsengine.set_materials(objectid, 0.5, 0.5);
+        
+    }
+
+
+
     
     pub fn is_object_on_mission(&self, objectid: u16) -> bool{
         
@@ -613,7 +632,6 @@ impl BoardGame{
 
 
         return None;
-
     }
     
     

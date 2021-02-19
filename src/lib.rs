@@ -11,54 +11,117 @@ use std::collections::HashMap;
 mod datastructs;
 
 
-
 pub use datastructs::PlayerInput;
-
-
-
 
 
 use datastructs::TurnManager;
 
 
-mod cardstructs;
-use cardstructs::CardEffect;
-use cardstructs::CardsInterface;
 
 
 
 use serde::{Serialize, Deserialize};
 
 
-#[derive(Serialize, Deserialize)]
-pub struct GameEffects{
-
-    //information about the game
-    //information that can be represented as cards
 
 
-    //does this player have their king replaced by another
-    //high value piece when their king is captured
-    //aka ANTI "do i lose when I lose my king?"
-    arekingsreplaced: bool,
 
 
-    //if pawns become queens when they reach the back rank
-    arepawnspromoted: bool,
 
 
-    //the effects applied to the state of the game
+
+
+
+//the effect of the card it can have
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
+pub enum CardEffect{
+    
+    
+    //joker effects
+    
+    backtobackturns, 
+    
+    halvetimeleft,
+    
+    makepoolgame,
+
+
+}
+
+
+impl CardEffect{
+    
+        
+    //get a random card effect playable on the board
+    pub fn get_joker_card_effect() -> CardEffect{
+
+
+        use rand::Rng;
+
+        let mut jokereffects = Vec::new();
+        jokereffects.push(CardEffect::backtobackturns);
+        jokereffects.push(CardEffect::halvetimeleft);
+        jokereffects.push(CardEffect::makepoolgame);
+
+        
+        let mut rng = rand::thread_rng();
+        let effectnumb = rng.gen_range(0, jokereffects.len() );
+        let jokereffect = jokereffects[effectnumb].clone();
+           
+        jokereffect    
+    }
+    
+}
+
+
+
+
+
+//the game effects which change the game from its DEFAULT of normal chess game
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
+pub enum GameEffect{
+
+
+    //if the kings are replaced when dying
+    KingsReplaced,
+
+    //if the pawns arent promoted
+    PawnsNotPromoted,
+
+    //if players take 2 turns in a row
+    DoubleTurns,
+
+    //if turns take time
+    TurnsTimed(u32),
+
+    //if its a pool game
+    PoolGame,
+
+
+    //what other game effects?
+
+
+
     /*
-    the time left for each player
-    the amount of time each player has to take each turn
-    if its a pool game (each piece is a pool object)
-    if certain squares are lowered for a duration
-    if all the pieces can be flicked (pieces are flickable)
+    //while this is applied, remove this number of random
+    //squares which dont have pieces on them
+    RemoveSomeSquares(u32),
+
+
+    //when this is applied, pieces move as if they are checkers pieces
+    Checkerify,
     */
 
 
+}
 
 
+
+
+#[derive(Serialize, Deserialize)]
+pub struct GameEffects{
+
+    list: HashSet<GameEffect>,
 
 }
 
@@ -69,33 +132,71 @@ impl GameEffects{
 
         GameEffects{
 
-            arekingsreplaced: false,
-
-            arepawnspromoted: true,
-
+            list: HashSet::new(),
         }
     }
 
 
-    pub fn arekingsreplaced(&self) -> bool{
+    pub fn set_pawns_not_promoted(&mut self){
 
-        self.arekingsreplaced
+        self.list.insert( GameEffect::PawnsNotPromoted );
+    }
+    pub fn get_pawns_not_promoted(&self) -> bool{
+
+        return self.list.contains( &GameEffect::PawnsNotPromoted ) ;
+    }
+
+
+    pub fn set_kings_replaced(&mut self){
+
+        self.list.insert( GameEffect::KingsReplaced );
+    }
+    pub fn get_kings_replaced(&self) -> bool{
+
+        return self.list.contains( &GameEffect::KingsReplaced ) ;
+    }
+
+
+    pub fn set_double_turns(&mut self){
+
+        self.list.insert( GameEffect::DoubleTurns );
+    }
+    pub fn get_double_turns(&self) -> bool{
+
+        return self.list.contains( &GameEffect::DoubleTurns ) ;
 
     }
 
 
-    pub fn arepawnspromoted(&self) -> bool{
+    pub fn set_pool_game(&mut self){
 
-        self.arepawnspromoted
-
+        self.list.insert( GameEffect::PoolGame );
     }
+    pub fn get_pool_game(&self) -> bool{
+
+        self.list.contains( &GameEffect::PoolGame ) 
+    }
+
+
 
 
     pub fn card_drawn(&mut self){
 
-        self.arekingsreplaced = true;
-        self.arepawnspromoted = false;
+        self.list.insert( GameEffect::KingsReplaced );
+        self.list.insert( GameEffect::PawnsNotPromoted );
     }
+
+
+
+    //get visible game effects
+    pub fn get_visible_game_effects(&self) -> Vec<GameEffect>{
+
+        use std::iter::FromIterator;
+
+        let toreturn = Vec::from_iter( self.list.clone() );
+
+        toreturn
+    } 
 
 
 }
@@ -122,48 +223,17 @@ pub struct MainGame{
 
 
 
-    /*
-    the board game stores:
-    
-    the pieces
-    which piece is owned by each player
-    the effects of the pieces
 
-
-
-
-    the turn manager stores:
-
-
-
-
-    the game effects stores:
-
-
-
-
-
-    
-    the states of each of these should be visible to the player
-
-    the game effects are displayed as cards beside the deck
+    totalticks: u32,
     
 
-
-    */
-
-
-
-
-
+    //the last card effect applied and how long ago it was
+    lastcardeffect: Option<(CardEffect, u32)>,
 
 
     //the last input of each player
     queuedinputs: HashMap<u8, Option<PlayerInput>>,
 
-    //how many ticks the game has been ended for
-    //if its been 3000 ticks, panic, to stop running
-    ticksgamehasbeenoverfor: u32,
 
     //if the game is finished, and who the winner is
     gameover: Option<u8>,
@@ -186,9 +256,11 @@ impl MainGame{
             turnmanager: TurnManager::new_two_player(1, 2),            
             boardgame: GameEngine::new(1,2),
             queuedinputs: queuedinputs,
+
+            totalticks: 0,
             gameover: None,
-            ticksgamehasbeenoverfor: 0,
             gameeffects: GameEffects::new(),
+            lastcardeffect: None,
         };
         
         
@@ -203,8 +275,8 @@ impl MainGame{
         //king taken
         //no time left
         
-        
         self.gameover
+
     }
     
     //get if it is the players turn, and if it is, how many ticks they have left in their turn
@@ -219,6 +291,7 @@ impl MainGame{
         }
         
     }
+
     //get the total amount of time the player has lefts
     fn get_players_total_ticks_left(&self, playerid: u8) -> u32{
         
@@ -226,16 +299,11 @@ impl MainGame{
         
     }
     
-    
-    
-    
     //get every player with an active turn
     pub fn get_active_players(&self) -> HashSet<u8>{
         
         self.turnmanager.get_current_players()
     }
-    
-    
     
     
     pub fn get_board_game_object_ids(&self) -> Vec<u16>{
@@ -355,29 +423,39 @@ impl MainGame{
                     self.queuedinputs.insert(playerid, None);
                 }
             }
+
+
+            let temptest = Some(20);
+            //self.gameeffects.tickstotaketurn
             
             //let the turn manager know that a tick has happeneds
-            self.turnmanager.tick();
-            
-            
-            self.ticksgamehasbeenoverfor +=1;
-            
-            if self.ticksgamehasbeenoverfor > 3000{
-                panic!("Game has been over for long enough. Pod is going to be restarted now");
-            }
+            self.turnmanager.tick(self.gameeffects.get_double_turns(), temptest );
+
         }
-        
-    
-        
 
 
 
-        let arepawnspromoted = self.gameeffects.arepawnspromoted();
-        let arekingsreplaced = self.gameeffects.arekingsreplaced();
+        if let Some( (_, tickssince) ) = &mut self.lastcardeffect{
 
+            *tickssince += 1;
+        }
+
+
+
+
+        self.totalticks +=1;
+        //if the game has been running for more than 1000 seconds (~16 minutes)
+        if self.totalticks > 30000{
+            panic!("Game has been over for long enough. Pod is going to be restarted now");
+        }
+
+
+        let arepawnspromoted = ! self.gameeffects.get_pawns_not_promoted();
+        let arekingsreplaced = self.gameeffects.get_kings_replaced();
+        let ispoolgame = self.gameeffects.get_pool_game();
 
         //tick the physical game engine
-        self.boardgame.tick(arekingsreplaced, arepawnspromoted);
+        self.boardgame.tick(arekingsreplaced, arepawnspromoted, ispoolgame);
 
 
                 
@@ -443,16 +521,12 @@ impl MainGame{
         
         //if any of the cases are missed
         panic!(" why isnt this case dealt with? ");
-        
     }
     
     
     
     
     fn is_piece_action_valid(&self, playerid: &u8, pieceid: &u16,  pieceaction: &PieceAction) -> bool{
-        
-        
-        
         
         //if the piece action is a slide or lift action
         if  let PieceAction::slide(_,_) = pieceaction{
@@ -500,13 +574,15 @@ impl MainGame{
     
     
     fn apply_card_effect_to_board(&mut self, playerid: &u8, cardeffect: CardEffect){
+
+        self.lastcardeffect = Some((cardeffect.clone(), 0));
         
 
         if cardeffect == CardEffect::makepoolgame{
-            self.boardgame.make_pool_game();
+            self.gameeffects.set_pool_game();
         }
         else if cardeffect == CardEffect::backtobackturns{
-            self.turnmanager.players_take_2_turns_in_a_row();
+            self.gameeffects.set_double_turns();
         }
         else if cardeffect == CardEffect::halvetimeleft{
             self.turnmanager.halve_time_left();
@@ -534,7 +610,7 @@ impl MainGame{
             
             self.gameeffects.card_drawn();
             
-            self.apply_card_effect_to_board(playerid, CardsInterface::get_joker_card_effect() );
+            self.apply_card_effect_to_board(playerid, CardEffect::get_joker_card_effect() );
             
         }
         else{
@@ -690,8 +766,6 @@ impl MainGame{
         }
 
 
-        let playerswithactiveturns = self.get_active_players();
-
 
         VisibleGameState{
             
@@ -707,9 +781,13 @@ impl MainGame{
             
             player2ticksleft: self.get_players_turn_ticks_left(2),
 
-            playerswithactiveturns: playerswithactiveturns,
+            playerswithactiveturns: self.get_active_players(),
 
             boardobjects: boardobjects,
+
+            gameeffects: self.gameeffects.get_visible_game_effects(),
+
+            lastcardeffect: self.lastcardeffect.clone(),
 
         }
 
@@ -746,10 +824,11 @@ pub struct VisibleGameState{
 
 
     //the effects currently applied to the game
+    pub gameeffects: Vec<GameEffect>,
 
 
-    //the last card drawn and how long ago it was drawn
-    
+    //the most recent card effect applied, and how long since
+    pub lastcardeffect: Option< (CardEffect, u32) >,    
 
 
 }
@@ -815,63 +894,3 @@ pub struct VisibleGameSquareObject{
 }
 
 
-
-//the different effects that the game can represent as a card
-#[derive(Eq, PartialEq)]
-pub enum VisibleGameEffect{
-
-    //if the king is captured will it be replaced
-    KingReplacable(bool),
-
-
-    //will pawns be promoted when reaching opponents back ranks
-    PawnPromotable(bool),
-    
-
-    //how many ticks does each player have to take their turns
-    TurnLengthLimit(u32),
-
-
-    //is it in a pool game mode
-    PoolGame(bool),
-
-
-    //do players take 2 turns back to back
-    PlayersTakeTurnsBackToBack(bool),
-
-
-    //basically, i want
-    //the visible game effect to let the player know
-    //what the state of the game is by looking at this
-    //in combination with
-    //the appearance of the pieces
-
-    /*
-    I want the player to be able to see the state of the game without knowing the history of events
-    So I kinda want the STATE of the game saved in some... struct that doesnt hide in some other data
-
-    I want the state of the game to be fully explained by:
-
-    Position of each piece
-    Data associated with each piece
-    The turn manager and whos turn it currently is, how much time they have left on their turn and in total
-    PLUS THIS -> Some struct of rules that the game is currently operating on
-
-
-    */
-
-}
-
-
-
-
-#[derive(Eq, PartialEq)]
-pub struct VisibleCardDrawn{
-
-    //the different names of the cards that can be drawn
-
-    //there should be one of these for each "joker effect"
-
-
-
-}

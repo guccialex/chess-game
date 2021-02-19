@@ -12,8 +12,8 @@ pub use datastructs::PieceAction;
 
 
 
-use boardgameinterface::convert_physical_pos_to_board_square_pos;
-use boardgameinterface::convert_board_square_pos_to_physical_pos;
+//use boardgameinterface::convert_physical_pos_to_board_square_pos;
+//use boardgameinterface::convert_board_square_pos_to_physical_pos;
 
 use datastructs::is_square_posid_valid;
 
@@ -25,31 +25,8 @@ use datastructs::is_square_posid_valid;
 #[derive(Serialize, Deserialize)]
 pub struct GameEngine{
     
-    //the board game has:
-    /*
-    game engine vs boardgame roles
-    
-    The board game provides the abstraction for the pieces and boardsquares
-    and what operations can be performed on them
-    
-    
-    the game engine mediates how those actions are formed?
-    its a bit arbitrary
-    who owns the piece
-    what actions the piece is allowed to perform
-    
-    im thinking about making main have access to both game engine and board game at the same time
-    but the bad heavily outweighs the convenience of not needing to re-export public functions in boardgame
-    
-    */
-    
-    
-    
     //the pieces that this player owns
     playertopiece: HashMap<u8, HashSet<u16> >,
-    
-    //player 11 is the pool of player 1
-    //player 12 is the pool of player 2
     
     
     //the direction the player i facing, of the 8 cardinal directions
@@ -61,6 +38,9 @@ pub struct GameEngine{
     
     
     boardgame: BoardGame,
+    
+    
+    currentlypoolgame: bool,
     
 }
 
@@ -75,6 +55,7 @@ impl GameEngine{
             playertodirection: HashMap::new(),
             piecetypedata: HashMap::new(),
             boardgame: BoardGame::new_empty_board(),  
+            currentlypoolgame: false,
         };
         
         gameengine.playertopiece.insert(player1id, HashSet::new());
@@ -90,37 +71,6 @@ impl GameEngine{
         gameengine
     }
     
-    
-    
-    
-    pub fn are_pieces_offered_valid(&self, playerid: u8, piecesoffered: Vec<u16>) -> bool{
-        
-        let mut allpiecesvalid = true;
-        
-        
-        //for every piece, get if its owned by the player
-        //and is worth at least as much as the value suggested, if true
-        for pieceid in piecesoffered{
-            
-            //if its owned by the player
-            if self.playertopiece.get(&playerid).unwrap().contains(&pieceid){
-                
-                let piecedata = self.piecetypedata.get(&pieceid).unwrap();
-                
-                //if the piece has a zero value
-                if piecedata.get_value() == 0{
-                    
-                    allpiecesvalid = false;
-                }
-            }
-            else{
-                allpiecesvalid = false;
-            }
-        }
-        
-        
-        allpiecesvalid
-    }
     
     
     
@@ -242,20 +192,6 @@ impl GameEngine{
     
     
     
-    
-    //make this a pool game
-    //make every piece a pool ball shape
-    //and remove all their actions aside from flick
-    //drop 6 random empty squares
-    pub fn make_pool_game(&mut self){
-        
-        //for every piece with a type
-        for (pieceid, _) in self.piecetypedata.clone().iter(){
-            
-            self.set_pool_ball(*pieceid);            
-        }
-        
-    }
     
     
     
@@ -648,6 +584,17 @@ impl GameEngine{
         
         self.boardgame.make_object_pool_ball(&pieceid);
     }
+
+
+    fn set_chess_piece(&mut self, pieceid: u16){
+
+        let typedata = self.piecetypedata.get_mut(&pieceid).unwrap();       
+        typedata.set_chess_piece();
+        
+
+        self.boardgame.make_object_piece(&pieceid);
+        
+    }
     
     fn set_checkers(&mut self, pieceid: u16){
         
@@ -675,7 +622,6 @@ impl GameEngine{
         self.boardgame.get_rotation(gameobjectid)
     }
     
-
     
     pub fn does_player_have_king(&self, playerid: u8) -> bool{
         
@@ -690,17 +636,41 @@ impl GameEngine{
                 kingexists = true;
             }
         }
-
+        
         
         kingexists
     }
-
-
+    
+    
     //tick, with true if kings are replaced and false if theyre not
-    pub fn tick(&mut self, arekingsreplaced: bool, arepawnspromoted: bool){
+    pub fn tick(&mut self, arekingsreplaced: bool, arepawnspromoted: bool, ispoolgame: bool){
         
+        
+        if ispoolgame{
+            
+            if !self.currentlypoolgame{
+                
+                for (pieceid, _) in self.piecetypedata.clone().iter(){
+                    self.set_pool_ball(*pieceid);            
+                }
+                
+                self.currentlypoolgame = true;
+            }
+        }
+        else{
+            
+            
+            if self.currentlypoolgame{
 
-
+                for (pieceid, _) in self.piecetypedata.clone().iter(){
+                    self.set_chess_piece(*pieceid);            
+                }
+                
+                self.currentlypoolgame = false;
+            }
+        }
+        
+        
         //remove the pieces that are lower than -5 in pos
         for (pieceid, _) in &self.piecetypedata.clone(){
             
@@ -711,12 +681,12 @@ impl GameEngine{
                 self.remove_piece(*pieceid);
             }
         }
-
-
-
+        
+        
+        
         //if the kings are replaced, the piece with the highest score becomes a king
         if arekingsreplaced{
-
+            
             for playerid in 1..3{
                 
                 //if they dont
@@ -744,58 +714,58 @@ impl GameEngine{
                     piecedata.set_king();
                 }
             }
-
+            
         }
-
-
-
+        
+        
+        
         if arepawnspromoted{
-
+            
             //if theres a pawn on its opponents back row, promote it
             for (pieceid, piecedata) in self.piecetypedata.clone(){
-
+                
                 //get the owner
                 let ownerid = self.get_owner_of_piece(pieceid);
-    
+                
                 //get the "objective back row" from that players perspective
                 let backrow = GameEngine::subjective_row_to_objective_row(&ownerid, &7);
                 
                 if let Some(curpiecerow) = self.boardgame.get_row_piece_is_on(pieceid){
-
+                    
                     //if that pawn is on the backrow
                     if curpiecerow == backrow{
-
+                        
                         self.set_queen(pieceid);
-
+                        
                     }
                 }
             }
         }
-
+        
         
         
         self.boardgame.tick();
     }
-
-
-
+    
+    
+    
     //get the row from a players perspective (0 is closest row to player, 7 is farther row from player)
     //and returns what row that is
     fn subjective_row_to_objective_row(playerid: &u8, subjectiverow: &u8) -> u8{
-
+        
         if playerid == &1{
-
+            
             return *subjectiverow;
         }
         else if playerid == &2{
-
+            
             return 7 - subjectiverow;
         }
         else{
             panic!("no player other than 1 and 2");
         }
-
-
+        
+        
     }
     
     
