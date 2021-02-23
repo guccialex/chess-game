@@ -17,7 +17,6 @@ pub fn is_square_posid_valid( i8pos: (i8,i8) ) -> Option<(u8,u8)>{
         };
     };
     
-    
     return None;
 }
 
@@ -531,7 +530,6 @@ impl AllowedActions{
         toreturn
     }
     
-    
     fn get_allowed_lift_and_move_actions(&self, ownerdirection: u8) -> Vec<PieceAction>{
         
         let mut toreturn = Vec::new();
@@ -546,7 +544,6 @@ impl AllowedActions{
         
         toreturn
     }
-    
     
     //get the allowed actions of a pawn that has not moved yet
     fn get_unmoved_pawn() -> AllowedActions{

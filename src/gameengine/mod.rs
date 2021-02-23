@@ -22,6 +22,10 @@ use datastructs::is_square_posid_valid;
 
 
 
+
+
+
+
 #[derive(Serialize, Deserialize)]
 pub struct GameEngine{
     
@@ -40,7 +44,6 @@ pub struct GameEngine{
     boardgame: BoardGame,
     
     
-    currentlypoolgame: bool,
     
 }
 
@@ -55,60 +58,25 @@ impl GameEngine{
             playertodirection: HashMap::new(),
             piecetypedata: HashMap::new(),
             boardgame: BoardGame::new_empty_board(),  
-            currentlypoolgame: false,
         };
+        
+        
         
         gameengine.playertopiece.insert(player1id, HashSet::new());
         gameengine.playertopiece.insert(player2id, HashSet::new());
         
         
-        
         gameengine.playertodirection.insert(player1id, 0 );
         gameengine.playertodirection.insert(player2id, 4 );
         
-        gameengine.init_chess_game();
+        gameengine.make_chess_pieces();
         
         gameengine
     }
     
     
-    
-    
-    //split a piece in two, ensuring that one of the pieces split's value is equal to the amount passed in
-    //return the ID of both pieces that were made when this one split
-    //and have the first ID be of the piece who's value is equal to the amount
-    fn split_piece(&mut self, pieceid: u16, amount: u8) -> (u16, u16){
-        
-        
-        
-        panic!("no");
-        
-    }
-    
-    
-    
-    
-    //transfer the ownership fo this piece to this player
-    fn transfer_ownership(&mut self, pieceid: u16, newplayerid: u8){
-        
-        //get the old owner of the piece
-        let oldowner = self.get_owner_of_piece(pieceid);
-        
-        //remove that piece from that players list of pieces
-        self.playertopiece.get_mut(&oldowner).unwrap().remove(&pieceid);
-        
-        //and give that piece to the new player
-        self.playertopiece.get_mut(&newplayerid).unwrap().insert(pieceid);
-        
-    }
-    
-    
-    
-    
-    
-    
     //add the pieces to the game that a chess game would have
-    fn init_chess_game(&mut self){
+    fn make_chess_pieces(&mut self){
         
         //player 1 and 2, the 3 is not inclusive
         for playerx in 1..3{
@@ -166,21 +134,21 @@ impl GameEngine{
         
     }
     
-    
-    
     //add the pieces to the game that a chess game would have
-    fn init_checkers_game(&mut self){
+    fn make_checkers_pieces(&mut self){
         
         //player 1 and 2, the 3 is not inclusive
         for playerx in 1..3{
             
-            let firstrow = 0;
-            
-            
-            let id = self.create_piece( (0, 1), playerx);
-            self.set_checkers(id);
-            
-            
+            for column in 0..8{
+                
+                let firstrow = 0;
+                
+                let id = self.create_piece( (column, 1), playerx);
+                self.set_checkers(id);    
+                
+                
+            }
         };
         
     }
@@ -189,57 +157,184 @@ impl GameEngine{
     
     
     
-    
-    
-    
-    
-    
-    
-    
-    pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec<PieceAction>){
+    //tick, with true if kings are replaced and false if theyre not
+    pub fn tick(&mut self, arekingsreplaced: bool, arepawnspromoted: bool, ispoolgame: bool, raisedsquares: u32, removedsquares: u32, ischeckers: bool){
         
         
-        //get the piece data
-        let piecedata = self.piecetypedata.get(&pieceid).unwrap();
-        //the owner of the piece
-        let owner = self.get_owner_of_piece(pieceid);
-        //the direction of the owner of the piece
-        let ownerdirection = self.playertodirection.get(&owner).unwrap();
         
-        
-        //get all the actions this piece can potentially perform
-        let allactions = piecedata.get_piece_actions(*ownerdirection);
-        
-        //the list of allowed actions to return
-        let mut allowedactions: Vec<PieceAction> = Vec::new();
-        
-        
-        //for every action, get if it is allowed
-        for action in allactions{
+        if ispoolgame{
             
-            if self.is_action_allowed(action.clone(), pieceid){
-                
-                allowedactions.push( action );
-            };
-        };
-        
-        
-        
-        let flickable;
-        
-        //if its on a boardsquare
-        if let Some(_) = self.boardgame.get_board_square_piece_is_on(pieceid){
-            flickable = piecedata.canflick();
+            for (pieceid, _) in self.piecetypedata.clone().iter(){
+                self.set_pool_ball(*pieceid);            
+            }
+            
         }
         else{
-            flickable = false;
+            
+            for (pieceid, _) in self.piecetypedata.clone().iter(){
+                self.set_chess_piece(*pieceid);            
+            }
+            
         }
         
         
         
-        return (flickable, allowedactions);
-    }
+        
+        
+        //get the number of raised squares
+        let curraisedsquares = self.boardgame.get_raised_squares();
+        
+        //how many more raised squares I have than I need
+        let raiseddifference = curraisedsquares.len() as i32 - raisedsquares as i32;
+        
+        
+        //if i have more squares raised than I need
+        if raiseddifference > 0{
+            
+            for x  in 0..(raiseddifference as usize){
+                
+                self.boardgame.end_mission( &curraisedsquares[x] );
+            }
+        }
+        //if I dont have enough squares raised
+        else if raiseddifference < 0{
+            
+            let potentialsquares = self.get_empty_squares_not_on_mission();
+            
+            for x in 0..(-raiseddifference as usize){
+                self.boardgame.set_long_boardsquare_raise(10000, potentialsquares[x]);
+            }
+            
+        }
+        
+        
+        
+        
+        
+        
+        //get the number of dropped squares
+        let curdroppedsquares = self.boardgame.get_dropped_squares();
+        
+        //how many more raised squares I have than I need
+        let droppeddifference = curdroppedsquares.len() as i32 - removedsquares as i32;
+        
+        
+        //if i have more squares raised than I need
+        if droppeddifference > 0{
+            
+            for x  in 0..(droppeddifference as usize){
+                
+                self.boardgame.end_mission( &curdroppedsquares[x] );
+            }
+        }
+        //if I dont have enough squares raised
+        else if droppeddifference < 0{
+            
+            let potentialsquares = self.get_empty_squares_not_on_mission();
+            
+            for x in 0..(-droppeddifference as usize){
+                self.boardgame.set_long_boardsquare_drop(10000, potentialsquares[x]);
+            }
+            
+        }
+        
+        
+        
+        
+        
+        
+        
+        
+        //remove the pieces that are lower than -5 in pos
+        for (pieceid, _) in &self.piecetypedata.clone(){
+            
+            let pos = self.boardgame.get_translation(*pieceid);
+            
+            if pos.1 < -3.0{
+                
+                self.remove_piece(*pieceid);
+            }
+        }
+        
+        
+        
+        
+        
+        //if the kings are replaced, the piece with the highest score becomes a king
+        if arekingsreplaced{
+            
+            for playerid in 1..3{
+                
+                //if they dont
+                if ! self.does_player_have_king(playerid){
+                    
+                    let mut highestvaluepieceid = 0;
+                    let mut highestvaluepiecevalue = 0;
+                    
+                    //find their highest valued piece, and turn it into a king
+                    for pieceid in self.playertopiece.get(&playerid).unwrap(){
+                        
+                        let piecedata = self.piecetypedata.get(pieceid).unwrap();
+                        let piecevalue = piecedata.get_value();
+                        
+                        if piecevalue > highestvaluepiecevalue{
+                            highestvaluepiecevalue = piecevalue;
+                            highestvaluepieceid = *pieceid;
+                        }
+                        
+                    }
+                    
+                    
+                    let mut piecedata = self.piecetypedata.get_mut(&highestvaluepieceid).unwrap();
+                    
+                    piecedata.set_king();
+                }
+            }
+            
+        }
+        
+        
+        //promote the pawns to queens on the opponents backrow if allowed
+        if arepawnspromoted{
+            
+            //if theres a pawn on its opponents back row, promote it
+            for (pieceid, piecedata) in self.piecetypedata.clone(){
+                
+                //get the owner
+                let ownerid = self.get_owner_of_piece(pieceid);
+                
+                //get the "objective back row" from that players perspective
+                let backrow = GameEngine::subjective_row_to_objective_row(&ownerid, &7);
+                
+                if let Some( (curpiececolumn, curpiecerow) ) = self.boardgame.get_square_pos_piece_is_on(pieceid){
+                    
+                    //if that pawn is on the backrow
+                    if curpiecerow == backrow{
+                        
+                        self.set_queen(pieceid);
+                    }
+                }
+            }
+        }
+        
+        
+        
+        self.boardgame.tick();
+    }    
     
+    //transfer the ownership fo this piece to this player
+    fn transfer_ownership(&mut self, pieceid: u16, newplayerid: u8){
+        
+        //get the old owner of the piece
+        let oldowner = self.get_owner_of_piece(pieceid);
+        
+        //remove that piece from that players list of pieces
+        self.playertopiece.get_mut(&oldowner).unwrap().remove(&pieceid);
+        
+        //and give that piece to the new player
+        self.playertopiece.get_mut(&newplayerid).unwrap().insert(pieceid);
+        
+    }
     
     
     //given a piece, and an action
@@ -277,7 +372,7 @@ impl GameEngine{
             let startsquarei8pos = (startsquareposid.0 as i8, startsquareposid.1 as i8);
             
             
-            for step in 0..distance+1{
+            for step in 1..distance+1{
                 
                 let relativeposstep = action.get_single_step_pos_change();
                 
@@ -289,17 +384,13 @@ impl GameEngine{
                     
                     let cursquareid = self.boardgame.boardsquare_posid_to_id(curposid).unwrap();
                     
-                    toreturn.push( (step as u32, PieceAction::slide(direction, step), cursquareid) );
+                    toreturn.push( (step as u32 * 5, PieceAction::slide(direction, step), cursquareid) );
                     
                 };
                 
             }
             
-            
-            
         }
-        
-        
         
         
         toreturn
@@ -328,11 +419,11 @@ impl GameEngine{
         if let Some(boardsquareid) = self.boardgame.get_board_square_piece_is_on(pieceid){
             
             //if the current boardsquare is on a mission, return false
-            if self.boardgame.is_object_on_mission(boardsquareid){
+            if self.boardgame.is_object_on_mission(&boardsquareid){
                 return false;
             }
             //if the current piece is on a mission, return false
-            if self.boardgame.is_object_on_mission(pieceid){
+            if self.boardgame.is_object_on_mission(&pieceid){
                 return false;
             }
             
@@ -390,7 +481,7 @@ impl GameEngine{
                     //if the cur square isnt the starting square
                     if cursquareid != boardsquareid{
                         
-                        if self.boardgame.is_object_on_mission(cursquareid){
+                        if self.boardgame.is_object_on_mission(&cursquareid){
                             
                             break;
                         }
@@ -480,12 +571,6 @@ impl GameEngine{
     
     
     
-    
-    
-    
-    
-    
-    
     //if a piece can perform this action, what objects will it target
     pub fn get_objects_targeted_by_action(&self, pieceid: u16, action: PieceAction) -> Vec<u16>{        
         
@@ -522,9 +607,6 @@ impl GameEngine{
     
     
     
-    
-    
-    
     //create a piece
     fn create_piece(&mut self, pos: (u8,u8), owner: u8) -> u16{
         
@@ -539,7 +621,6 @@ impl GameEngine{
     
     
     //make an existing piece a certain type of piece
-    
     fn set_pawn(&mut self, pieceid: u16){
         
         let piecedata = self.piecetypedata.get_mut(&pieceid).unwrap();
@@ -576,26 +657,27 @@ impl GameEngine{
         piecedata.set_king();
         
     }
-    
     fn set_pool_ball(&mut self, pieceid: u16){
         
         let typedata = self.piecetypedata.get_mut(&pieceid).unwrap();       
         typedata.set_pool_ball();
-        
-        self.boardgame.make_object_pool_ball(&pieceid);
+
+        if self.piecetypedata.get(&pieceid).unwrap().get_type_name() != "poolball"{
+
+            self.boardgame.make_object_pool_ball_shape(&pieceid);
+        }
+
+
     }
-
-
     fn set_chess_piece(&mut self, pieceid: u16){
-
+        
         let typedata = self.piecetypedata.get_mut(&pieceid).unwrap();       
         typedata.set_chess_piece();
         
-
-        self.boardgame.make_object_piece(&pieceid);
+        
+        self.boardgame.make_object_piece_shape(&pieceid);
         
     }
-    
     fn set_checkers(&mut self, pieceid: u16){
         
         let typedata = self.piecetypedata.get_mut(&pieceid).unwrap();       
@@ -606,21 +688,16 @@ impl GameEngine{
     
     
     
-    
-    
-    
     //get the list of every object in the physical engine
     pub fn get_object_ids(&self) -> Vec<u16>{
-        self.boardgame.get_object_ids()
+        
+        let mut toreturn = self.boardgame.get_piece_ids();
+        
+        toreturn.extend( self.boardgame.get_square_ids() );
+        
+        toreturn
+        
     }    
-    
-    pub fn get_object_translation(&self, gameobjectid: u16) -> (f32,f32,f32){
-        self.boardgame.get_translation(gameobjectid)
-    }
-    
-    pub fn get_object_rotation(&self, gameobjectid: u16) -> (f32,f32,f32){
-        self.boardgame.get_rotation(gameobjectid)
-    }
     
     
     pub fn does_player_have_king(&self, playerid: u8) -> bool{
@@ -642,110 +719,6 @@ impl GameEngine{
     }
     
     
-    //tick, with true if kings are replaced and false if theyre not
-    pub fn tick(&mut self, arekingsreplaced: bool, arepawnspromoted: bool, ispoolgame: bool){
-        
-        
-        if ispoolgame{
-            
-            if !self.currentlypoolgame{
-                
-                for (pieceid, _) in self.piecetypedata.clone().iter(){
-                    self.set_pool_ball(*pieceid);            
-                }
-                
-                self.currentlypoolgame = true;
-            }
-        }
-        else{
-            
-            
-            if self.currentlypoolgame{
-
-                for (pieceid, _) in self.piecetypedata.clone().iter(){
-                    self.set_chess_piece(*pieceid);            
-                }
-                
-                self.currentlypoolgame = false;
-            }
-        }
-        
-        
-        //remove the pieces that are lower than -5 in pos
-        for (pieceid, _) in &self.piecetypedata.clone(){
-            
-            let pos = self.boardgame.get_translation(*pieceid);
-            
-            if pos.1 < -3.0{
-                
-                self.remove_piece(*pieceid);
-            }
-        }
-        
-        
-        
-        //if the kings are replaced, the piece with the highest score becomes a king
-        if arekingsreplaced{
-            
-            for playerid in 1..3{
-                
-                //if they dont
-                if ! self.does_player_have_king(playerid){
-                    
-                    let mut highestvaluepieceid = 0;
-                    let mut highestvaluepiecevalue = 0;
-                    
-                    //find their highest valued piece, and turn it into a king
-                    for pieceid in self.playertopiece.get(&playerid).unwrap(){
-                        
-                        let piecedata = self.piecetypedata.get(pieceid).unwrap();
-                        let piecevalue = piecedata.get_value();
-                        
-                        if piecevalue > highestvaluepiecevalue{
-                            highestvaluepiecevalue = piecevalue;
-                            highestvaluepieceid = *pieceid;
-                        }
-                        
-                    }
-                    
-                    
-                    let mut piecedata = self.piecetypedata.get_mut(&highestvaluepieceid).unwrap();
-                    
-                    piecedata.set_king();
-                }
-            }
-            
-        }
-        
-        
-        
-        if arepawnspromoted{
-            
-            //if theres a pawn on its opponents back row, promote it
-            for (pieceid, piecedata) in self.piecetypedata.clone(){
-                
-                //get the owner
-                let ownerid = self.get_owner_of_piece(pieceid);
-                
-                //get the "objective back row" from that players perspective
-                let backrow = GameEngine::subjective_row_to_objective_row(&ownerid, &7);
-                
-                if let Some(curpiecerow) = self.boardgame.get_row_piece_is_on(pieceid){
-                    
-                    //if that pawn is on the backrow
-                    if curpiecerow == backrow{
-                        
-                        self.set_queen(pieceid);
-                        
-                    }
-                }
-            }
-        }
-        
-        
-        
-        self.boardgame.tick();
-    }
     
     
     
@@ -770,7 +743,7 @@ impl GameEngine{
     
     
     
-    pub fn remove_piece(&mut self, pieceid: u16){
+    fn remove_piece(&mut self, pieceid: u16){
         
         let playerid = self.get_owner_of_piece(pieceid);
         
@@ -778,11 +751,12 @@ impl GameEngine{
         
         self.piecetypedata.remove(&pieceid);
         
+        self.boardgame.remove_piece(&pieceid);
     }
     
     
     //get the id of every board square in the game
-    pub fn get_squares(&self) -> Vec<u16>{
+    fn get_squares(&self) -> Vec<u16>{
         
         self.boardgame.get_square_ids()
     }
@@ -790,7 +764,7 @@ impl GameEngine{
     
     //get the id of every board square without a piece on it
     //and that arent on a mission currently
-    pub fn get_empty_squares_not_on_mission(&self) -> Vec<u16>{
+    fn get_empty_squares_not_on_mission(&self) -> Vec<u16>{
         
         let bsids = self.get_squares();
         
@@ -805,14 +779,13 @@ impl GameEngine{
             if piecesonboardsquare.is_empty(){
                 
                 //if its not on a mission
-                if ! self.boardgame.is_object_on_mission(bsid){
+                if ! self.boardgame.is_object_on_mission(&bsid){
                     
                     //then push it into the list of empty squares not on a mission
                     toreturn.push( bsid );
                 }
             }
         }
-        
         
         return toreturn;
     }
@@ -828,6 +801,12 @@ impl GameEngine{
             
             self.boardgame.lift_and_move_piece_to(piece, floatrelpos);
             
+            
+            for (tick, _, squareid) in self.get_passed_over_squares(pieceaction, piece){
+                
+                self.boardgame.set_future_boardsquare_drop(tick, squareid);
+            };
+            
         }
         else if let PieceAction::slide(slidedirection, slidedistance) = pieceaction{
             
@@ -835,6 +814,11 @@ impl GameEngine{
             let floatrelpos = (relativeposition.0 as f32, relativeposition.1 as f32);
             
             self.boardgame.slide_piece(piece, floatrelpos);
+            
+            for (tick, _, squareid) in self.get_passed_over_squares(pieceaction, piece){
+                
+                self.boardgame.set_future_boardsquare_drop(tick, squareid);
+            };
         }
         else if let PieceAction::flick(direction, force) = pieceaction{
             
@@ -847,15 +831,102 @@ impl GameEngine{
     }
     
     
-    pub fn drop_square(&mut self, bsid: u16){
-        self.boardgame.set_long_boardsquare_drop(500, bsid);
+    pub fn get_owner_of_piece(& self, pieceid: u16) -> u8{
+        
+        for (player, pieces) in self.playertopiece.clone(){
+            
+            for playerspieceid in pieces{
+                
+                if playerspieceid == pieceid{
+                    
+                    return player;
+                }
+            }
+        }
+        
+        panic!("cant find the piece, doesnt seem to exist");
+    }
+    
+}
+
+
+
+
+
+
+
+
+//getters used only outside of this module
+impl GameEngine{
+    
+    
+    pub fn is_object_on_mission(&self, id: u16) -> bool{
+        
+        self.boardgame.is_object_on_mission(&id)
     }
     
     
-    pub fn raise_square(&mut self, bsid: u16){
-        self.boardgame.set_long_boardsquare_raise(500, bsid);
+    pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec<PieceAction>){
+        
+        
+        //get the piece data
+        let piecedata = self.piecetypedata.get(&pieceid).unwrap();
+        //the owner of the piece
+        let owner = self.get_owner_of_piece(pieceid);
+        //the direction of the owner of the piece
+        let ownerdirection = self.playertodirection.get(&owner).unwrap();
+        
+        
+        //get all the actions this piece can potentially perform
+        let allactions = piecedata.get_piece_actions(*ownerdirection);
+        
+        //the list of allowed actions to return
+        let mut allowedactions: Vec<PieceAction> = Vec::new();
+        
+        
+        //for every action, get if it is allowed
+        for action in allactions{
+            
+            if self.is_action_allowed(action.clone(), pieceid){
+                
+                allowedactions.push( action );
+            };
+        };
+        
+        
+        
+        let flickable;
+        
+        //if its on a boardsquare
+        if let Some(_) = self.boardgame.get_board_square_piece_is_on(pieceid){
+            flickable = piecedata.canflick();
+        }
+        else{
+            flickable = false;
+        }
+        
+        
+        return (flickable, allowedactions);
     }
     
+    //is this board game object a square
+    pub fn is_board_game_object_square(&self, objectid: u16) -> bool{
+        self.boardgame.is_board_game_object_square(objectid)
+    }
+    
+    //is this board game object a piece
+    pub fn is_board_game_object_piece(&self, objectid: u16) -> bool{
+        self.boardgame.is_board_game_object_piece(objectid)
+    }
+    
+    //get the name of the type of the piece
+    pub fn get_piece_type_name(&self, pieceid: u16) -> String{
+        
+        let piecetypedata = self.piecetypedata.get(&pieceid).unwrap();
+        
+        piecetypedata.get_type_name()
+        
+    }
     
     pub fn is_boardsquare_white(&self, bsid: u16 ) -> bool{
         
@@ -875,65 +946,12 @@ impl GameEngine{
         
     }
     
-    
-    //get the name of the type of the piece
-    pub fn get_piece_type_name(&self, pieceid: u16) -> String{
-        
-        let piecetypedata = self.piecetypedata.get(&pieceid).unwrap();
-        
-        piecetypedata.get_type_name()
-        
+    pub fn get_object_translation(&self, gameobjectid: u16) -> (f32,f32,f32){
+        self.boardgame.get_translation(gameobjectid)
     }
     
-    
-    //is this board game object a square
-    pub fn is_board_game_object_square(&self, objectid: u16) -> bool{
-        self.boardgame.is_board_game_object_square(objectid)
+    pub fn get_object_rotation(&self, gameobjectid: u16) -> (f32,f32,f32){
+        self.boardgame.get_rotation(gameobjectid)
     }
-    
-    
-    //is this board game object a piece
-    pub fn is_board_game_object_piece(&self, objectid: u16) -> bool{
-        self.boardgame.is_board_game_object_piece(objectid)
-    }
-    
-    
-    pub fn get_owner_of_piece(& self, pieceid: u16) -> u8{
-        
-        for (player, pieces) in self.playertopiece.clone(){
-            
-            for playerspieceid in pieces{
-                
-                if playerspieceid == pieceid{
-                    
-                    return player;
-                }
-            }
-        }
-        
-        panic!("cant find the owner of the piece");
-    }
-    
-    
-    
-    //only for testing
-    pub fn does_piece_have_owner(&self, pieceid: u16) -> bool{
-        
-        
-        for (player, pieces) in self.playertopiece.clone(){
-            
-            for playerspieceid in pieces{
-                
-                if playerspieceid == pieceid{
-                    
-                    return true;
-                }
-            }
-        }
-        
-        return false;
-    }
-    
     
 }
-

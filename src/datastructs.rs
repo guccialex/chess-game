@@ -6,69 +6,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 
-use super::PieceAction;
-
-
-
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum PlayerInput{
-    
-    
-    //perform an action on a piece
-    pieceaction(u16, PieceAction),
-    
-    //draw card from the deck
-    drawcard,
-    
-}
-
-
-
-
-
-//given a value, and a list of ranges
-//returns whether the value is in this range or not
-fn is_in_range(ranges: Vec< (u32,u32) >, value: u32) -> bool{
-    
-    
-    for (currangestart, currangeend) in ranges{
-        
-        if value >= currangestart{
-            
-            if value < currangeend{
-                
-                return(true);
-            }
-        }
-    }
-    
-    return(false);
-    
-    
-}
-
-
-//the same, but for f32 values
-fn is_in_range_f32(ranges: Vec< (f32,f32) >, value: f32) -> bool{
-    
-    for (currangestart, currangeend) in ranges{
-        
-        if value >= currangestart{
-            
-            if value < currangeend{
-                
-                return(true);
-                
-            }   
-        }
-    }
-    
-    
-    return(false);
-}
-
-
 
 
 
@@ -289,20 +226,22 @@ impl TurnManager{
     }
     
     //if it is this players turn, return how many ticks they have left in their turn
-    pub fn get_ticks_left_for_players_turn(&self, playerid: u8) -> Option<u32>{
+    pub fn get_ticks_left_for_players_turn(&self, playerid: u8) -> u32{
         
         
         let (curplayerid, turnlength, _) = self.turns.get(&self.currentturn).unwrap();
         
         if playerid == *curplayerid{
             
-            return Some( turnlength - self.currentturntick );
+            return turnlength - self.currentturntick;
             
         };
         
-        return None;
+        return 0;
         
     }
+
+
     
     //the total amount of ticks this player has left
     pub fn get_players_total_ticks_left(&self, playerid: u8) -> u32{
