@@ -723,7 +723,6 @@ impl MainGame{
         let vecofchar = stringstate.chars().collect::<Vec<_>>();
         let gamebin = vecofchar.iter().map(|c| *c as u8).collect::<Vec<_>>();
         
-        
         if let Ok(gamestate) = bincode::deserialize::<MainGame>(&gamebin){
             
             *self = gamestate;
