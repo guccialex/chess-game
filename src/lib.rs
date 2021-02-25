@@ -709,9 +709,10 @@ impl MainGame{
     //get the state of the game as a string
     pub fn get_string_state(&self) -> String{
         
-        let binstate = bincode::serialize(&self).unwrap();
+        let binstate = bincode::serialize(&self).unwrap();        
         let vecofchar = binstate.iter().map(|b| *b as char).collect::<Vec<_>>();
         let stringstate = vecofchar.iter().collect::<String>();
+
         
         stringstate
     }
