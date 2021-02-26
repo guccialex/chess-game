@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 use nalgebra::{Vector3, Isometry3};
 
-use ncollide3d::shape::ConvexHull;
+//use ncollide3d::shape::ConvexHull;
 use rapier3d::geometry::{ColliderBuilder, Shape, Ball};
 
 
@@ -17,10 +17,8 @@ use serde::{Serialize, Deserialize};
 
 
 
-
-
-
-
+use rapier3d::dynamics::RigidBodyHandle;
+use rapier3d::geometry::ColliderHandle;
 
 
 
@@ -40,10 +38,9 @@ pub struct RapierPhysicsEngine{
     
     
     //objectid to its rigidbody handle
-    bodyhandles: HashMap<u16,rapier3d::data::arena::Index>,
-    
+    bodyhandles: HashMap<u16, RigidBodyHandle>,
     //the main shape/collider associated with each body
-    shapehandles: HashMap<u16, rapier3d::data::arena::Index>,
+    shapehandles: HashMap<u16, ColliderHandle>,
     
     totalobjects: u16,
     
@@ -103,10 +100,7 @@ impl RapierPhysicsEngine{
             shapehandles: HashMap::new(),
             totalobjects: 0,
             static_for_tick: HashSet::new(),
-            
         }
-        
-        
         
     }
     

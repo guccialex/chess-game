@@ -1,7 +1,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use ncollide3d::shape::ConvexHull;
+//use ncollide3d::shape::ConvexHull;
 
 
 pub fn is_square_posid_valid( i8pos: (i8,i8) ) -> Option<(u8,u8)>{

@@ -8,11 +8,11 @@ edition = "2018"
 
 [dependencies]
 
-nalgebra   = {version = "0.23", features = ["serde-serialize"] }
-ncollide3d = "0.26"
-nphysics3d = {version = "0.18", default-features = false, features = [ "dim3", "use-wasm-bindgen" ] }
+nalgebra   = {version = "0.24.1", features = ["serde-serialize"] }
+#ncollide3d = "*"
+#nphysics3d = {version = "0.18", default-features = false, features = [ "dim3", "use-wasm-bindgen" ] }
 
-rapier3d = { version = "*", features = [ "serde-serialize" ] }
+rapier3d = { version = "0.5.0", features = [ "serde-serialize" ] }
 
 
 
@@ -24,10 +24,6 @@ serde_json = "*"
 
 rand = {version = "*", features = [ "wasm-bindgen" ] }
 
-
-
-#rust_poker doesnt work with wasm
-rs_poker = "*"
 
 
 bincode = "*"
