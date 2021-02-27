@@ -48,7 +48,7 @@ pub enum CardEffect{
     halvetimeleft,
     
     makepoolgame,
-
+    
     turnstimed(u32),
     
     //what other game effects?
@@ -128,9 +128,9 @@ pub enum GameEffect{
 pub struct GameEffects{
     
     list: HashSet<GameEffect>,
-
+    
     totalraisedsquares: u32,
-
+    
     totalremovedsquares: u32,
 }
 
@@ -141,9 +141,9 @@ impl GameEffects{
         GameEffects{
             
             list: HashSet::new(),
-
+            
             totalraisedsquares: 0,
-
+            
             totalremovedsquares: 0,
         }
     }
@@ -188,114 +188,114 @@ impl GameEffects{
         
         self.list.contains( &GameEffect::PoolGame ) 
     }
-
-
+    
+    
     pub fn set_checkerified(&mut self){
-
+        
         self.list.remove(&GameEffect::PoolGame);
-
+        
         self.list.insert(GameEffect::Checkerified);
     }
-
+    
     pub fn get_checkerified(&mut self) -> bool{
-
+        
         self.list.contains(&GameEffect::Checkerified)
     }
-
-
+    
+    
     //set the total raised squares
     pub fn set_raised_squares(&mut self, number: u32){
-
+        
         self.totalraisedsquares = number;
     }
     pub fn add_raised_squares(&mut self, number: u32){
-
+        
         self.totalraisedsquares += number;
     }
     pub fn subtract_raised_squares(&mut self, tosubtract: u32){
-
+        
         self.totalraisedsquares = self.totalraisedsquares.saturating_sub(tosubtract);
     }
     //get the total number of raised squares
     pub fn get_raised_squares(&self) -> u32{
-
+        
         self.totalraisedsquares
-
+        
     }
-
-
-
-
-
+    
+    
+    
+    
+    
     pub fn add_removed_squares(&mut self, number: u32){
-
+        
         self.totalremovedsquares += number;
     }
-
+    
     pub fn subtract_removed_squares(&mut self, number: u32){
-
+        
         self.totalremovedsquares = self.totalremovedsquares.saturating_sub(number);
     }
     pub fn set_removed_squares(&mut self, number: u32){
-
+        
         self.totalremovedsquares = number;
     }
-
+    
     //get the total number of raised squares
     pub fn get_removed_squares(&self) -> u32{
-
+        
         self.totalremovedsquares
-
+        
     }
-
-
-
+    
+    
+    
     //a few ways I can have the invarants I want satisfied
     //the setter establishes the invariant
     //the getter makes sure the invariant is delivered
     //the tick function reestablishes the invariants
-
-
+    
+    
     //set the ticks that a player has for their turn
     pub fn set_turn_length(&mut self, ticks: u32){
-
+        
         let mut prevturnstimedvalue = 0;
-
+        
         //get if the list already contains a TurnsTimed(anyvalue)
-
+        
         for effect in &self.list{
-
+            
             if let GameEffect::TurnsTimed(somevalue) = effect{
-
+                
                 prevturnstimedvalue = *somevalue;
             }
         }
-
-
+        
+        
         self.list.remove( &GameEffect::TurnsTimed(prevturnstimedvalue)  );
-
+        
         self.list.insert( GameEffect::TurnsTimed(ticks) );
     }
-
-
+    
+    
     pub fn get_turn_length(&mut self) -> Option<u32>{
-
+        
         for effect in &self.list{
-
+            
             if let GameEffect::TurnsTimed(somevalue) = effect{
-
+                
                 return Some(*somevalue);
             }
         }
-
-
+        
+        
         return None;
     }
-
-
     
     
-
+    
+    
+    
     
     pub fn card_drawn(&mut self){
         
@@ -311,13 +311,13 @@ impl GameEffects{
         use std::iter::FromIterator;
         
         let mut toreturn = Vec::from_iter( self.list.clone() );
-
+        
         if self.totalraisedsquares > 0{
             toreturn.push( GameEffect::RaisedSquares(self.totalraisedsquares) );
         }
-
+        
         if self.totalremovedsquares > 0{
-
+            
             toreturn.push( GameEffect::RemovedSquares(self.totalremovedsquares) );
         }
         
@@ -406,6 +406,8 @@ impl MainGame{
     //get what pieces are captures in the game engine and remove them from here
     pub fn tick(&mut self){
         
+        
+        
         //get each player whos turn it currently is
         let currentturnplayers = self.turnmanager.get_current_players();
         
@@ -424,11 +426,10 @@ impl MainGame{
                     
                     //and clear queud input for this player
                     self.queuedinputs.insert(playerid, None);
-
+                    
                 }
             }
         }
-        
         
         //tick turn managers
         
@@ -438,7 +439,6 @@ impl MainGame{
             
             self.turnmanager.tick(self.gameeffects.get_double_turns(), temptest );
         }  
-        
         
         
         {   
@@ -453,10 +453,9 @@ impl MainGame{
         }
         
         
-        
         self.set_if_game_is_over();
-
-
+        
+        
         
         
         
@@ -466,21 +465,22 @@ impl MainGame{
         
         
         self.totalticks +=1;
-
-
+        
+        
         //every 30th tick
         if self.totalticks %30 == 0{
-
+            
             self.gameeffects.subtract_raised_squares(1);
-
+            
             self.gameeffects.subtract_removed_squares(1);
         }
-
-
+        
+        
         //if the game has been running for more than 1000 seconds (~16 minutes)
         if self.totalticks > 30000{
             panic!("Game has been over for long enough. Pod is going to be restarted now");
         }
+        
         
     }
     
@@ -605,20 +605,20 @@ impl MainGame{
             self.turnmanager.halve_time_left();
         }
         else if cardeffect == CardEffect::checkerify{
-
+            
             self.gameeffects.set_checkerified();
         }
         else if let CardEffect::raisesomesquares(number) = cardeffect{
-
-
+            
+            
             self.gameeffects.add_raised_squares(number );
         }
         else if let CardEffect::removesomesquares(number) = cardeffect{
-
+            
             self.gameeffects.add_removed_squares(number);
         }
         else if let CardEffect::turnstimed(ticks) = cardeffect{
-
+            
             self.gameeffects.set_turn_length(ticks);
         }
         else{
@@ -712,7 +712,7 @@ impl MainGame{
         let binstate = bincode::serialize(&self).unwrap();        
         let vecofchar = binstate.iter().map(|b| *b as char).collect::<Vec<_>>();
         let stringstate = vecofchar.iter().collect::<String>();
-
+        
         
         stringstate
     }
@@ -738,9 +738,9 @@ impl MainGame{
     
     pub fn receive_string_input(&mut self, playerid: &u8, stringinput: String) -> Result<(), ()>{
         
-        //try to convert to player input with serde json
+        //try to convert to player input with bincode
         
-        if let Ok(playerinput) = serde_json::from_str::<PlayerInput>(&stringinput){
+        if let Ok(playerinput) = bincode::deserialize::<PlayerInput>(&bincode_string_to_bytes(&stringinput) ){
             
             self.receive_input(*playerid, playerinput);
             
@@ -765,7 +765,7 @@ impl MainGame{
             
             self.queuedinputs.insert(playerid, Some( input.clone() ));
             
-            return Some( serde_json::to_string(&input).unwrap() );
+            return Some( bincode_bytes_to_string( &bincode::serialize(&input).unwrap() ) );
             
         }
         else{
@@ -952,7 +952,7 @@ pub struct VisibleGameBoardObject{
     pub rotation: (f32,f32,f32),
     
     pub id: u16,
-
+    
     pub isonmission: bool,
     
     pub objecttype: VisibleGameObjectType,
@@ -981,4 +981,24 @@ pub struct VisibleGameSquareObject{
     
     pub iswhite: bool,
     
+}
+
+
+
+
+fn bincode_bytes_to_string(bytes: &Vec<u8>) -> String{
+    
+    let vecofchar = bytes.iter().map(|b| *b as char).collect::<Vec<_>>();
+    let string = vecofchar.iter().collect::<String>();
+    
+    return string;
+}
+
+
+fn bincode_string_to_bytes(string: &String) -> Vec<u8>{
+    
+    let vecofchar = string.chars().collect::<Vec<_>>();
+    let gamebin = vecofchar.iter().map(|c| *c as u8).collect::<Vec<_>>();
+    
+    return gamebin ;
 }

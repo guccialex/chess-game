@@ -161,7 +161,6 @@ impl GameEngine{
     pub fn tick(&mut self, arekingsreplaced: bool, arepawnspromoted: bool, ispoolgame: bool, raisedsquares: u32, removedsquares: u32, ischeckers: bool){
         
         
-        
         if ispoolgame{
             
             for (pieceid, _) in self.piecetypedata.clone().iter(){
@@ -244,7 +243,6 @@ impl GameEngine{
         
         
         
-        
         //remove the pieces that are lower than -5 in pos
         for (pieceid, _) in &self.piecetypedata.clone(){
             
@@ -318,8 +316,8 @@ impl GameEngine{
         }
         
         
-        
         self.boardgame.tick();
+        
     }    
     
     //transfer the ownership fo this piece to this player
