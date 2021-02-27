@@ -11,7 +11,6 @@ edition = "2018"
 nalgebra   = {version = "0.24.1", features = ["serde-serialize"] }
 #ncollide3d = "*"
 #nphysics3d = {version = "0.18", default-features = false, features = [ "dim3", "use-wasm-bindgen" ] }
-
 rapier3d = { version = "0.5.0", features = [ "serde-serialize" ] }
 
 
@@ -20,9 +19,7 @@ serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 
 
-
 rand = {version = "*", features = [ "wasm-bindgen" ] }
-
 
 
 bincode = "*"
