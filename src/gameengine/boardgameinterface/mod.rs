@@ -342,8 +342,10 @@ impl BoardGame{
         
         self.missions.tick_missions(&mut self.physicsengine);
         
+        
         //tick the physics world
         self.physicsengine.tick();
+        
     }
     
     
