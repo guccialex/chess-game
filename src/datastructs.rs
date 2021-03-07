@@ -9,9 +9,359 @@ use std::collections::HashSet;
 
 
 
-
-
 //the actions that are allowed by this piece
+
+
+
+
+
+
+//the effect of the card it can have
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
+pub enum CardEffect{
+    
+    
+    BackToBackTurns, 
+    
+    HalveTimeLeft,
+    
+    MakePoolGame,
+    
+    TurnsTimed(u32),
+    
+    //what other game effects?
+    RemoveSquares(u32),
+    
+    RaiseSquares(u32),
+    
+    
+    //add all the chess pieces to the game
+    AddChessPieces,
+
+
+    //set the rules to 
+
+
+
+    /*
+    add the chess pieces to the game
+    add checkers pieces to the game
+
+    set the rules of the game to:
+
+    loss without pieces
+
+    */
+    
+    
+    
+}
+
+
+impl CardEffect{  
+    
+    //get a random card effect playable on the board
+    pub fn get_joker_card_effect() -> CardEffect{
+        
+        
+        use rand::Rng;
+        
+        let mut jokereffects = Vec::new();
+        jokereffects.push(CardEffect::BackToBackTurns);
+        jokereffects.push(CardEffect::HalveTimeLeft);
+        //jokereffects.push(CardEffect::MakePoolGame);
+        jokereffects.push(CardEffect::TurnsTimed(30) );
+        jokereffects.push(CardEffect::RaiseSquares(7));
+        jokereffects.push(CardEffect::RemoveSquares(7));
+        
+        
+        
+        let mut rng = rand::thread_rng();
+        let effectnumb = rng.gen_range(0, jokereffects.len() );
+        let jokereffect = jokereffects[effectnumb].clone();
+        
+        jokereffect    
+    }
+    
+    
+    
+    pub fn get_card_texture_location(&self) -> String{
+        
+        
+        if let CardEffect::MakePoolGame = self{
+            
+            return format!("effectcards/poolgame_e.png") ;
+        }
+        else if let CardEffect::BackToBackTurns = self{
+            
+            return format!("effectcards/backtoback_e.png");
+        }
+        else if let CardEffect::HalveTimeLeft = self{
+            
+            return format!("effectcards/halvetimeleft_e.png");
+        }
+        else if let CardEffect::RaiseSquares(_) = self{
+            
+            return format!("effectcards/raisesquares_e.png");
+        }
+        else if let CardEffect::RemoveSquares(_) = self{
+            
+            return format!("effectcards/dropsquares_e.png");
+        }
+        else if let CardEffect::AddChessPieces = self{
+            
+            return format!("effectcards/addchesspieces_c.png");
+        }
+        else{
+            panic!("card effect, {:?}, invalid", self);
+        }        
+        
+        
+    }
+    
+    
+    
+}
+
+
+
+
+
+
+
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct GameEffects{
+    
+    //if players lose when they dont have any pieces left
+    losswithoutpieces: bool,
+    
+    //if players lose when they dont have a king
+    losswithoutking: bool,
+    
+    kingsreplaced: bool,
+    
+    pawnspromoted: bool,
+    
+    doubleturns: bool,
+    
+    poolgame: bool,
+    
+    totalraisedsquares: u32,
+    
+    totalremovedsquares: u32,
+    
+    turnlength: Option<u32>,
+    
+}
+
+impl GameEffects{
+    
+    pub fn new() -> GameEffects{
+        
+        GameEffects{
+            losswithoutpieces: false,
+            
+            losswithoutking: false,
+            
+            kingsreplaced: false,
+            
+            pawnspromoted: false,
+            
+            doubleturns: false,
+            
+            poolgame: false,
+            
+            totalraisedsquares: 0,
+            
+            totalremovedsquares: 0,
+            
+            turnlength: None,
+        }
+    }
+    
+    
+    
+    
+    
+    pub fn get_effect_names(&self) -> Vec<String>{
+        
+        //what effects are returned
+        
+        let mut toreturn = Vec::new();
+        
+        if self.losswithoutpieces == true{
+            toreturn.push("effectcards/losswithoutpieces_e.png".to_string());
+        }
+        if self.losswithoutking == true{
+            toreturn.push("effectcards/losswithoutking_e.png".to_string());
+        }
+        if self.kingsreplaced == true{
+            toreturn.push("effectcards/kingsreplaced_c.png".to_string());
+        }
+        if self.pawnspromoted == true{
+            toreturn.push("effectcards/pawnspromoted_c.png".to_string());
+        }
+        if self.doubleturns == true{
+            toreturn.push("effectcards/backtoback_e.png".to_string());
+        }
+        if self.poolgame == true{
+            toreturn.push("effectcards/poolgame_c.png".to_string());
+        }
+        if self.totalraisedsquares > 0{
+            toreturn.push( format!("effectcards/{:?}_raisedsquares_c.png", self.totalraisedsquares) );
+        }
+        if self.totalremovedsquares > 0{
+            toreturn.push( format!("effectcards/{:?}_removedsquares_c.png", self.totalremovedsquares) );
+        }
+        if let Some(turnlength) = self.turnlength{
+            toreturn.push( format!("effectcards/{:?}_turnlength_e.png", turnlength) );
+        }
+        
+        toreturn
+    }
+    
+    
+    pub fn reset_effects(&mut self){
+        *self = GameEffects::new();
+    }
+    
+    
+    pub fn add_chess_game_rules(&mut self) {
+        self.losswithoutking = true;
+        self.pawnspromoted = true;
+    }
+    
+    pub fn add_checkers_game_rules(&mut self){
+        self.losswithoutpieces = true;
+    }
+    
+    
+    
+    pub fn get_loss_without_king(&self) -> bool{
+        self.losswithoutking
+    }
+    
+    pub fn get_loss_without_pieces(&self) -> bool{
+        self.losswithoutpieces
+    }
+    
+    
+    
+    //pool game rules
+    //(an 8 ball piece should be added to the game)
+    //theres an "8 ball" piece
+    //if the 8 ball is captured
+    //if the player who captured it's opponent has no pieces, the player win
+    //if the player who captured it's opponent has pieces, the player loses
+    //the player's pieces become the colour of the last piece that hit them (and carry the colour, aka the impulse)
+    //and when the 8 ball is captured, get the impulse passed onto it, and the greatest impulse on it, that player
+    //is considered to be the one to have sinked it
+    /*
+    pub fn add_pool_game_rules(&mut self){
+        
+        
+        
+    }
+    */
+    
+    
+    
+    pub fn set_pawns_are_promoted(&mut self){
+        self.pawnspromoted = true;
+    }
+    
+    pub fn get_pawns_are_promoted(&self) -> bool{
+        self.pawnspromoted
+    }
+    
+    pub fn set_kings_replaced(&mut self){
+        self.kingsreplaced = true;
+    }
+    pub fn get_kings_replaced(&self) -> bool{
+        self.kingsreplaced
+    }
+    
+    
+    
+    pub fn set_double_turns(&mut self){
+        self.doubleturns = true;
+    }
+    pub fn get_double_turns(&self) -> bool{
+        self.doubleturns
+    }
+    
+    
+    
+    
+    //set the total raised squares
+    pub fn set_raised_squares(&mut self, number: u32){
+        self.totalraisedsquares = number;
+    }
+    pub fn add_raised_squares(&mut self, number: u32){
+        self.totalraisedsquares += number;
+    }
+    pub fn subtract_raised_squares(&mut self, tosubtract: u32){
+        self.totalraisedsquares = self.totalraisedsquares.saturating_sub(tosubtract);
+    }
+    //get the total number of raised squares
+    pub fn get_raised_squares(&self) -> u32{
+        self.totalraisedsquares    
+    }
+    
+    
+    pub fn add_removed_squares(&mut self, number: u32){
+        self.totalremovedsquares += number;
+    }
+    
+    pub fn subtract_removed_squares(&mut self, number: u32){
+        self.totalremovedsquares = self.totalremovedsquares.saturating_sub(number);
+    }
+    pub fn set_removed_squares(&mut self, number: u32){
+        self.totalremovedsquares = number;
+    }
+    
+    //get the total number of raised squares
+    pub fn get_removed_squares(&self) -> u32{
+        self.totalremovedsquares
+    }
+    
+    
+    
+    //a few ways I can have the invarants I want satisfied
+    //the setter establishes the invariant
+    //the getter makes sure the invariant is delivered
+    //the tick function reestablishes the invariants
+    
+    
+    //set the ticks that a player has for their turn
+    pub fn set_turn_length(&mut self, ticks: u32){
+        self.turnlength = Some(ticks);
+    }
+    
+    
+    pub fn get_turn_length(&mut self) -> Option<u32>{
+        self.turnlength
+    }
+    
+    
+    pub fn card_drawn(&mut self){
+        
+        self.kingsreplaced = true;
+        
+        self.pawnspromoted = false;
+    }
+    
+    
+}
+
+
+
+
+
+
+
+
 
 
 
@@ -62,7 +412,7 @@ impl TurnManager{
         
         let mut turns = HashMap::new();
         
-
+        
         turns.insert(0, (player1, 100000, 1) );
         turns.insert(1, (player2, 100000, 0) );
         
@@ -133,7 +483,7 @@ impl TurnManager{
         }
         //if the players shouldnt take more than 1 turn in a row
         else{
-
+            
             
             //if the players are taking more than 1 turn in a row
             if self.turns.len() > 2{
@@ -144,7 +494,7 @@ impl TurnManager{
                 if self.currentturn >= 2{
                     self.currentturn = 1;
                 }
-
+                
                 
                 //get the length of the turns currently
                 let (_, length, _) = self.turns.get(&0).unwrap();
@@ -162,8 +512,8 @@ impl TurnManager{
             
             
         }
-
-
+        
+        
         
         
         if let Some(newturnlen) = tickstotaketurn{
@@ -240,8 +590,8 @@ impl TurnManager{
         return 0;
         
     }
-
-
+    
+    
     
     //the total amount of ticks this player has left
     pub fn get_players_total_ticks_left(&self, playerid: u8) -> u32{

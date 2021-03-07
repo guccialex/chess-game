@@ -69,14 +69,12 @@ impl GameEngine{
         gameengine.playertodirection.insert(player1id, 0 );
         gameengine.playertodirection.insert(player2id, 4 );
         
-        gameengine.make_chess_pieces();
-        
         gameengine
     }
     
     
     //add the pieces to the game that a chess game would have
-    fn make_chess_pieces(&mut self){
+    pub fn add_chess_pieces(&mut self){
         
         //player 1 and 2, the 3 is not inclusive
         for playerx in 1..3{
@@ -158,25 +156,7 @@ impl GameEngine{
     
     
     //tick, with true if kings are replaced and false if theyre not
-    pub fn tick(&mut self, arekingsreplaced: bool, arepawnspromoted: bool, ispoolgame: bool, raisedsquares: u32, removedsquares: u32, ischeckers: bool){
-        
-        
-        if ispoolgame{
-            
-            for (pieceid, _) in self.piecetypedata.clone().iter(){
-                self.set_pool_ball(*pieceid);            
-            }
-            
-        }
-        else{
-            
-            for (pieceid, _) in self.piecetypedata.clone().iter(){
-                self.set_chess_piece(*pieceid);            
-            }
-            
-        }
-        
-        
+    pub fn tick(&mut self, arekingsreplaced: bool, arepawnspromoted: bool,  raisedsquares: u32, removedsquares: u32){
         
         
         
@@ -665,8 +645,8 @@ impl GameEngine{
             self.boardgame.make_object_pool_ball_shape(&pieceid);
         }
 
-
     }
+
     fn set_chess_piece(&mut self, pieceid: u16){
         
         let typedata = self.piecetypedata.get_mut(&pieceid).unwrap();       
@@ -676,6 +656,7 @@ impl GameEngine{
         self.boardgame.make_object_piece_shape(&pieceid);
         
     }
+
     fn set_checkers(&mut self, pieceid: u16){
         
         let typedata = self.piecetypedata.get_mut(&pieceid).unwrap();       
@@ -715,6 +696,18 @@ impl GameEngine{
         
         kingexists
     }
+
+    pub fn does_player_have_pieces(&self, playerid: &u8) -> bool{
+
+
+        if self.playertopiece.get(playerid).unwrap().len() == 0{
+            return false;
+        }
+        else{
+            return true;
+        }
+
+    }
     
     
     
@@ -735,8 +728,6 @@ impl GameEngine{
         else{
             panic!("no player other than 1 and 2");
         }
-        
-        
     }
     
     
