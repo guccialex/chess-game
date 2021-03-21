@@ -39,6 +39,11 @@ pub enum CardEffect{
     AddChessPieces,
 
 
+    //how many turns until the deck can be drawn from again
+    TurnsUntilDrawAvailable(u32),
+
+
+
     //set the rules to 
 
 
@@ -82,40 +87,32 @@ impl CardEffect{
         
         jokereffect    
     }
+
+
     
     
-    
+    //card texture 
     pub fn get_card_texture_location(&self) -> String{
-        
-        
-        if let CardEffect::MakePoolGame = self{
+
+
+        match self{
+
+            CardEffect::MakePoolGame => format!("poolgame.png"),
             
-            return format!("effectcards/poolgame_e.png") ;
-        }
-        else if let CardEffect::BackToBackTurns = self{
+            CardEffect::BackToBackTurns => format!("backtoback.png"),
             
-            return format!("effectcards/backtoback_e.png");
-        }
-        else if let CardEffect::HalveTimeLeft = self{
+            CardEffect::HalveTimeLeft =>format!("halvetimeleft.png"),
             
-            return format!("effectcards/halvetimeleft_e.png");
-        }
-        else if let CardEffect::RaiseSquares(_) = self{
+            CardEffect::RaiseSquares(_) =>format!("raisedsquares.png"),
             
-            return format!("effectcards/raisesquares_e.png");
+            CardEffect::RemoveSquares(_) => format!("dropedsquares.png"),
+
+            CardEffect::AddChessPieces => format!("addchesspieces.png"),
+
+            CardEffect::TurnsTimed(_) => format!("turnstimed.png"),
+
+            CardEffect::TurnsUntilDrawAvailable(turns) => format!("{:?}turnsuntildraw.png", turns),
         }
-        else if let CardEffect::RemoveSquares(_) = self{
-            
-            return format!("effectcards/dropsquares_e.png");
-        }
-        else if let CardEffect::AddChessPieces = self{
-            
-            return format!("effectcards/addchesspieces_c.png");
-        }
-        else{
-            panic!("card effect, {:?}, invalid", self);
-        }        
-        
         
     }
     
@@ -152,6 +149,9 @@ pub struct GameEffects{
     totalremovedsquares: u32,
     
     turnlength: Option<u32>,
+
+
+    turnsuntildrawavailable: Option<u32>,
     
 }
 
@@ -177,46 +177,136 @@ impl GameEffects{
             totalremovedsquares: 0,
             
             turnlength: None,
+
+            turnsuntildrawavailable: None,
         }
+    }
+
+
+    pub fn get_random_card_effect(&self) -> CardEffect{
+        
+        loop{
+
+            let mut toreturn = CardEffect::get_joker_card_effect();
+
+
+            if let CardEffect::BackToBackTurns = toreturn{
+                if self.get_double_turns() == true{
+                    continue;
+                }
+            }
+
+
+            if let CardEffect::RaiseSquares(toraise) = toreturn{
+
+                if self.get_raised_squares() + toraise > 12{
+                    continue;
+                }
+            }
+
+
+            if let CardEffect::RemoveSquares(todrop) = toreturn{
+
+                if self.get_removed_squares() + todrop > 12{
+                    continue;
+                }
+            }
+
+            if let CardEffect::TurnsTimed(_) = toreturn{
+
+                if let Some(oldticks) = self.get_turn_length(){
+
+                    if oldticks > 15{
+
+                        toreturn = CardEffect::TurnsTimed(oldticks - 10);
+                    }
+                }
+            }
+
+
+
+
+            return toreturn;
+        }
+
+
+
+    }
+
+
+
+    pub fn set_turns_until_draw_available(&mut self, turns: u32){
+
+        self.turnsuntildrawavailable = Some(turns);
+    }
+
+    pub fn decrement_turns_until_draw_available(&mut self){
+
+        if let Some(value) = &mut self.turnsuntildrawavailable{
+
+            *value = value.saturating_sub(1);
+        }
+    }
+
+    pub fn is_draw_available(&self) -> bool{
+
+
+        if let Some(value) = self.turnsuntildrawavailable{
+
+            if value == 0{
+                return true;
+            }
+        }
+
+        return false;
     }
     
     
     
     
     
-    pub fn get_effect_names(&self) -> Vec<String>{
+    pub fn get_game_effect_names(&self) -> Vec<String>{
         
         //what effects are returned
         
         let mut toreturn = Vec::new();
         
         if self.losswithoutpieces == true{
-            toreturn.push("effectcards/losswithoutpieces_e.png".to_string());
+            toreturn.push("losswithoutpieces.png".to_string());
         }
         if self.losswithoutking == true{
-            toreturn.push("effectcards/losswithoutking_e.png".to_string());
+            toreturn.push("losswithoutking.png".to_string());
         }
         if self.kingsreplaced == true{
-            toreturn.push("effectcards/kingsreplaced_c.png".to_string());
+            toreturn.push("kingsreplaced.png".to_string());
         }
         if self.pawnspromoted == true{
-            toreturn.push("effectcards/pawnspromoted_c.png".to_string());
+            toreturn.push("pawnspromoted.png".to_string());
         }
         if self.doubleturns == true{
-            toreturn.push("effectcards/backtoback_e.png".to_string());
+            toreturn.push("backtoback.png".to_string());
         }
         if self.poolgame == true{
-            toreturn.push("effectcards/poolgame_c.png".to_string());
+            toreturn.push("poolgame.png".to_string());
         }
         if self.totalraisedsquares > 0{
-            toreturn.push( format!("effectcards/{:?}_raisedsquares_c.png", self.totalraisedsquares) );
+            toreturn.push( format!("raisedsquares.png") );
         }
         if self.totalremovedsquares > 0{
-            toreturn.push( format!("effectcards/{:?}_removedsquares_c.png", self.totalremovedsquares) );
+            toreturn.push( format!("droppedsquares.png") );
         }
         if let Some(turnlength) = self.turnlength{
-            toreturn.push( format!("effectcards/{:?}_turnlength_e.png", turnlength) );
+            toreturn.push( format!("turnstimed.png") );
         }
+        if let Some(turnsleft) = self.turnsuntildrawavailable{
+
+            if turnsleft != 0{
+                toreturn.push( format!("{:?}turnsuntildraw.png", turnsleft) );
+            }
+
+
+        }
+
         
         toreturn
     }
@@ -340,7 +430,8 @@ impl GameEffects{
     }
     
     
-    pub fn get_turn_length(&mut self) -> Option<u32>{
+    pub fn get_turn_length(& self) -> Option<u32>{
+        
         self.turnlength
     }
     
@@ -401,6 +492,10 @@ pub struct TurnManager{
     
     //how many turns there have been so far
     turncounter: u16,
+
+
+    //if the turn changed this tick, if this is the first tick of a new turn
+    turnchanged: bool,
 }
 
 
@@ -444,6 +539,8 @@ impl TurnManager{
             playertimeleft: playertimeleft,
             
             turncounter: 0,
+
+            turnchanged: true,
         }
         
     }
@@ -543,12 +640,25 @@ impl TurnManager{
             
             //if a turn ends
             self.turncounter += 1;
+
+            self.turnchanged = true;
+        }
+        else{
+
+            self.turnchanged = false;
         }
         
         
         *self.playertimeleft.get_mut(playerid).unwrap() += -1;
         
         
+    }
+
+
+    //is it a new turn this tick?
+    pub fn did_turn_change(&self) -> bool{
+
+        self.turnchanged
     }
     
     pub fn get_turn_number(&self) -> u16{

@@ -95,6 +95,11 @@ impl MainGame{
 
         let mut startingeffects = Vec::new();
         startingeffects.push( CardEffect::AddChessPieces );
+
+        startingeffects.push( CardEffect::TurnsTimed(30) );
+
+        startingeffects.push( CardEffect::TurnsUntilDrawAvailable(10) );
+        
         toreturn.starting_card_effects(startingeffects);
 
         
@@ -167,6 +172,17 @@ impl MainGame{
             
             self.boardgame.tick(arekingsreplaced, arepawnspromoted, raisedsquares, removedsquares);
         }
+
+
+        //if it is a new turn this tick
+        if self.turnmanager.did_turn_change(){
+
+            self.gameeffects.decrement_turns_until_draw_available();
+
+            self.gameeffects.subtract_raised_squares(1);
+            
+            self.gameeffects.subtract_removed_squares(1);
+        }
         
         
         self.set_if_game_is_over();
@@ -183,13 +199,6 @@ impl MainGame{
         self.totalticks +=1;
         
         
-        //every 30th tick
-        if self.totalticks %30 == 0{
-            
-            self.gameeffects.subtract_raised_squares(1);
-            
-            self.gameeffects.subtract_removed_squares(1);
-        }
         
         
         //if the game has been running for more than 1000 seconds (~16 minutes)
@@ -324,39 +333,38 @@ impl MainGame{
         self.lastcardeffect = Some((cardeffect.clone(), 0));
         
         
-        if cardeffect == CardEffect::MakePoolGame{
-            panic!("pool games arent working");
-            //self.gameeffects.set_pool_game();
-        }
-        else if cardeffect == CardEffect::BackToBackTurns{
-            self.gameeffects.set_double_turns();
-        }
-        else if cardeffect == CardEffect::HalveTimeLeft{
-            self.turnmanager.halve_time_left();
-        }
-        else if let CardEffect::RaiseSquares(number) = cardeffect{
+        match cardeffect{
             
-            self.gameeffects.add_raised_squares(number );
-        }
-        else if let CardEffect::RemoveSquares(number) = cardeffect{
-            
-            self.gameeffects.add_removed_squares(number);
-        }
-        else if let CardEffect::TurnsTimed(ticks) = cardeffect{
-            
-            self.gameeffects.set_turn_length(ticks);
-        }
-        else if let CardEffect::AddChessPieces = cardeffect{
+            CardEffect::MakePoolGame => {
+                panic!("pool games not working");
+            },
+            CardEffect::BackToBackTurns => {
+               self.gameeffects.set_double_turns();
+            },
+            CardEffect::HalveTimeLeft => {
+                self.turnmanager.halve_time_left();
+            },
+            CardEffect::RaiseSquares(number) => {    
+                self.gameeffects.add_raised_squares(number );
+            },
+            CardEffect::RemoveSquares(number) => {    
+                self.gameeffects.add_removed_squares(number);
+            },
+            CardEffect::TurnsTimed(ticks) => {    
+                self.gameeffects.set_turn_length(ticks);
+            },
+            CardEffect::AddChessPieces => {
+                self.boardgame.add_chess_pieces();
+            },
+            CardEffect::TurnsUntilDrawAvailable(turns) => {
+                self.gameeffects.set_turns_until_draw_available(turns);
+            }
 
-            self.boardgame.add_chess_pieces();
 
         }
-        else{
-            //otherwise panic, because this card should not have been allowed to be played
-            //and it will fuck shit if i get here without actually having a valid action
-            
-            panic!("I dont know what a {:?} is", cardeffect);
-        }
+
+
+
     }
     
     
@@ -372,8 +380,12 @@ impl MainGame{
         else if let PlayerInput::drawcard = playerinput{
             
             self.gameeffects.card_drawn();
+
+            let randomcardeffect = self.gameeffects.get_random_card_effect();
             
-            self.apply_card_effect(playerid, CardEffect::get_joker_card_effect() );
+            self.apply_card_effect(playerid, randomcardeffect );
+        
+            self.apply_card_effect(playerid, CardEffect::TurnsUntilDrawAvailable(3)  );
         }
         else{
             panic!("unhandled input to be performed {:?}", playerinput);
@@ -416,13 +428,7 @@ impl MainGame{
     //can a player do a draw card action
     fn can_player_draw(& self, playerid: &u8) -> bool{
         
-        //if its past turn 10
-        if self.turnmanager.get_turn_number() > 10{
-            return true;
-        }
-        
-        
-        return false;
+        self.gameeffects.is_draw_available()
     }
     
     
@@ -508,7 +514,6 @@ impl MainGame{
     pub fn get_board_game_object_owner(&self, objectid: u16) -> Option<u8>{
         
         Some(self.boardgame.get_owner_of_piece(objectid))
-        
     }
     
     
