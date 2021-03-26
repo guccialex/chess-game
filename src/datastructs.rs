@@ -38,10 +38,22 @@ pub enum CardEffect{
     //add all the chess pieces to the game
     AddChessPieces,
 
+    AddCheckersPieces,
+
 
     //how many turns until the deck can be drawn from again
     TurnsUntilDrawAvailable(u32),
 
+
+    //split a piece into multiple pawns
+    SplitPieceIntoPawns,
+
+
+    Checkerify,
+
+
+    //give all non pieces with a value greater than 1 the abilities of a knight
+    Knight,
 
 
 
@@ -73,12 +85,17 @@ impl CardEffect{
         use rand::Rng;
         
         let mut jokereffects = Vec::new();
+        
+        
         jokereffects.push(CardEffect::BackToBackTurns);
         jokereffects.push(CardEffect::HalveTimeLeft);
         //jokereffects.push(CardEffect::MakePoolGame);
         jokereffects.push(CardEffect::TurnsTimed(30) );
         jokereffects.push(CardEffect::RaiseSquares(7));
         jokereffects.push(CardEffect::RemoveSquares(7));
+        jokereffects.push(CardEffect::SplitPieceIntoPawns);
+        jokereffects.push(CardEffect::Checkerify);
+        jokereffects.push(CardEffect::Knight);
         
         
         
@@ -110,9 +127,17 @@ impl CardEffect{
 
             CardEffect::AddChessPieces => format!("addchesspieces.png"),
 
+            CardEffect::AddCheckersPieces => format!("addcheckerspieces.png"),
+
             CardEffect::TurnsTimed(_) => format!("turnstimed.png"),
 
             CardEffect::TurnsUntilDrawAvailable(turns) => format!("{:?}turnsuntildraw.png", turns),
+
+            CardEffect::SplitPieceIntoPawns => format!("splitpieceintopawns.png"),
+
+            CardEffect::Checkerify => format!("checkerify.png"),
+
+            CardEffect::Knight => format!("knight.png"),
         }
         
     }
@@ -151,6 +176,8 @@ pub struct GameEffects{
     
     turnlength: Option<u32>,
 
+    knightified: bool,
+
 
     turnsuntildrawavailable: Option<u32>,
     
@@ -172,6 +199,8 @@ impl GameEffects{
             doubleturns: false,
             
             poolgame: false,
+
+            knightified: false,
             
             totalraisedsquares: 0,
             
@@ -186,7 +215,7 @@ impl GameEffects{
 
     pub fn get_random_card_effect(&self) -> CardEffect{
         
-        loop{
+        for x in 0..10{
 
             let mut toreturn = CardEffect::get_joker_card_effect();
 
@@ -225,11 +254,22 @@ impl GameEffects{
             }
 
 
+            if let CardEffect::Knight = toreturn{
+
+                if self.knightified == true{
+
+                    continue;
+                }
+            }
+
+
 
 
             return toreturn;
         }
 
+        //default if no action available
+        return CardEffect::RaiseSquares(2);
 
 
     }
@@ -304,12 +344,23 @@ impl GameEffects{
             if turnsleft != 0{
                 toreturn.push( format!("{:?}turnsuntildraw.png", turnsleft) );
             }
-
-
+        }
+        if self.knightified == true{
+            toreturn.push( format!("knight.png") );
         }
 
         
         toreturn
+    }
+
+    pub fn set_knightified(&mut self){
+
+        self.knightified = true;
+    }
+
+    pub fn get_knightified(&self) -> bool{
+
+        return self.knightified;
     }
     
     

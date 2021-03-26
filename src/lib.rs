@@ -93,27 +93,40 @@ impl MainGame{
         };
 
 
-        let mut startingeffects = Vec::new();
-        startingeffects.push( CardEffect::AddChessPieces );
-
-        startingeffects.push( CardEffect::TurnsTimed(30) );
-
-        startingeffects.push( CardEffect::TurnsUntilDrawAvailable(10) );
-        
-        toreturn.starting_card_effects(startingeffects);
-
+        toreturn.apply_card_effect(&1, CardEffect::AddChessPieces);
+        toreturn.apply_card_effect(&1, CardEffect::TurnsUntilDrawAvailable(10));
         
         toreturn        
     }
 
 
 
-    pub fn starting_card_effects(&mut self, initialeffects: Vec<CardEffect>){
+    //this is what the client calls and the game that it defaults to when not receiving websockets from the server
+    pub fn new_solo_game() -> MainGame{
 
-        for card in initialeffects{
-            self.apply_card_effect(&1, card);
-        }
+        let mut queuedinputs = HashMap::new();
+        queuedinputs.insert(1, None);
+        queuedinputs.insert(2, None);
+        
+        
+        //create a new 2 player game        
+        let mut toreturn = MainGame{
+            turnmanager: TurnManager::new_two_player(1, 2),            
+            boardgame: GameEngine::new(1,2),
+            queuedinputs: queuedinputs,
+            
+            totalticks: 0,
+            gameover: None,
+            gameeffects: GameEffects::new(),
+            lastcardeffect: None,
+        };
 
+
+        toreturn.apply_card_effect(&1, CardEffect::AddChessPieces);
+        toreturn.apply_card_effect(&1, CardEffect::TurnsTimed(30));
+        toreturn.apply_card_effect(&1, CardEffect::TurnsUntilDrawAvailable(10));
+
+        toreturn
     }
 
     
@@ -155,7 +168,6 @@ impl MainGame{
         }
         
         //tick turn managers
-        
         {   
             let doubleturns = self.gameeffects.get_double_turns();
             let turnlength = self.gameeffects.get_turn_length();
@@ -167,23 +179,18 @@ impl MainGame{
         {   
             let arepawnspromoted = self.gameeffects.get_pawns_are_promoted();
             let arekingsreplaced = self.gameeffects.get_kings_replaced();
-            let raisedsquares = self.gameeffects.get_raised_squares();
-            let removedsquares = self.gameeffects.get_removed_squares();
+
+            //self.boardgame set raised and removed squares
             
-            self.boardgame.tick(arekingsreplaced, arepawnspromoted, raisedsquares, removedsquares);
+            self.boardgame.tick(arekingsreplaced, arepawnspromoted);
         }
 
 
-        //if it is a new turn this tick
-        if self.turnmanager.did_turn_change(){
 
-            self.gameeffects.decrement_turns_until_draw_available();
+        self.apply_game_effects();
 
-            self.gameeffects.subtract_raised_squares(1);
-            
-            self.gameeffects.subtract_removed_squares(1);
-        }
-        
+
+
         
         self.set_if_game_is_over();
         
@@ -208,6 +215,53 @@ impl MainGame{
         
         
     }
+
+
+
+    //apply the effects of the game
+    fn apply_game_effects(&mut self){
+
+
+
+
+
+
+
+        //if it is a new turn this tick
+        if self.turnmanager.did_turn_change(){
+
+
+            self.gameeffects.decrement_turns_until_draw_available();
+
+            self.gameeffects.subtract_raised_squares(1);
+            
+            self.gameeffects.subtract_removed_squares(1);
+
+
+
+            let raisedsquares = self.gameeffects.get_raised_squares();
+            let removedsquares = self.gameeffects.get_removed_squares();
+
+            self.boardgame.set_randomly_raised_squares(raisedsquares);
+            self.boardgame.set_randomly_dropped_squares(removedsquares);
+
+
+
+            if self.gameeffects.get_knightified(){
+                self.boardgame.knightify();
+            }
+            else{
+                self.boardgame.unaugment_abilities();
+            }
+
+
+        }
+        
+
+
+    }
+
+
 
 
     
@@ -280,45 +334,7 @@ impl MainGame{
     
     fn is_piece_action_valid(&self, pieceid: &u16,  pieceaction: &PieceAction) -> bool{
         
-        //if the piece action is a slide or lift action
-        if  let PieceAction::slide(_,_) = pieceaction{
-            
-            //get the slide and lift actions allowed for the piece
-            let allowedactions = self.boardgame.get_actions_allowed_by_piece(*pieceid).1;
-            
-            //if the action is one of the allowed actions, then, yea, its good
-            if allowedactions.contains(pieceaction){
-                return true;                
-            }
-            else{
-                return false;
-            }
-            
-        }
-        else if let PieceAction::liftandmove( _ ) = pieceaction{
-            
-            //get the slide and lift actions allowed for the piece
-            let allowedactions = self.boardgame.get_actions_allowed_by_piece(*pieceid).1;
-            
-            //if the action is one of the allowed actions, then, yea, its good
-            if allowedactions.contains(pieceaction){
-                return true;                
-            }
-            else{
-                return false;
-            }
-            
-        }
-        else if let PieceAction::flick(direction, force) = pieceaction{            
-            
-            let canflick = self.boardgame.get_actions_allowed_by_piece(*pieceid).0;
-            
-            return canflick;
-            
-        }
-        
-        panic!(" dont know what kind of mission this is..");
-        
+        self.boardgame.is_action_allowed(pieceaction, pieceid)
     }
     
     
@@ -330,7 +346,13 @@ impl MainGame{
     
     fn apply_card_effect(&mut self, playerid: &u8, cardeffect: CardEffect){
         
-        self.lastcardeffect = Some((cardeffect.clone(), 0));
+
+        //set the last card effect if its any effect other than "turns until draw available"
+        if let CardEffect::TurnsUntilDrawAvailable(_ ) = cardeffect{
+        }
+        else{
+            self.lastcardeffect = Some((cardeffect.clone(), 0  ));
+        }
         
         
         match cardeffect{
@@ -346,9 +368,15 @@ impl MainGame{
             },
             CardEffect::RaiseSquares(number) => {    
                 self.gameeffects.add_raised_squares(number );
+
+                let raisedsquares = self.gameeffects.get_raised_squares();
+                self.boardgame.set_randomly_raised_squares(raisedsquares);
             },
             CardEffect::RemoveSquares(number) => {    
                 self.gameeffects.add_removed_squares(number);
+
+                let removedsquares = self.gameeffects.get_removed_squares();
+                self.boardgame.set_randomly_dropped_squares(removedsquares);
             },
             CardEffect::TurnsTimed(ticks) => {    
                 self.gameeffects.set_turn_length(ticks);
@@ -356,9 +384,24 @@ impl MainGame{
             CardEffect::AddChessPieces => {
                 self.boardgame.add_chess_pieces();
             },
+            CardEffect::AddCheckersPieces => {
+                self.boardgame.add_checkers_pieces();
+            },
             CardEffect::TurnsUntilDrawAvailable(turns) => {
                 self.gameeffects.set_turns_until_draw_available(turns);
-            }
+            },
+            CardEffect::SplitPieceIntoPawns =>{
+
+                self.boardgame.split_piece_into_pawns();
+            },
+            CardEffect::Checkerify =>{
+
+                self.boardgame.checkerify();
+            },
+            CardEffect::Knight => {
+
+                self.gameeffects.set_knightified();
+            },
 
 
         }
@@ -599,25 +642,9 @@ impl MainGame{
     
     
     //the actions allowed by the piece and the objects it captures or lands on
-    pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec<(PieceAction, Vec<u16> )>){
-        
-        let mut toreturn = Vec::new();
-        
-        
-        //get the actions allowed by the piece on the board
-        let (canflick, actions) = self.boardgame.get_actions_allowed_by_piece(pieceid);
-        
-        
-        //get the pieces targeted by every action
-        for action in actions{
-            
-            let objects = self.boardgame.get_objects_targeted_by_action(pieceid, action.clone());
-            
-            toreturn.push( (action, objects) );
-        }
-        
-        
-        (canflick, toreturn)
+    pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec< (PieceAction, Vec<u16> ) >){
+    
+        self.boardgame.get_piece_valid_actions_and_targets(pieceid)
     }
     
     

@@ -47,6 +47,94 @@ get empty squares not on mission
 */
 
 
+pub struct GameObjectID
+{
+
+    PhysicsID: u16,
+
+    IsBoardSquare: bool,
+
+    //if its a boardsquare, what is its position
+    BoardSquarePos: Option<(i8,i8)>,
+
+    IsPiece: bool,
+}
+
+
+
+#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
+pub struct BoardSquarePosID{
+
+    posid: (i8,i8),
+}
+
+impl BoardSquarePosID{
+
+    pub fn new( pos: (i8,i8) ) -> Option<BoardSquarePosID>{
+
+        //if its in range, return those integers, otherwise return none
+        if pos.0 >= 0 && pos.0 <= 7{
+            
+            if pos.1 >= 0 && pos.1 <= 7{
+                
+                //return the board square id
+                return Some(  BoardSquarePosID{posid: ( pos.0, pos.1 )}  );
+            };
+        };
+        
+        return None;
+    }
+
+    pub fn from_physical_pos( fpos: (f32,f32) ) -> Option<BoardSquarePosID>{
+        
+        //add 4 to the center of it
+        let newxpos = fpos.0 + 4.0;
+        let newzpos = fpos.1 + 4.0;
+        
+        
+        //round down, then convert to an integer
+        let intxpos = newxpos.floor() as i8;
+        let intzpos = newzpos.floor() as i8;
+        
+        
+        BoardSquarePosID::new( (intxpos, intzpos) )
+    }
+
+    pub fn to_physical_pos(&self) -> (f32,f32){
+
+        let mut xpos = self.posid.0 as f32;
+        let mut zpos = self.posid.1 as f32;
+        
+        //subtract 3.5
+        xpos = xpos - 3.5;
+        zpos = zpos - 3.5;
+        
+        (xpos, zpos)
+    }
+
+    pub fn get_row(&self) -> i8{
+
+        return self.posid.0;
+
+    }
+
+    pub fn get_pos(&self) -> (i8,i8){
+
+        return self.posid;
+    }
+
+    pub fn new_add_relative_pos(&self, relativepos: &(i8,i8) )  -> Option< BoardSquarePosID >{
+
+        let oldposid = self.get_pos();
+
+        let newposid = (oldposid.0 + relativepos.0, oldposid.1 + relativepos.1);
+
+        return BoardSquarePosID::new(newposid);
+
+    }
+
+}
+
 
 
 
@@ -56,12 +144,11 @@ get empty squares not on mission
 pub struct BoardGame{
     
     
-    //the list of piece as IDs
+    //the list of piece as ID
     pieces: HashSet<u16>,
     
     //the list of board squares to their physical object ID
-    boardsquares: HashMap<(u8,u8), u16>,
-    
+    boardsquares: HashMap< BoardSquarePosID, u16>,
     
     
     physicsengine: RapierPhysicsEngine,
@@ -129,18 +216,17 @@ impl BoardGame{
             let boardxsize = 8;
             let boardysize = 8;
             
-            
+
             //create the 64 squares of the board as objects
             for x in 0..boardxsize{
                 
                 for z in 0..boardysize{
-                    
-                    boardgame.create_boardsquare( (x,z) );
-                    
+
+                    boardgame.create_boardsquare( BoardSquarePosID::new( (x,z) ).unwrap() );
                 }
             }
         }
-        
+
         
         boardgame
     }
@@ -148,6 +234,7 @@ impl BoardGame{
     
     
     pub fn get_raised_squares(&self) -> Vec<u16>{
+
         self.missions.get_active_missions_of_type(MissionType::RaiseSquare)
     }
     
@@ -202,9 +289,9 @@ impl BoardGame{
         
     }
     
-    pub fn new_piece(&mut self, posid:(u8,u8) ) -> u16{
+    pub fn new_piece(&mut self, posid: BoardSquarePosID ) -> u16{
         
-        let pos = BoardGame::boardsquare_posid_physical_pos(posid);        
+        let pos = posid.to_physical_pos();     
         
         let pieceid = self.physicsengine.add_object();
         self.pieces.insert(pieceid);
@@ -246,7 +333,7 @@ impl BoardGame{
         //slide to the center of a piece
         let slidemission = Mission::make_slide_mission( relativepos );
         
-        self.missions.set_future_mission(25, pieceid, slidemission);        
+        self.missions.set_future_mission(30, pieceid, slidemission);        
         
     }
     
@@ -276,7 +363,7 @@ impl BoardGame{
             
             let liftandmovemission = Mission::make_lift_mission( relativepos );
             
-            self.missions.set_mission(pieceid, liftandmovemission);
+            self.missions.set_future_mission(5, pieceid, liftandmovemission);
             
         }
         
@@ -315,8 +402,6 @@ impl BoardGame{
         self.missions.set_future_mission(ticks, bsid, mission);
     }
     
-    
-    
     //set the current position of the object as the default position on the object
     fn mission_set_current_pos_as_default(&self, id: &u16,  mission: &mut Mission){
         
@@ -342,22 +427,17 @@ impl BoardGame{
         
         self.missions.tick_missions(&mut self.physicsengine);
         
-        
         //tick the physics world
         self.physicsengine.tick();
-        
     }
     
     
     
     
     //get a pieces offset on the square its on
-    fn piece_on_square_offset(&self, pieceid: u16, square: u16) -> (f32,f32){
+    fn piece_on_square_offset(&self, pieceid: u16, bsposid: BoardSquarePosID) -> (f32,f32){
         
-        let squareposid = self.boardsquare_id_to_posid(square).unwrap();
-        
-        //position of the board square
-        let squarepos = BoardGame::boardsquare_posid_physical_pos( squareposid );
+        let squarepos = bsposid.to_physical_pos();
         
         //get the position of the piece
         let piecepos = self.physicsengine.get_translation(&pieceid);
@@ -366,19 +446,18 @@ impl BoardGame{
         let xoffset = piecepos.0 - squarepos.0;
         let zoffset = piecepos.2 - squarepos.1;
         
-        
         return (xoffset, zoffset);
     }
     
     
-    fn create_boardsquare(&mut self, posid: (u8,u8)){
+    fn create_boardsquare(&mut self, posid: BoardSquarePosID ){
         
         let physicalid = self.physicsengine.add_object();                    
-        self.boardsquares.insert( posid, physicalid );
+        self.boardsquares.insert( posid.clone(), physicalid );
         
         
         let ypos = 0.0;
-        let (xpos, zpos) = BoardGame::boardsquare_posid_physical_pos(posid);
+        let (xpos, zpos) = posid.to_physical_pos();
         
         self.physicsengine.set_translation( &physicalid, ( xpos , ypos ,zpos  ) );
         self.physicsengine.make_static(&physicalid);
@@ -387,117 +466,6 @@ impl BoardGame{
         
     }
     
-    
-    
-    
-    
-    
-    
-    
-    /*
-    the functions I need conversion between
-    
-    bs float pos
-    <->
-    bs posid
-    <->
-    bs id
-    
-    what piece on top of this square
-    what square under this piece
-    */
-    
-    
-    
-    //get the id of the boardsquare by its position
-    pub fn boardsquare_posid_to_id(&self, pos: (u8,u8) ) -> Option<u16>{
-        
-        if let Some(bsid) = self.boardsquares.get(&pos){
-            
-            return Some(*bsid);
-        }
-        else{
-            
-            return None;
-        };
-        
-    }
-    
-    //get the position of the boardsquare by its id
-    //needs to be public for "is this boardsquare white"
-    pub fn boardsquare_id_to_posid(&self, id: u16) -> Option<(u8,u8)>{
-        
-        
-        for (curpos, curid) in &self.boardsquares{
-            
-            if id == *curid{
-                return Some(*curpos);
-            }
-            
-        }
-        
-        return None;
-    }
-    
-    
-    
-    
-    //bs float pos -> bs posid
-    fn boardsquare_physical_pos_to_posid( xpos: f32, zpos: f32 ) -> Option<(u8,u8)>{
-        
-        //add 4 to the center of it
-        let newxpos = xpos + 4.0;
-        let newzpos = zpos + 4.0;
-        
-        
-        //round down, then convert to an integer
-        let intxpos = newxpos.floor() as i32;
-        let intzpos = newzpos.floor() as i32;
-        
-        
-        //if its in range, return those integers, otherwise return none
-        if intxpos >= 0 && intxpos <= 7{
-            
-            if intzpos >= 0 && intzpos <= 7{
-                
-                //return the board square id
-                return Some(  (intxpos as u8, intzpos as u8)  )  ;
-                
-            };
-        };
-        
-        
-        return None;
-    }
-    
-    //bs posid -> bs float pos
-    fn boardsquare_posid_physical_pos( boardsquare:(u8,u8) ) -> (f32,f32) {
-        
-        let mut xpos = boardsquare.0 as f32;
-        let mut zpos = boardsquare.1 as f32;
-        
-        //subtract 3.5
-        xpos = xpos - 3.5;
-        zpos = zpos - 3.5;
-        
-        (xpos, zpos)
-    }
-    
-    //the id of the boardsquare this position is on
-    fn boardsquare_physical_pos_to_id(&self, xpos: f32, zpos:f32) -> Option<u16>{
-        
-        if let Some(posid) = BoardGame::boardsquare_physical_pos_to_posid(xpos, zpos){
-            
-            if let Some(id) = self.boardsquare_posid_to_id(posid){
-                
-                return Some(id);
-                
-            }
-            
-        }
-        
-        return None;
-    }
     
     
     
@@ -551,22 +519,18 @@ impl BoardGame{
     pub fn get_translation(&self, id: u16) -> (f32,f32,f32){
         
         self.physicsengine.get_translation(&id)
-        
     }
     
     pub fn get_rotation(&self, id: u16) -> (f32,f32,f32){
         
         self.physicsengine.get_rotation(&id)
-        
     }
     
     //is this board game object a square
     pub fn is_board_game_object_square(&self, objectid: u16) -> bool{
         
         for (_, bsid) in &self.boardsquares{
-            
             if &objectid == bsid{
-                
                 return true;
             }
         }
@@ -580,28 +544,11 @@ impl BoardGame{
         if self.pieces.contains(&objectid){
             return true;
         }
-        
         return false;
-        
     }
-    
-    
-    pub fn get_square_pos_piece_is_on(&self, pieceid:u16) -> Option<(u8, u8)>{
-        
-        if let Some(bsid) = self.get_board_square_piece_is_on(pieceid){
-            
-            if let Some(posid) = self.boardsquare_id_to_posid(bsid){
-                
-                return Some(posid);
-            };
-        };
-        
-        return None;
-    }
-    
     
     //get all the pieces that are on this board square
-    pub fn get_pieces_on_board_square(&self, boardsquareid: u16) -> HashSet<u16>{
+    pub fn get_pieces_on_board_square(&self, boardsquareid: &BoardSquarePosID) -> HashSet<u16>{
         
         let mut toreturn = HashSet::new();
         
@@ -613,7 +560,7 @@ impl BoardGame{
                 
                 //if the board square this piece is on is the one thats requested
                 //add it to the hashset being returned
-                if boardsquareid == curpieceboardsquareid {
+                if boardsquareid == &curpieceboardsquareid {
                     
                     toreturn.insert( *physicalid );
                 }
@@ -621,26 +568,50 @@ impl BoardGame{
         }
         
         toreturn
-        
     }
     
     
     //get the id of the board square that a certain piece is on
-    pub fn get_board_square_piece_is_on(&self, pieceid: u16) -> Option<u16>{
+    pub fn get_board_square_piece_is_on(&self, pieceid: u16) -> Option< BoardSquarePosID >{
+
         //get its position
         let (mut xpos, mut ypos, mut zpos) = self.physicsengine.get_translation(&pieceid);
-        
         
         //if its yposition is below zero, its not considered "on" any particular board square
         if ypos < -2.0{
             return None;
         };
-        
-        
-        self.boardsquare_physical_pos_to_id(xpos, zpos)
-        
+
+        return BoardSquarePosID::from_physical_pos( (xpos, zpos) ) ;
     }
     
+
+
+    //get the id of the boardsquare by its position
+    pub fn boardsquare_posid_to_id(&self, pos: BoardSquarePosID ) -> Option<u16>{
+        
+        if let Some(bsid) = self.boardsquares.get(&pos){
+            
+            return Some(*bsid);
+        }
+        else{
+            return None;
+        };
+    }
+    
+    //get the position of the boardsquare by its id
+    //needs to be public for "is this boardsquare white"
+    pub fn boardsquare_id_to_posid(&self, id: u16) -> Option<BoardSquarePosID>{
+        
+        for (curpos, curid) in &self.boardsquares{
+            
+            if id == *curid{
+                return Some(curpos.clone());
+            }
+        }
+        
+        return None;
+    }    
     
     
 }
@@ -838,30 +809,6 @@ impl ShapeIDtoConvexHull{
         
         
     }
-    
-}
-*/
-
-/*
-//I HAVE NEEDED THIS TYPE OF DATA STRUCT TOO MANY TIMES SO NOW I NEED TO MAKE IT
-struct DoubleHashMap<K, V>{
-    
-    
-    //mapping from key to value
-    keytovalue: HashMap<K, V>,
-    
-    //mapping from value to teh id of the key?
-    //i dont need a second copy of the key... but no excessive harm... i guess
-    valuetokey: HashMap<V, K>,
-    
-    
-}
-
-impl<K, V> DoubleHashMap<K, V>{
-    
-    
-    
-    
     
 }
 */

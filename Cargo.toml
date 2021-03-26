@@ -8,8 +8,15 @@ edition = "2018"
 
 [dependencies]
 
-nalgebra   = {version = "0.24.1", features = ["serde-serialize"] }
-rapier3d = { version = "0.5.0", features = [ "serde-serialize", "wasm-bindgen" ] }
+
+#nalgebra reexported with rapier
+#nalgebra   = {version = "^0.25", features = ["serde-serialize"] }
+rapier3d = { version = "0.6.1", features = [ "serde-serialize", "wasm-bindgen", "enhanced-determinism" ] }
+
+
+#nalgebra   = {version = "^0.24", features = ["serde-serialize"] }
+#rapier3d = { version = "0.5", features = [ "serde-serialize", "wasm-bindgen" ] }
+
 
 serde = { version = "1.0.123", features = ["derive"] }
 

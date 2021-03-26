@@ -7,6 +7,8 @@ use rapier3d::dynamics::{BodyStatus, RigidBodyBuilder};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+
+use rapier3d::na as nalgebra;
 use nalgebra::{Vector3, Isometry3};
 
 //use ncollide3d::shape::ConvexHull;
@@ -79,7 +81,7 @@ impl RapierPhysicsEngine{
         
         
         
-        integration_parameters.warmstart_coeff = 0.9;
+        integration_parameters.warmstart_coeff = 1.0;
         integration_parameters.max_ccd_substeps = 10;
         integration_parameters.multiple_ccd_substep_sensor_events_enabled = true;
         integration_parameters.set_inv_dt(30.0);
@@ -187,7 +189,9 @@ impl RapierPhysicsEngine{
         
         pos.append_translation_mut(&tra);
         
-        rigidbody.set_position(pos, true);
+        if !rigidbody.is_moving() || true {
+            rigidbody.set_position(pos, false);
+        }
         
     }
     
@@ -198,8 +202,13 @@ impl RapierPhysicsEngine{
         let rbhandle = self.bodyhandles.get(ID).unwrap();
         
         let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
+
+        //rigidbody.wake_up(true);
         
-        rigidbody.apply_impulse(impulse, true);
+        if !rigidbody.is_moving() || true {
+            rigidbody.apply_impulse(impulse, false);
+        }
+
         
     }
     
@@ -212,8 +221,10 @@ impl RapierPhysicsEngine{
         
         let pos = Isometry3::translation(position.0, position.1, position.2);
         
-        rigidbody.set_position(pos, true);
-        
+        if !rigidbody.is_moving() || true {
+            rigidbody.set_position(pos, false);
+        }
+
     }
     
     //get the translation of the position of an object
@@ -260,7 +271,10 @@ impl RapierPhysicsEngine{
         
         let newisometry = Isometry3::from_parts(oldtranslation, newrotation);
         
-        rigidbody.set_position(newisometry, true);
+
+        if !rigidbody.is_moving() || true {
+            rigidbody.set_position(newisometry, false);
+        }
         
     }
     
@@ -284,7 +298,7 @@ impl RapierPhysicsEngine{
         
         let linvel = Vector3::new(linearvelocity.0, linearvelocity.1, linearvelocity.2);
         
-        rigidbody.set_linvel(linvel, true);
+        rigidbody.set_linvel(linvel, false);
     }
     
     //get its velocity in each dimension
@@ -308,7 +322,7 @@ impl RapierPhysicsEngine{
         
         let angvel = Vector3::new(angularvelocity.0, angularvelocity.1, angularvelocity.2);
         
-        rigidbody.set_angvel(angvel, true);
+        rigidbody.set_angvel(angvel, false);
     }
     
     
@@ -418,10 +432,8 @@ impl RapierPhysicsEngine{
     }
     
     
-    
-    pub fn make_static(&mut self, ID: &u16){
-        
-        
+    //DO NOT SET THIS AFTER CREATION
+    pub fn make_static(&mut self, ID: &u16){  
         let rbhandle = self.bodyhandles.get(ID).unwrap();
         
         let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
@@ -435,17 +447,13 @@ impl RapierPhysicsEngine{
         
         
         
-        //save the status of the body before making it static so to restore it to the proper state after
-        let mut previousbodystatusbyobjid: HashMap<u16, BodyStatus> = HashMap::new();
-        
         //make the object static for the objects it should be static for this tick
         for objid in &self.static_for_tick{
             let rbhandle = self.bodyhandles.get(&objid).unwrap();
             let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
             
-            previousbodystatusbyobjid.insert(*objid, rigidbody.body_status);
-            
-            rigidbody.body_status = BodyStatus::Static;
+            rigidbody.set_gravity_scale(0.0, false);
+
         }
         
         
@@ -460,9 +468,8 @@ impl RapierPhysicsEngine{
             &mut self.bodies,
             &mut self.colliders,
             &mut self.joints,
-            None,
-            None,
-            &()
+            &(),
+            &(),
         );
         
 
@@ -471,16 +478,13 @@ impl RapierPhysicsEngine{
             let rbhandle = self.bodyhandles.get(&objid).unwrap();
             let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
             
-            let rbstatus = previousbodystatusbyobjid.get(&objid).unwrap();
-            
-            rigidbody.body_status = *rbstatus;
-        }
+            rigidbody.set_gravity_scale(1.0, false);
+        };
         
         
         
         //clear the objects that had their gravity disabled this tick
         self.static_for_tick = HashSet::new();
-        
         
     }
     
@@ -652,8 +656,10 @@ impl RapierMissionExtender{
             if mission.is_current_impulse(){
                 
                 let currentimpulsevector = mission.get_current_impulse();
-                
+
+
                 physicsengine.apply_delta_impulse(physicalid, currentimpulsevector);
+
                 
             }
             

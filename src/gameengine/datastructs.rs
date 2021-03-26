@@ -3,23 +3,9 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 //use ncollide3d::shape::ConvexHull;
 
+use serde::{Serialize, Deserialize};
 
-pub fn is_square_posid_valid( i8pos: (i8,i8) ) -> Option<(u8,u8)>{
-    
-    //if its in range, return those integers, otherwise return none
-    if i8pos.0 >= 0 && i8pos.0 <= 7{
-        
-        if i8pos.1 >= 0 && i8pos.1 <= 7{
-            
-            //return the board square id
-            return Some(  (i8pos.0 as u8, i8pos.1 as u8)  )  ;
-            
-        };
-    };
-    
-    return None;
-}
-
+//use super::BoardSquarePosID;
 
 
 
@@ -35,82 +21,471 @@ pub enum PieceAction{
     
     //what direction to capture in a checkers fashion
     checkerscapture(u8),
+
+
+    //a slide that doesnt lift any squares
+    capturelessslide(u8, u8),
     
+    
+    /*
+    normal piece slide (slide x distance in y direction)
+    pawn capture  (slide 1 square in x direction if there is a piece on that square)
+    castle (if theres no squares 4 to the left to the 4th then an unmoved king/rook swap that piece with this one)
+    
+    */
 }
+
+
 
 impl PieceAction{
     
-    //get the square that this action takes the piece on this certain square
-    //dont check if its a valid  board square
-    pub fn get_square_posid_that_action_takes_piece_at_posid(&self, piecepos: (u8,u8)) -> Option<(u8,u8)>{
-        
-        let intpiecepos = (piecepos.0 as i8, piecepos.1 as i8);
-        
-        if let PieceAction::liftandmove( relativepos ) = *self{
-            
-            let newpos = (intpiecepos.0 + relativepos.0 , intpiecepos.1 + relativepos.1);
-            
-            
-            return  is_square_posid_valid( newpos );
-        } 
-        else if let PieceAction::slide( direction, distance ) = *self{
-            
-            let (xstep, zstep) = slide_id_to_direction_change_from_objective_perspective(direction);
-            
-            let relativepos = (xstep * distance as i8, zstep * distance as i8);
-            
-            let newpos = (intpiecepos.0 + relativepos.0 , intpiecepos.1 + relativepos.1);
-            
-            //otherwise, return it
-            return is_square_posid_valid(newpos);
-            
-        }
-        else if let PieceAction::flick(_,_) = *self{
-            panic!("i dont know the relative square a flick takes this piece");
-        }
-        else{
-            panic!("IDK");
-        }
-        
-    }
-    
-    
     pub fn get_relative_position_action_takes_piece(&self) -> (i8, i8){
         
-        if let PieceAction::liftandmove( relativepos ) = *self{
+        match *self{
             
-            return  relativepos;
-        } 
-        else if let PieceAction::slide( direction, distance ) = *self{
-            
-            let (xstep, zstep) = slide_id_to_direction_change_from_objective_perspective(direction);
-            
-            let relativepos = (xstep * distance as i8, zstep * distance as i8);
-            
-            return relativepos;
-            
+            PieceAction::liftandmove( relativepos ) => {
+                
+                return relativepos;
+            },
+            PieceAction::slide( direction, distance ) | PieceAction::capturelessslide(direction, distance) => {
+                
+                let (xstep, zstep) = direction_to_step_from_objective_perspective(direction);
+                
+                let relativepos = (xstep * distance as i8, zstep * distance as i8);
+                
+                return relativepos;
+            },
+            PieceAction::checkerscapture(direction) => {
+                
+                let (xstep, zstep) = direction_to_step_from_objective_perspective(direction);
+                
+                let relativepos = (xstep * 2, zstep * 2);
+                
+                return relativepos;
+            },
+            PieceAction::flick(_,_) => {
+                panic!("i dont know the relative square a flick takes this piece");
+            },
         }
-        else if let PieceAction::flick(_,_) = *self{
-            panic!("i dont know the relative square a flick takes this piece");
-        }
-        else{
-            panic!("IDK");
+    }
+    
+    //get the lift and move forces on the piece this action is applied to
+    pub fn get_lift_and_move_forces(&self) -> Option<(i8,i8)>{
+        
+        match *self{
+            
+            PieceAction::liftandmove( relativepos ) => {
+                
+                return Some(relativepos);
+            },
+            PieceAction::slide( _,_ ) | PieceAction::capturelessslide(_,_)=> {
+                
+                return None;
+            },
+            PieceAction::checkerscapture(direction) => {
+                
+                let (xstep, zstep) = direction_to_step_from_objective_perspective(direction);
+                
+                let relativepos = (xstep * 2, zstep * 2);
+                
+                return Some(relativepos);
+            },
+            PieceAction::flick(_,_) => {
+                return None;
+            },
         }
         
     }
-
-
-    pub fn get_single_step_pos_change(&self) -> (i8,i8){
-
-        if let PieceAction::slide( direction, distance ) = *self{
+    
+    pub fn get_slide_forces(&self) -> Option<(i8,i8)>{
+        
+        
+        match *self{
             
-            return  slide_id_to_direction_change_from_objective_perspective(direction) ;
+            PieceAction::liftandmove( relativepos ) => {
+                
+                return None;
+            },
+            PieceAction::slide( direction, distance ) | PieceAction::capturelessslide(direction, distance)=> {
+                
+                let (xstep, zstep) = direction_to_step_from_objective_perspective(direction);
+                
+                let relativepos = (xstep * distance as i8, zstep * distance as i8);
+                
+                return Some( relativepos );
+            },
+            PieceAction::checkerscapture(direction) => {
+                
+                return None;
+            },
+            PieceAction::flick(_,_) => {
+                return None;
+            },
         }
-
-        panic!("called on a non-slide action");
+        
+        
     }
+    
+    pub fn get_flick_forces(&self) -> Option<(f32,f32)> {
+        
+        
+        match *self{
+            
+            PieceAction::liftandmove( _ ) => {
+                
+                return None;
+            },
+            PieceAction::slide( _, _ ) | PieceAction::capturelessslide( _, _ ) => {
+                
+                return None;    
+            },
+            PieceAction::checkerscapture(_) => {
+                return None;
+            },
+            PieceAction::flick(dir,force) => {
+                return Some( (dir,force) );
+            },
+        };
+        
+    }
+    
+    //get the squares dropped by this action and the tick it happens
+    pub fn get_squares_dropped_relative(&self) -> Vec<( (i8,i8), u32 )>{
+        
+        let mut toreturn = Vec::new();
+        
+        match *self{
+            
+            PieceAction::liftandmove( relativepos ) => {
+                
+                toreturn.push( (relativepos, 0) );
+                
+                return toreturn;
+            },
+            PieceAction::slide( direction, distance ) => {
+                
+                let (xstep, zstep) = direction_to_step_from_objective_perspective(direction);
+                
+                for x in 1..distance+1{
+                    
+                    let relativepos = (xstep * x as i8, zstep * x as i8);
+                    
+                    toreturn.push( (relativepos, x as u32 * 5) );
+                }
+                
+                return toreturn;
+            },
+            PieceAction::checkerscapture(direction) => {
+                
+                let step = direction_to_step_from_objective_perspective(direction);
+                
+                let relativepos = step;
+                
+                toreturn.push( (relativepos, 0) );
+                
+                return toreturn;
+            },
+            PieceAction::flick(_,_) | PieceAction::capturelessslide(_,_)=> {
+                
+                return toreturn;
+            },
+        }
+    }
+    
+    
+    
+    //get the conditions for this action when it needs to capture to perform its action
+    fn add_has_to_capture_conditions_for_action(&self, toaddto: &mut HashSet<( (i8,i8), SquareCondition )>){
+        
+        //if this action drops squares
+        if let Some(lastsquareandtick) = self.get_squares_dropped_relative().last(){
 
+            //get the last square it drops
+            let lastsquarerelativepos = lastsquareandtick.0;
+
+            //the final square dropped must have an opponents piece on it
+            toaddto.insert( (lastsquarerelativepos, SquareCondition::OpponentRequired) );
+        };
+    }
+    
+    //the base conditions for this action
+    //the squares it passes over must not have any friendly pieces
+    //and the squares it passes over EXCEPT THE LAST ONE must not have any pieces / (no friendly or enemy pieces)
+    fn add_base_conditions_for_action(&self, toaddto: &mut HashSet<( (i8,i8), SquareCondition )>){
+        
+
+        match *self{
+            
+            PieceAction::flick(_,_) => {
+                
+            },
+            PieceAction::liftandmove( relativepos ) => {
+                
+                toaddto.insert( (relativepos,  SquareCondition::NoneFriendlyRequired) );
+                
+            },
+            PieceAction::checkerscapture( direction ) => {
+                /*
+                The square the checkers capture is going to must be empty
+                and the squares that it drops must have an opponents piece on them
+                */
+                
+                toaddto.insert( (self.get_relative_position_action_takes_piece(), SquareCondition::EmptyRequired) );
+                
+                for (relativesquarepos, _) in self.get_squares_dropped_relative(){
+                    toaddto.insert( (relativesquarepos, SquareCondition::OpponentRequired) );
+                    toaddto.insert( (relativesquarepos, SquareCondition::NoneFriendlyRequired) );
+                }
+                
+            },
+            PieceAction::slide( _dir, _dist) =>{
+                /*
+                For a slide action, all boardsquares besides the last one passed over must be empty
+                And the last one must not have any of my own peices on it
+                */
+                
+                let droppedrelative = self.get_squares_dropped_relative();
+                                
+                for x in &droppedrelative{
+
+                    //if this is the last square being passed over
+                    if x == droppedrelative.last().unwrap(){
+                        toaddto.insert( (x.0, SquareCondition::NoneFriendlyRequired) );
+                    }
+                    //if its not the last square being passed over
+                    else{
+                        toaddto.insert( (x.0, SquareCondition::EmptyRequired) );
+                    }
+                };
+
+            },
+            //all squares it passes over must be empty
+            PieceAction::capturelessslide(dir, dist) =>{
+
+                //get squares passed over relative
+
+
+
+                
+                let (xstep, zstep) = direction_to_step_from_objective_perspective(dir);
+                
+                for x in 1..=dist{
+
+                    let relativepos = (xstep * x as i8, zstep * x as i8);
+                
+                    toaddto.insert( (relativepos, SquareCondition::EmptyRequired) );
+                }
+                
+
+                /*
+                let droppedrelative = self.get_squares_dropped_relative();
+                                
+                for x in &droppedrelative{
+
+                        toaddto.insert( (x.0, SquareCondition::EmptyRequired) );
+                };
+                */
+            }
+            
+            
+        };
+        
+        
+    }
+    
+    
+    
 }
+
+
+
+
+//what condition has to be met on this boardsquare?
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+pub enum SquareCondition{
+    
+    OpponentRequired,
+    NoneFriendlyRequired,
+    EmptyRequired,
+}
+
+//get the square conditions for a 
+
+
+
+
+
+
+#[derive(Serialize, Deserialize, Clone, Eq, Hash, PartialEq)]
+enum Functionality{
+    
+    //the functionality for a pawn to move 1 or 2 forwards if unmoved
+    PawnAdvance,
+    //the functionality for a pawn to capture the pieces diagonally in front of it
+    PawnCapture,
+    Knight,
+    Bishop,
+    Rook,
+    Queen,
+    King,
+    Checker,
+    Flickable,
+    
+}
+
+impl Functionality{
+    
+    //TODO: add case for flick
+    fn is_action_valid(&self, ownerdirection: &u8, hasmoved: &bool, action: &PieceAction) -> bool{
+        
+        for validaction in &self.get_actions(ownerdirection, hasmoved){
+            if validaction == action{
+                return true;
+            }
+        }        
+        
+        return false;
+    }
+    
+    
+    fn get_actions(&self, ownerdirection: &u8, hasmoved: &bool) -> Vec<PieceAction>{
+        
+        let mut toreturn: Vec<PieceAction> = Vec::new();
+        
+        match *self{
+            
+            Functionality::PawnAdvance =>{
+
+                toreturn.push( PieceAction::capturelessslide( perspective_to_objective_slide(ownerdirection, &0), 1) );
+                
+                if hasmoved == &false{
+                    toreturn.push( PieceAction::capturelessslide( perspective_to_objective_slide(ownerdirection, &0), 2) );
+                }
+
+                return toreturn;
+            },
+            Functionality::PawnCapture =>{
+                
+                //capturing diagonally
+                toreturn.push( PieceAction::slide( perspective_to_objective_slide(ownerdirection, &1) , 1) );
+                toreturn.push( PieceAction::slide( perspective_to_objective_slide(ownerdirection, &7) , 1) );
+
+                return toreturn;
+                
+            },
+            Functionality::Knight =>{
+                
+                toreturn.push( PieceAction::liftandmove( (1,2)  ) );
+                toreturn.push( PieceAction::liftandmove( (2,1)  ) );
+                toreturn.push( PieceAction::liftandmove( (2,-1) ) );
+                toreturn.push( PieceAction::liftandmove( (1,-2) ) );
+                
+                
+                toreturn.push( PieceAction::liftandmove( (-1,-2) ) );
+                toreturn.push( PieceAction::liftandmove( (-2,-1) ) );
+                toreturn.push( PieceAction::liftandmove( (-2,1)  ) );
+                toreturn.push( PieceAction::liftandmove( (-1,2)  ) );
+                
+                
+                return toreturn;
+            },
+            Functionality::Bishop =>{
+                
+                for dir in (1..8).step_by(2){
+                    
+                    for dist in 1..8{
+                        toreturn.push(  PieceAction::slide(dir, dist)  );
+                    }
+                }
+                
+                return toreturn;
+            },
+            Functionality::Rook => {
+                
+                for dir in (0..8).step_by(2){
+                    
+                    for dist in 1..8{
+                        toreturn.push(  PieceAction::slide(dir, dist)  );
+                    }
+                }
+                
+                return toreturn;
+            },
+            Functionality::Queen => {
+                
+                for dir in 0..8{
+                    
+                    for dist in 1..8{
+                        toreturn.push(  PieceAction::slide(dir, dist)  );
+                    }
+                }
+                
+                return toreturn;
+            },
+            Functionality::King => {
+                
+                for dir in 0..8{
+                    
+                    toreturn.push(  PieceAction::slide(dir, 1)  );
+                }
+                
+                return toreturn;
+            },
+            Functionality::Checker => {
+                
+                for dir in (1..8).step_by(2){
+                    toreturn.push(  PieceAction::checkerscapture(dir)  );
+                }
+
+                for dir in (1..8).step_by(2){
+                    toreturn.push(  PieceAction::capturelessslide(dir, 1)  );
+                }
+
+                
+                return toreturn;
+            },
+            Functionality::Flickable => {
+                
+                return toreturn;
+            },
+            
+            
+        };
+    }
+    
+    
+    //get the conditions of the action
+
+    //assume the action is valid
+    fn get_conditions_for_action(&self, action: &PieceAction) -> HashSet< ((i8,i8), SquareCondition)>{
+
+        
+        let mut toreturn = HashSet::new();
+        
+        //if this action is valid
+        match *self{
+            
+            Functionality::PawnCapture =>{
+                action.add_base_conditions_for_action(&mut toreturn);
+                action.add_has_to_capture_conditions_for_action(&mut toreturn);
+
+                return toreturn;
+            },
+            _ =>{
+                action.add_base_conditions_for_action(&mut toreturn);
+                    
+                return toreturn;
+            },
+            
+        };
+        
+        
+    }
+    
+}
+
+
+
 
 
 
@@ -123,135 +498,150 @@ pub struct PieceData{
     //the name of the piece
     typename: String,
     
-    allowedactions: AllowedActions,
-    
-    //if the piece can castle
-    cancastle: bool,
-    
-    canenpassant: bool,
-    
-    //if the piece has performed an action
-    hasperformedaction: bool,
-    
-    canflick: bool,
+    functionalities: HashSet<Functionality>,
     
     value: u8,
+    
+    //if the piece has moved (used for castling and moving pawns forward)
+    hasmoved: bool,
     
 }
 
 
+//get the requirements to perform an action
+//get the board squares that are dropped when the action is performeds
+
+
 impl PieceData{
     
-    pub fn new() -> PieceData{
-        
+    pub fn new() -> PieceData{    
         PieceData{
             typename: "none".to_string(),
-            allowedactions: AllowedActions::new_all_unallowed(),
-            cancastle: false,
-            canenpassant: false,
-            hasperformedaction: false,
-            canflick: false,
+            functionalities: HashSet::new(),
+            hasmoved: false,
             value: 1,
         }
     }
-    
-    
-    pub fn get_value(&self) -> u8{
+
+
+    //give this piece the abilities of a knight
+    pub fn augment_knight_abilities(&mut self){
+
+
+        self.functionalities.insert( Functionality::Knight );
         
+    } 
+
+    //remove any augmentations this piece might have, so it just has the default effects again
+    pub fn remove_ability_augmentations(&mut self){
+
+        if self.typename != "knight"{
+            self.functionalities.remove( &Functionality::Knight );
+        }
+
+    }
+
+    
+    
+    pub fn get_value(&self) -> u8{        
         return self.value;
     }
     
     
-    
-    pub fn set_checkers(&mut self){
+    pub fn set_checker(&mut self){
         
-        self.allowedactions = AllowedActions::get_normal_checkers();
+        self.typename = "checker".to_string();
         
-        self.typename = "checkers".to_string();
+        self.functionalities = HashSet::new();
+        self.functionalities.insert( Functionality::Checker );
+        
         self.value = 2;
     }
+    
     pub fn set_king(&mut self){
-        self.allowedactions = AllowedActions::get_king();
         
         self.typename = "king".to_string();
         
+        self.functionalities = HashSet::new();
+        self.functionalities.insert( Functionality::King );
+        
         self.value = 0;
     }
-
+    
     //set selfs actions to be those of a pawn
     pub fn set_pawn(&mut self){
         
-        if self.hasperformedaction {
-            self.allowedactions = AllowedActions::get_moved_pawn();
-        }
-        else{
-            self.allowedactions = AllowedActions::get_unmoved_pawn();
-        }
-        
         self.typename = "pawn".to_string();
+        
+        self.functionalities = HashSet::new();
+        self.functionalities.insert( Functionality::PawnCapture );
+        self.functionalities.insert( Functionality::PawnAdvance );
         
         self.value = 1;
     }
     
     pub fn set_knight(&mut self){
-        self.allowedactions = AllowedActions::get_knight();
         
         self.typename = "knight".to_string();
+        
+        self.functionalities = HashSet::new();
+        self.functionalities.insert( Functionality::Knight );
         
         self.value = 2;
     }
     
     pub fn set_bishop(&mut self){
-        self.allowedactions = AllowedActions::get_bishop();
         
         self.typename = "bishop".to_string();
         
+        self.functionalities = HashSet::new();
+        self.functionalities.insert( Functionality::Bishop );
+        
         self.value = 3;
     }
-
+    
     pub fn set_rook(&mut self){
-        self.allowedactions = AllowedActions::get_rook();
         
         self.typename = "rook".to_string();
         
-        self.cancastle = true;
+        self.functionalities = HashSet::new();
+        self.functionalities.insert( Functionality::Rook );
         
         self.value = 5;
     }
     
     pub fn set_queen(&mut self){
-        self.allowedactions = AllowedActions::get_queen();
         
         self.typename = "queen".to_string();
+        
+        self.functionalities = HashSet::new();
+        self.functionalities.insert( Functionality::Queen );
         
         self.value = 8;
     }
     
-
-    
-
     
     //get rid of its allowed actions and make it flickable
     pub fn set_pool_ball(&mut self){
         
-        self.allowedactions = AllowedActions::new_all_unallowed();
-        
         self.typename = "poolball".to_string();
         
-        self.canflick = true;
+        self.functionalities = HashSet::new();
+        self.functionalities.insert( Functionality::Flickable );
         
-        //self.value = 2;
+        self.value = 2;
     }
-
+    
+    
     //turn this piece back into an appropriately valued chess piece
     pub fn set_chess_piece(&mut self){
-
+        
         if self.value == 0{
-
+            
             self.set_king();
         }
         else if self.value <= 1{
-
+            
             self.set_pawn();
         }
         else if self.value <= 2{
@@ -259,521 +649,60 @@ impl PieceData{
             self.set_knight();
         }
         else if self.value <= 3{
-
+            
             self.set_bishop();
         }
         else if self.value <= 5{
-
+            
             self.set_rook();
         }
         else{
-
             self.set_queen();
         }
-
-    }
-
-
-    
-    pub fn canflick(&self) -> bool{
-        self.canflick
-    }
-    
-    
-    //the piece action, if it has to capture, and if it can capture
-    pub fn get_piece_actions(&self, ownerdirection: u8) -> Vec<PieceAction>{
         
-        let mut toreturn = Vec::new();
-        
-        for action in self.allowedactions.get_allowed_lift_and_move_actions(ownerdirection){
-            toreturn.push ( action );
-        };
-        
-        
-        for action in self.allowedactions.get_allowed_slide_actions(ownerdirection){
-            toreturn.push (action);
-        };
-        
-        
-        
-        let checkersdirections = self.allowedactions.checkersdirections.clone();
-        
-        for direction in checkersdirections{
-            
-            //can slide in that direction 1 unit
-            let checkersslideaction = PieceAction::slide(direction, 1);
-            toreturn.push( checkersslideaction );
-            
-            
-            //can do a checkers capture in that direction
-            let captureaction = PieceAction::checkerscapture(direction);
-            toreturn.push( captureaction );
-            
-        };
-        
-        
-        toreturn
     }
     
     
     pub fn moved_piece(&mut self){
-        
-        self.hasperformedaction = true;
-        
-        if self.typename == "pawn"{
-            self.allowedactions = AllowedActions::get_moved_pawn();
-        }
-        
+        self.hasmoved = true;
     }
-    
     
     pub fn get_type_name(&self) -> String{
         self.typename.clone()
     }
     
     
-    pub fn is_action_allowed(&self, action: PieceAction, ownerdirection: u8) -> bool{
-        
-        //if its a slide
-        if let PieceAction::slide(direction, distance) = action{
-            
-            let slideactions = self.allowedactions.get_allowed_slide_actions(ownerdirection);
-            
-            if slideactions.contains( &action ){
-                return true;
-            }
-            else{
-                return false;
-            }
-        }
-        //if its a lift and move
-        if let PieceAction::liftandmove( relativepos ) = action{
-            
-            let liftactions = self.allowedactions.get_allowed_lift_and_move_actions(ownerdirection);
-            
-            if liftactions.contains( &action ){
-                return true;
-            }
-            else{
-                return false;
-            }
-        }
-        //if its a flick
-        if let PieceAction::flick(_,_) = action{
-            return self.canflick();
-        }
-        
-        
-        
-        panic!("AAA");
-    }
     
-    
-    
-    //for a relative position an action, get if it has to capture, and then if it can capture
-    pub fn get_capture_type_of_lift_and_move(&self, relativepos: (i8,i8), ownerdirection: u8) -> (bool, bool) {
-        
-        self.allowedactions.get_capture_type_of_lift_and_move(relativepos, ownerdirection)
-    }
-    
-    
-    pub fn get_capture_type_of_slide(&self, direction: u8, distance: u8, ownerdirection: u8) -> (bool, bool) {
-        
-        self.allowedactions.get_capture_type_of_slide(direction, distance, ownerdirection)
-    }
-    
-}
-
-
-
-
-
-//used to determine how a piece can act
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct AllowedActions{    
-    
-    //what direction can it slide
-    //what distance
-    //does it have to capture an opponents piece to slide there
-    //is it allowed to capture an opponents piece when sliding there
-    slidedirection: HashSet<( u8, u8, bool, bool )>,
-    
-    //what relative positions can it move to
-    //does it have to capture an opponents piece to move there
-    //can it capture an opponents piece by moving there
-    liftandmove: HashSet<( (i8, i8), bool, bool, )>,
-    
-    
-    //the directions it can move and capture in checkers
-    checkersdirections: HashSet<u8>,
-    
-    
-}
-
-//(direction, maxdistance, hastocapture, cancapture)
-
-impl AllowedActions{
-    
-    fn new_all_unallowed() -> AllowedActions{
-        
-        AllowedActions{
-            slidedirection: HashSet::new(),
-            liftandmove: HashSet::new(),
-            checkersdirections: HashSet::new(),
-        }
-        
-    }
-    
-    
-    //for a relative position an action, get if it has to capture, and then if it can capture
-    fn get_capture_type_of_lift_and_move(&self, reqrelativepos: (i8,i8), ownerdirection: u8) -> (bool, bool) {
-        
-        
-        //for every lift and move action
-        for (relativepos, mustcapture, cancapture) in &self.liftandmove{
-            
-            if let Some(relativepos) = players_perspective_to_objective_perspective_lift(&ownerdirection, relativepos){
-                
-                if reqrelativepos == relativepos{
-                    
-                    return (*mustcapture, *cancapture);
-                }
-            }
-        }
-        
-        
-        panic!("this lift and move action is not allowed, the action: {:?}", reqrelativepos);
-    }
-    
-    
-    fn get_capture_type_of_slide(&self, reqdirection: u8, reqdistance: u8, ownerdirection: u8) -> (bool, bool) {
-        
-        
-        //for every slide action allowed
-        for (direction, distance, mustcapture, cancapture) in &self.slidedirection{
-            
-            let direction = players_perspective_to_objective_perspective_slide(&ownerdirection, &direction);
-            
-            if reqdirection == direction && reqdistance <= *distance{
-                return (*mustcapture, *cancapture);
-            }
-        }
-        
-        panic!("this slide action is not allowed dir {:?} and dist {:?}, all actions{:?}", reqdirection, reqdistance, self.slidedirection);
-    }
-    
-    
-    
-    fn get_allowed_slide(&self, ownerdirection: u8) -> HashSet<( u8, u8 )>{
-        
-        
-        //rotate each allowed action in the slide by its owners direction
-        let temp = self.slidedirection.clone();
-        
-        let mut toreturn = HashSet::new();
-        
-        for (direction, a, b, c) in temp.iter(){
-            
-            let newdirection = players_perspective_to_objective_perspective_slide(&ownerdirection, direction);
-            
-            toreturn.insert( (newdirection, *a)  );
-            
-        }
-        
-        toreturn
-        
-        
-    }
-    
-    fn get_allowed_lift_and_move(&self, ownerdirection: u8) -> HashSet<( i8, i8 )>{
-        
-        //rotate each allowed action in the lift and move by its owners direction
-        
-        let temp = self.liftandmove.clone();
-        
-        let mut toreturn = HashSet::new();
-        
-        
-        for ( relativepos, a, b) in temp.iter(){
-            
-            if let Some(newrelativepos) = players_perspective_to_objective_perspective_lift(&ownerdirection, relativepos){
-                
-                toreturn.insert( newrelativepos  );
-                
-            }
-            
-        }
-        
-        
-        
-        toreturn
-        
-    }
-    
-    
-    //get a list of the 
-    fn get_allowed_slide_actions(&self, ownerdirection: u8) -> Vec<PieceAction>{
+    //get the piece actions that are listable
+    pub fn get_numberable_piece_actions(&self, ownerdirection: &u8) -> Vec<PieceAction>{
         
         let mut toreturn = Vec::new();
         
-        for (direction, distance) in self.get_allowed_slide(ownerdirection){
+        for functionality in &self.functionalities{
             
-            //for every step, from 1 up to and including the total distance
-            for curdistance in 1..distance+1{
-                
-                let action = PieceAction::slide(direction, curdistance);
-                
-                toreturn.push( action );
-            };
-        };
+            let allowedactions = functionality.get_actions(ownerdirection, &self.hasmoved);
+            
+            toreturn.extend(allowedactions);
+        }
         
         toreturn
-    }
+    }    
     
-    fn get_allowed_lift_and_move_actions(&self, ownerdirection: u8) -> Vec<PieceAction>{
-        
-        let mut toreturn = Vec::new();
-        
-        for relativeposition in self.get_allowed_lift_and_move(ownerdirection){
-            
-            let action = PieceAction::liftandmove(relativeposition);
-            
-            toreturn.push(action);
-        };
-        
-        
-        toreturn
-    }
     
-    //get the allowed actions of a pawn that has not moved yet
-    fn get_unmoved_pawn() -> AllowedActions{
+    //if this action is valid by the piecedata
+    //return the conditions required for this action
+    pub fn is_action_valid(&self, action: &PieceAction, ownerdirection: &u8) -> Option< HashSet< ((i8,i8), SquareCondition)> >{
         
         
-        let mut slidedirection = HashSet::new();
-        
-        //moving forwards thing
-        slidedirection.insert( (0, 2, false, false) );
-        
-        //capturing diagonally
-        slidedirection.insert( (1, 1, true, true) );
-        slidedirection.insert( (7, 1, true, true) );
-        
-        
-        
-        AllowedActions{
+        for functionality in &self.functionalities{
             
-            liftandmove: HashSet::new(),
-            
-            slidedirection: slidedirection,
-            
-            checkersdirections: HashSet::new(),
-            
+            if functionality.is_action_valid(ownerdirection, &self.hasmoved, action){
+                
+                return Some( functionality.get_conditions_for_action(action) );
+            }
         }
         
-        
-    }
-    
-    //get the allowed actions of a pawn that has been moved
-    fn get_moved_pawn() -> AllowedActions{
-        
-        let mut slidedirection = HashSet::new();
-        
-        //moving forwards thing
-        slidedirection.insert( (0, 1, false, false) );
-        
-        //capturing diagonally
-        slidedirection.insert( (1, 1, true, true) );
-        slidedirection.insert( (7, 1, true, true) );
-        
-        
-        
-        AllowedActions{
-            
-            liftandmove: HashSet::new(),
-            
-            slidedirection: slidedirection,
-            
-            checkersdirections: HashSet::new(),
-        }
-        
-        
-        
-    }
-    
-    fn get_knight() -> AllowedActions{
-        
-        
-        let mut slidedirection = HashSet::new();
-        
-        let mut liftandmove = HashSet::new();
-        
-        liftandmove.insert( ( (1,2), false, true   ) );
-        liftandmove.insert( ( (2,1), false, true   ) );
-        liftandmove.insert( ( (2,-1), false, true  ) );
-        liftandmove.insert( ( (1,-2), false, true  ) );
-        
-        liftandmove.insert( ( (-1,-2), false, true ) );
-        liftandmove.insert( ( (-2,-1), false, true ) );
-        liftandmove.insert( ( (-2,1), false, true  ) );
-        liftandmove.insert( ( (-1,2), false, true  ) );
-        
-        
-        AllowedActions{
-            
-            liftandmove: liftandmove,
-            
-            slidedirection: slidedirection,
-            
-            checkersdirections: HashSet::new(),
-        }
-        
-        
-    }
-    
-    fn get_bishop() -> AllowedActions{
-        
-        
-        
-        let mut slidedirection = HashSet::new();
-        
-        
-        //move in any diagonal direction
-        slidedirection.insert( (1, 7, false, true) );
-        slidedirection.insert( (3, 7, false, true) );
-        slidedirection.insert( (5, 7, false, true) );
-        slidedirection.insert( (7, 7, false, true) );
-        
-        
-        
-        AllowedActions{
-            
-            liftandmove: HashSet::new(),
-            
-            slidedirection: slidedirection,
-            
-            checkersdirections: HashSet::new(),
-            
-        }
-        
-        
-        
-    }
-    
-    fn get_rook() -> AllowedActions{
-        
-        
-        
-        let mut slidedirection = HashSet::new();
-        
-        
-        //move in any diagonal direction
-        slidedirection.insert( (0, 7, false, true) );
-        slidedirection.insert( (2, 7, false, true) );
-        slidedirection.insert( (4, 7, false, true) );
-        slidedirection.insert( (6, 7, false, true) );
-        
-        
-        
-        AllowedActions{
-            
-            liftandmove: HashSet::new(),
-            
-            slidedirection: slidedirection,
-            
-            checkersdirections: HashSet::new(),
-        }
-        
-        
-        
-    }
-    
-    fn get_queen() -> AllowedActions{
-        
-        
-        
-        let mut slidedirection = HashSet::new();
-        
-        
-        //move in any orthogonal direction
-        slidedirection.insert( (0, 7, false, true) );
-        slidedirection.insert( (2, 7, false, true) );
-        slidedirection.insert( (4, 7, false, true) );
-        slidedirection.insert( (6, 7, false, true) );
-        
-        //move in any diagonal direction
-        slidedirection.insert( (1, 7, false, true) );
-        slidedirection.insert( (3, 7, false, true) );
-        slidedirection.insert( (5, 7, false, true) );
-        slidedirection.insert( (7, 7, false, true) );
-        
-        
-        
-        AllowedActions{
-            
-            liftandmove: HashSet::new(),
-            
-            slidedirection: slidedirection,
-            
-            checkersdirections: HashSet::new(),
-        }
-        
-        
-        
-    }
-    
-    fn get_king() -> AllowedActions{
-        
-        
-        
-        let mut slidedirection = HashSet::new();
-        
-        
-        //move in any orthogonal direction
-        slidedirection.insert( (0, 1, false, true) );
-        slidedirection.insert( (2, 1, false, true) );
-        slidedirection.insert( (4, 1, false, true) );
-        slidedirection.insert( (6, 1, false, true) );
-        
-        //move in any diagonal direction
-        slidedirection.insert( (1, 1, false, true) );
-        slidedirection.insert( (3, 1, false, true) );
-        slidedirection.insert( (5, 1, false, true) );
-        slidedirection.insert( (7, 1, false, true) );
-        
-        
-        
-        AllowedActions{
-            
-            liftandmove: HashSet::new(),
-            
-            slidedirection: slidedirection,
-            
-            checkersdirections: HashSet::new(),
-            
-        }
-        
-        
-        
-    }
-    
-    fn get_normal_checkers() -> AllowedActions{
-        
-        let mut checkersdirections = HashSet::new();
-        
-        checkersdirections.insert(1);
-        checkersdirections.insert(3);
-        checkersdirections.insert(5);
-        checkersdirections.insert(7);
-        
-        AllowedActions{
-            slidedirection: HashSet::new(),
-            
-            liftandmove: HashSet::new(),
-            
-            checkersdirections: checkersdirections,
-        }
-        
-        
+        return None;
     }
     
     
@@ -785,7 +714,7 @@ impl AllowedActions{
 
 
 
-fn players_perspective_to_objective_perspective_slide(playerdirection: &u8, slidedirection: &u8) -> u8{
+fn perspective_to_objective_slide(playerdirection: &u8, slidedirection: &u8) -> u8{
     
     let slidedirection = *slidedirection as i32;
     
@@ -829,37 +758,19 @@ fn players_perspective_to_objective_perspective_lift(playerdirection: &u8, relat
         
         if let Some(resultingy) = i8::try_from(newyfloat).ok(){
             
-            return  Some( (resultingx, resultingy) )  ;
-            
+            return  Some( (resultingx, resultingy) ) ;
         }
-        
     }
     
-    
     //else return None
-    return( None );
-    
-    
-    
-    
+    return None ;
 }
 
 
 
 
 
-
-
-
-
-use serde::{Serialize, Deserialize};
-
-
-
-
-
-fn slide_id_to_direction_change_from_objective_perspective(slideid: u8) -> (i8,i8){
-    
+fn direction_to_step_from_objective_perspective(slideid: u8) -> (i8,i8){
     
     
     let mut toreturn = (0,0);
@@ -893,6 +804,4 @@ fn slide_id_to_direction_change_from_objective_perspective(slideid: u8) -> (i8,i
     
     
     toreturn
-    
-    
 }
