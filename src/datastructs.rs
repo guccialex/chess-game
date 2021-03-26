@@ -123,7 +123,7 @@ impl CardEffect{
             
             CardEffect::RaiseSquares(_) =>format!("raisedsquares.png"),
             
-            CardEffect::RemoveSquares(_) => format!("dropedsquares.png"),
+            CardEffect::RemoveSquares(_) => format!("droppedsquares.png"),
 
             CardEffect::AddChessPieces => format!("addchesspieces.png"),
 
@@ -280,6 +280,12 @@ impl GameEffects{
 
         self.turnsuntildrawavailable = Some(turns);
     }
+
+    pub fn get_turns_until_draw_available(&self) -> Option<u32>{
+
+        self.turnsuntildrawavailable
+    }
+
 
     pub fn decrement_turns_until_draw_available(&mut self){
 

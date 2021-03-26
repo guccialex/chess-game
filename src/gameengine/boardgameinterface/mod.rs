@@ -363,7 +363,7 @@ impl BoardGame{
             
             let liftandmovemission = Mission::make_lift_mission( relativepos );
             
-            self.missions.set_future_mission(5, pieceid, liftandmovemission);
+            self.missions.set_future_mission(10, pieceid, liftandmovemission);
             
         }
         

@@ -617,8 +617,8 @@ impl MainGame{
         VisibleGameState{
             
             isgameover: self.gameover,
-            
-            drawactionvalid: self.can_player_draw(playerid),
+
+            turnsuntildrawavailable: self.gameeffects.get_turns_until_draw_available(),
             
             player1totalticksleft: self.turnmanager.get_players_total_ticks_left(1),
             
@@ -668,7 +668,7 @@ pub struct VisibleGameState{
     
     //the deck
     //whether the move is available
-    pub drawactionvalid: bool,
+    pub turnsuntildrawavailable: Option<u32>,
     
     pub player1totalticksleft: u32,
     pub player2totalticksleft: u32,
