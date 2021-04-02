@@ -25,7 +25,7 @@ use rapier3d::geometry::ColliderHandle;
 
 
 #[derive(Serialize, Deserialize)]
-pub struct RapierPhysicsEngine{
+pub struct RapierPhysicsWrapper{
     
     
     //this should be stored but not serialized. hmm
@@ -48,8 +48,17 @@ pub struct RapierPhysicsEngine{
     
     
     //objects who will be considered static for the next physical tick
-    static_for_tick: HashSet<u16>,
+    no_gravity_for_tick: HashSet<u16>,
+
+
+
     
+    //the misions
+    //the map of piece to mission
+    missions: HashMap<u16, Mission>,
+    
+    //how long until this mission, the object its applied to, the mission
+    futuremissions: Vec<(i32, u16, Mission)>,
     
 }
 
@@ -60,10 +69,10 @@ pub struct RapierPhysicsEngine{
 
 //a getter and setter for the state of the physics engine
 //its the 
-impl RapierPhysicsEngine{
+impl RapierPhysicsWrapper{
     
     
-    pub fn new() -> RapierPhysicsEngine{
+    pub fn new() -> RapierPhysicsWrapper{
         
         //this should be stored but not serialized. hmm
         //let mut pipeline = PhysicsPipeline::new();
@@ -89,7 +98,7 @@ impl RapierPhysicsEngine{
         
         
         // Run the simulation in the game loop.
-        RapierPhysicsEngine{
+        RapierPhysicsWrapper{
             gravity: gravity,
             integration_parameters: integration_parameters,
             broad_phase: broad_phase,
@@ -101,7 +110,10 @@ impl RapierPhysicsEngine{
             bodyhandles: HashMap::new(),
             shapehandles: HashMap::new(),
             totalobjects: 0,
-            static_for_tick: HashSet::new(),
+            no_gravity_for_tick: HashSet::new(),
+
+            missions: HashMap::new(),
+            futuremissions: Vec::new(),
         }
         
     }
@@ -111,7 +123,7 @@ impl RapierPhysicsEngine{
     
     //add an object to this physics world
     //return the ID for the object
-    pub fn add_object(&mut self) -> u16{
+    pub fn add_object(&mut self, isstatic: bool) -> u16{
         
         let objectid = self.totalobjects;
         self.totalobjects += 1;
@@ -140,6 +152,11 @@ impl RapierPhysicsEngine{
         let chandle = self.colliders.insert(collider, rbhandle, &mut self.bodies);
         
         self.shapehandles.insert(objectid, chandle);
+
+
+        if isstatic{
+            self.make_static(&objectid);
+        }
         
         return objectid;        
         
@@ -154,7 +171,7 @@ impl RapierPhysicsEngine{
             
             self.shapehandles.remove(id);
             
-            self.static_for_tick.remove(id);
+            self.no_gravity_for_tick.remove(id);
             
             self.bodies.remove(rhandle, &mut self.colliders, &mut self.joints);
         }
@@ -166,8 +183,8 @@ impl RapierPhysicsEngine{
     
     
     
-    pub fn make_static_for_tick(&mut self, ID: &u16){
-        self.static_for_tick.insert(*ID);
+    fn remove_gravity_for_tick(&mut self, ID: &u16){
+        self.no_gravity_for_tick.insert(*ID);
     }
     
     
@@ -433,7 +450,7 @@ impl RapierPhysicsEngine{
     
     
     //DO NOT SET THIS AFTER CREATION
-    pub fn make_static(&mut self, ID: &u16){  
+    fn make_static(&mut self, ID: &u16){  
         let rbhandle = self.bodyhandles.get(ID).unwrap();
         
         let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
@@ -445,10 +462,10 @@ impl RapierPhysicsEngine{
     
     pub fn tick(&mut self){
         
-        
+        self.tick_missions();
         
         //make the object static for the objects it should be static for this tick
-        for objid in &self.static_for_tick{
+        for objid in &self.no_gravity_for_tick{
             let rbhandle = self.bodyhandles.get(&objid).unwrap();
             let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
             
@@ -474,7 +491,7 @@ impl RapierPhysicsEngine{
         
 
         //restore the objects made static to what they were before
-        for objid in &self.static_for_tick{
+        for objid in &self.no_gravity_for_tick{
             let rbhandle = self.bodyhandles.get(&objid).unwrap();
             let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
             
@@ -484,11 +501,10 @@ impl RapierPhysicsEngine{
         
         
         //clear the objects that had their gravity disabled this tick
-        self.static_for_tick = HashSet::new();
+        self.no_gravity_for_tick = HashSet::new();
         
     }
     
-}
 
 
 
@@ -496,51 +512,22 @@ impl RapierPhysicsEngine{
 
 
 
-#[derive(Serialize, Deserialize)]
-pub struct RapierMissionExtender{
-    
-    
-    //the misions
-    //the map of piece to mission
-    missions: HashMap<u16, Mission>,
-    
-    //how long until this mission, the object its applied to, the mission
-    futuremissions: Vec<(i32, u16, Mission)>,
-    
-}
 
 
-impl RapierMissionExtender{
-    
-    pub fn new() -> RapierMissionExtender{
-        
-        RapierMissionExtender{
-            missions: HashMap::new(),
-            futuremissions: Vec::new(),
-        }
-    }
-    
-    //for each active mission, get its mission type
-    pub fn get_active_missions_of_type(&self, wantedmissiontype: MissionType ) -> Vec<u16>{
-        
-        
+
+
+    //get all the active missions and the object they're for
+    pub fn get_active_missions(&self ) -> Vec<(u16, Mission)>{
         
         let mut toreturn = Vec::new();
         
         //for each active mission
         for (objectid, mission) in &self.missions{
             
-            let missiontype = mission.get_mission_type();
-            
-            if missiontype == wantedmissiontype{
-                
-                toreturn.push(*objectid);
-            }
+            toreturn.push( (*objectid, mission.clone()) );
         }
         
-        
         toreturn
-        
     }
     
     
@@ -548,28 +535,21 @@ impl RapierMissionExtender{
     pub fn is_object_on_mission(&self, objectid: &u16) -> bool{
         
         self.missions.contains_key(objectid)
-        
     }
     
     pub fn set_mission(&mut self, pieceid: u16, mission: Mission){
         
         //if that piece already has a mission, end its
         self.set_future_mission(0, pieceid, mission);
-        
     }
     
     pub fn set_future_mission(&mut self, ticks: u32, pieceid: u16, mission: Mission){
         
-        
         self.futuremissions.push( (ticks as i32, pieceid, mission) );        
     }
+
     
-    
-    
-    
-    
-    
-    pub fn end_missions(&mut self, id: &u16, physicsengine: &mut RapierPhysicsEngine){
+    pub fn end_mission(&mut self, id: &u16){
         
         
         //if this object is on a mission
@@ -578,9 +558,8 @@ impl RapierMissionExtender{
             //if this object has a default isometry
             if let Some((pos, rot)) = mission.get_default_isometry(){
                 
-                physicsengine.set_translation(id, pos);
-                physicsengine.set_rotation(id, rot);
-                
+                self.set_translation(id, pos);
+                self.set_rotation(id, rot);
             }
         }
         
@@ -588,10 +567,7 @@ impl RapierMissionExtender{
     }
     
     
-    
-    
-    
-    pub fn tick_missions(&mut self, physicsengine: &mut RapierPhysicsEngine){
+    fn tick_missions(&mut self){
         
         
         //the future missions
@@ -612,12 +588,13 @@ impl RapierMissionExtender{
                     if self.missions.contains_key(&objectid){
                     }
                     else{
+                        //make the mission started
+                        mission.started = true;
+                        
                         //set the mission and return true
                         self.missions.insert(*objectid, mission.clone());
                     }
-
                 }
-
             };
             
             
@@ -635,47 +612,40 @@ impl RapierMissionExtender{
                     //keep it
                     return true;
                 }
-                
             });
-            
-            
         }
-        
-        
         
         
         //the ids of the missions that are expired
         let mut finishedmissions: Vec<u16> = Vec::new();
         
         //for each mission
-        for (physicalid, mission) in self.missions.iter_mut(){
+        for (physicalid, mission) in self.missions.clone().iter(){
             
             //panic!("IMPULSSE HERE");
             
             //if there is an impulse
             if mission.is_current_impulse(){
-                
                 let currentimpulsevector = mission.get_current_impulse();
 
-
-                physicsengine.apply_delta_impulse(physicalid, currentimpulsevector);
-
-                
+                self.apply_delta_impulse(physicalid, currentimpulsevector);
             }
             
             if mission.is_current_position_change(){          
                 
                 let poscvector = mission.get_current_delta_position();
                 
-                physicsengine.apply_delta_position(physicalid, (poscvector.x, poscvector.y, poscvector.z) );
+                self.apply_delta_position(physicalid, (poscvector.x, poscvector.y, poscvector.z) );
                 
                 //and set it to be static for a tick
-                physicsengine.make_static_for_tick(physicalid);
+                self.remove_gravity_for_tick(physicalid);
             }
             
-            //physicsengine.apply_delta_position(physicalid, (0.0,5.0,0.0) );
-            
-            
+        }
+
+        
+        for (physicalid, mission) in self.missions.iter_mut(){
+        
             //then tick the mission
             //end and remove it if it needs to be ended and removed
             //and remove the sensor that the piece had on that mission
@@ -684,57 +654,22 @@ impl RapierMissionExtender{
             if mission.is_finished() {
                 finishedmissions.push(*physicalid);
             }
-            
         }
-        
-        
         
         //remove each finished mission
         for objectid in &finishedmissions{
             
-            self.end_missions(objectid, physicsengine);
-            
+            self.end_mission(objectid);
         }
-        
-        
-        
-        
     }
-    
-    
-    
-    
-    
-    
-    
-    
+
+
 }
 
 
 
 
 
-
-
-//what type of mission it is
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
-pub enum MissionType{
-    
-    RaiseSquare,
-    
-    DropSquare,
-    
-    LoopAround,
-    
-    
-    Slide,
-    
-    LiftAndMove,
-    
-    
-    None
-    
-}
 
 
 
@@ -756,20 +691,44 @@ pub struct Mission{
     //(call the "disable gravity for a tick" when this is being called)
     positionchanges: Vec< (u32, u32, Vector3<f32>) >,
     
-    
-    
     //the position and velocity that this object should be in when this mission is over
     defaultpos: Option<((f32,f32,f32), (f32,f32,f32))>,
-    
-    
-    missiontype: MissionType
+
+
+    //if the mission has started, it cant have its position, impulse or default position change
+    started: bool,
+
+
+
+    //user data
+    data: u16,
     
 }
 
 impl Mission{
     
+
+    pub fn set_mission_data(&mut self, data: u16){
+
+        self.data = data;
+    }
+
+    pub fn get_mission_data(&self) -> u16{
+        self.data
+    }
+
+
+    pub fn add_position_change(&mut self, starttick: u32, endtick: u32, stepchange: (f32,f32,f32)){
+
+        self.positionchanges.push( (starttick, endtick, Vector3::new(stepchange.0 , stepchange.1 , stepchange.2) ) );
+    }
+
+    pub fn add_impulse_change(&mut self, starttick: u32, endtick: u32, stepchange: (f32,f32,f32)){
+
+        self.impulses.push( (starttick, endtick, Vector3::new(stepchange.0 , stepchange.1 , stepchange.2) ) );
+    }
     
-    fn default_mission() -> Mission{
+    pub fn default_mission(data: u16) -> Mission{
         
         Mission{
             currenttick: 0,
@@ -779,27 +738,20 @@ impl Mission{
             positionchanges: Vec::new(),
             
             defaultpos: None,
-            
-            missiontype: MissionType::None
+
+            started: false,
+
+            data: data,
         }
     }
     
-    
-    fn get_mission_type(&self) -> MissionType{
-        
-        self.missiontype.clone()
-    }
     
     //tick the mission
     //the tick should be done after performing the effects of the mission
     //so tick 0 is run
     fn tick(&mut self){
-        
         self.currenttick += 1;
     }
-    
-
-
     
     //if this mission is finished
     fn is_finished(&self) -> bool{
@@ -890,193 +842,11 @@ impl Mission{
     
     
     
-
-
-    
-
-
-
-    
-    
-    //make the mission of flicking a piece
-    pub fn make_flick_mission(direction: f32, force: f32) -> Mission{
-        
-        let mut toreturn = Mission::default_mission();
-        
-        toreturn.impulses.push( (0,1, Vector3::new( direction.cos()*force, 0.0 , direction.sin()*force )   ) );
-        
-        toreturn
-    }
-    
-    
-    //for pieces
-    pub fn make_lift_mission(relativepos: (f32,f32)) -> Mission{
-        
-        let mut toreturn = Mission::default_mission();
-        
-        //the timesteps at which the states change
-        let lifttomove = 10;
-        let movetodrop = 20;
-        let endtick = 30;
-        
-        
-        let liftphysics = (0, lifttomove, Vector3::new(0.0, 0.1, 0.0)  );
-        toreturn.positionchanges.push( liftphysics );
-        
-        
-        let totalmoveticks = movetodrop - lifttomove;
-        let xchangepertick = relativepos.0 / (totalmoveticks) as f32;
-        let zchangepertick = relativepos.1 / (totalmoveticks) as f32;
-        let movephysics = (lifttomove, movetodrop, Vector3::new(xchangepertick, 0.0, zchangepertick) );
-        toreturn.positionchanges.push(movephysics);
-        
-        
-        let lowerphysics = (movetodrop, endtick, Vector3::new(0.0, -0.1, 0.0) );
-        toreturn.positionchanges.push(lowerphysics);
-        
-        toreturn
-    }
-    
-    //make a slide mission given the relative position for the piece to slide to
-    pub fn make_slide_mission(relativepos: (f32,f32)) -> Mission{
-        
-        let mut toreturn = Mission::default_mission();
-        
-        
-        //get the distance so i can determine how long to make the slide
-        let slidedistance = (relativepos.0 * relativepos.0 + relativepos.1 * relativepos.1).sqrt();
-        
-        //the total amount of ticks
-        let ticks = (slidedistance * 5.0).ceil() as u32;
-        
-        
-        let xchangepertick = relativepos.0 / (ticks) as f32;
-        let zchangepertick = relativepos.1 / (ticks) as f32;
-        
-        
-        let slidephysics = (0, ticks, Vector3::new(xchangepertick, 0.0, zchangepertick) );
-        
-        toreturn.positionchanges.push(slidephysics);        
-        
-        
-        toreturn
-    }
-    
-    
-    //a mission for a boardsquare that drops it then makes it sink from the top back to teh bottom
-    pub fn make_drop_and_loop_around() -> Mission{
-        
-        
-        let mut toreturn = Mission::default_mission();
-        
-        
-        //the object stops dropping
-        //starts moving to the left
-        let enddrop = 3;
-        //the object stops moving to the left
-        //starts raising
-        let endleft = 6;
-        //the object raises up
-        let endraise = 9;
-        //the object comes back to where it was
-        let endright = 12;
-        //the object shoots back down into its original position
-        let endrestore = 21;
-        
-        
-        
-        let dropphysics = (0, enddrop, Vector3::new(0.0, -1.5, 0.0) );
-        toreturn.positionchanges.push(dropphysics);
-        
-        let leftphysics = (enddrop, endleft, Vector3::new(-6.0, 0.0, 0.0) );
-        toreturn.positionchanges.push(leftphysics);
-        
-        let raisephysics = (endleft, endraise, Vector3::new(0.0, 3.0, 0.0) );
-        toreturn.positionchanges.push(raisephysics);
-        
-        let rightphysics = (endraise, endright, Vector3::new(6.0, 0.0, 0.0));
-        toreturn.positionchanges.push(rightphysics);
-        
-        let restorephysics = ( endright, endrestore, Vector3::new(0.0, -0.50, 0.0) );
-        toreturn.positionchanges.push(restorephysics);
-        
-        
-        toreturn
-        
-    }
-    
-    
-    pub fn make_lengthed_drop(ticks: u32) -> Mission{
-        
-        let mut toreturn = Mission::default_mission();
-        
-        
-        //when the object stops dropping
-        let enddrop = 5;
-        let endleft = 10;
-        let waitstillend = 10 + ticks;
-        let restoreend = 10 + ticks + 5;
-        
-        
-        let dropphysics = (0, enddrop, Vector3::new(0.0, -2.0, 0.0) );
-        toreturn.positionchanges.push(dropphysics);
-        
-        //shoot the object to the left so nothing can stay on it
-        let leftphysics = (enddrop, endleft, Vector3::new(-3.0, 0.0, 0.0) );
-        toreturn.positionchanges.push(leftphysics);
-        
-        
-        let waitphysics = (endleft, waitstillend, Vector3::new(0.0, 0.0, 0.0) );
-        toreturn.positionchanges.push(waitphysics);
-        
-        
-        //return the piece back to its original position
-        let restorephysics = (waitstillend, restoreend, Vector3::new(3.0, 2.0, 0.0) );
-        toreturn.positionchanges.push(restorephysics);
-
-
-        toreturn.missiontype = MissionType::DropSquare;
-        
-        
-        toreturn
-    }
-    
-    pub fn make_lengthed_raise(ticks: u32) -> Mission{
-        
-        let mut toreturn = Mission::default_mission();
-        
-        //when the object stops dropping
-        let endraise = 5;
-        let wait = 5 + ticks;
-        let restore = 5 + ticks + 5;
-        
-        
-        let raisephysics = (0, endraise, Vector3::new(0.0, 0.2, 0.0) );
-        toreturn.positionchanges.push(raisephysics);
-        
-        let waitphysics = (endraise, wait, Vector3::new(0.0, 0.0, 0.0) );
-        toreturn.positionchanges.push(waitphysics);
-        
-        //return the piece back to its original position
-        let restorephysics = (wait, restore, Vector3::new(0.0, -0.2, 0.0) );
-        toreturn.positionchanges.push(restorephysics);
-
-        toreturn.missiontype = MissionType::RaiseSquare;
-        
-        
-        toreturn
-    }
-    
-    
-    
-    
-    
     
     pub fn set_default_isometry(&mut self, pos: (f32,f32,f32), rot: (f32,f32,f32)){
         
         self.defaultpos = Some( (pos, rot) );
     }
-    
     
     pub fn get_default_isometry(&self) -> Option<((f32,f32,f32), (f32,f32,f32))>{
         

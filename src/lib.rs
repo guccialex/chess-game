@@ -25,7 +25,7 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum PlayerInput{
-
+    
     //perform an action on a piece
     pieceaction(u16, PieceAction),
     
@@ -56,11 +56,12 @@ pub struct MainGame{
     
     
     
-
+    
     totalticks: u32,
     
-    //the last card effect applied and how long ago it was
-    lastcardeffect: Option<(CardEffect, u32)>,
+    //the list of the last cards played and how many more ticks until that card has
+    //been displayed long enough
+    lastcardeffect: Vec<(CardEffect, i32)>,
     
     //the last input of each player
     queuedinputs: HashMap<u8, Option<PlayerInput>>,
@@ -72,63 +73,66 @@ pub struct MainGame{
 
 impl MainGame{
     
+    
+    fn default_game() -> MainGame{
+        
+        
+        let mut queuedinputs = HashMap::new();
+        queuedinputs.insert(1, None);
+        queuedinputs.insert(2, None);
+        
+        
+        //create a new 2 player game without any pieces or effects
+        MainGame{
+            turnmanager: TurnManager::new_two_player(1, 2),            
+            boardgame: GameEngine::new(1,2),
+            queuedinputs: queuedinputs,
+            
+            totalticks: 0,
+            gameover: None,
+            gameeffects: GameEffects::new(),
+            lastcardeffect: Vec::new(),
+        }
+        
+        
+    }
+    
+    
     //create a game with two players
     pub fn new_two_player(  ) -> MainGame{
         
-        let mut queuedinputs = HashMap::new();
-        queuedinputs.insert(1, None);
-        queuedinputs.insert(2, None);
+        let mut toreturn = MainGame::default_game();
+
         
         
-        //create a new 2 player game        
-        let mut toreturn = MainGame{
-            turnmanager: TurnManager::new_two_player(1, 2),            
-            boardgame: GameEngine::new(1,2),
-            queuedinputs: queuedinputs,
-            
-            totalticks: 0,
-            gameover: None,
-            gameeffects: GameEffects::new(),
-            lastcardeffect: None,
-        };
-
-
         toreturn.apply_card_effect(&1, CardEffect::AddChessPieces);
         toreturn.apply_card_effect(&1, CardEffect::TurnsUntilDrawAvailable(10));
+
+        toreturn.apply_card_effect(&1, CardEffect::LossWithoutKing);
+        toreturn.apply_card_effect(&1, CardEffect::PawnsPromoted);
+        
         
         toreturn        
     }
-
-
-
+    
+    
+    
     //this is what the client calls and the game that it defaults to when not receiving websockets from the server
     pub fn new_solo_game() -> MainGame{
-
-        let mut queuedinputs = HashMap::new();
-        queuedinputs.insert(1, None);
-        queuedinputs.insert(2, None);
         
+        let mut toreturn = MainGame::default_game();
         
-        //create a new 2 player game        
-        let mut toreturn = MainGame{
-            turnmanager: TurnManager::new_two_player(1, 2),            
-            boardgame: GameEngine::new(1,2),
-            queuedinputs: queuedinputs,
-            
-            totalticks: 0,
-            gameover: None,
-            gameeffects: GameEffects::new(),
-            lastcardeffect: None,
-        };
-
 
         toreturn.apply_card_effect(&1, CardEffect::AddChessPieces);
         toreturn.apply_card_effect(&1, CardEffect::TurnsTimed(30));
         toreturn.apply_card_effect(&1, CardEffect::TurnsUntilDrawAvailable(10));
 
+        toreturn.apply_card_effect(&1, CardEffect::PawnsPromoted);
+        toreturn.apply_card_effect(&1, CardEffect::LossWithoutKing);        
+        
+        
         toreturn
     }
-
     
 }
 
@@ -177,30 +181,39 @@ impl MainGame{
         
         
         {   
-            let arepawnspromoted = self.gameeffects.get_pawns_are_promoted();
-            let arekingsreplaced = self.gameeffects.get_kings_replaced();
-
+            let arepawnspromoted = self.gameeffects.get_are_pawns_promoted();
+            let arekingsreplaced = self.gameeffects.get_are_kings_replaced();
+            
             //self.boardgame set raised and removed squares
             
             self.boardgame.tick(arekingsreplaced, arepawnspromoted);
         }
-
-
-
+        
+        
+        
         self.apply_game_effects();
-
-
-
+        
+        
+        
         
         self.set_if_game_is_over();
         
         
         
         
-        
-        if let Some( (_, tickssince) ) = &mut self.lastcardeffect{
-            *tickssince += 1;
+        if let Some( (effect, tickslefttodisplay) ) = &mut self.lastcardeffect.first_mut(){
+            
+            *tickslefttodisplay += -1;
         }
+        
+        if let Some( (effect, tickslefttodisplay) ) = &mut self.lastcardeffect.first().clone(){
+            
+            if tickslefttodisplay <= &0{
+                self.lastcardeffect.remove(0);
+            }
+        }
+        
+        
         
         
         self.totalticks +=1;
@@ -215,97 +228,74 @@ impl MainGame{
         
         
     }
-
-
-
+    
+    
+    
     //apply the effects of the game
     fn apply_game_effects(&mut self){
-
-
-
-
-
-
-
+        
+        
+        
         //if it is a new turn this tick
         if self.turnmanager.did_turn_change(){
-
-
-            self.gameeffects.decrement_turns_until_draw_available();
-
-            self.gameeffects.subtract_raised_squares(1);
             
-            self.gameeffects.subtract_removed_squares(1);
-
-
-
+            
+            self.gameeffects.decrement_turns_until_draw_available();
+            self.gameeffects.decrement_raised_and_dropped_squares();
+            
+            
             let raisedsquares = self.gameeffects.get_raised_squares();
-            let removedsquares = self.gameeffects.get_removed_squares();
-
+            let droppedsquares = self.gameeffects.get_dropped_squares();
+            
             self.boardgame.set_randomly_raised_squares(raisedsquares);
-            self.boardgame.set_randomly_dropped_squares(removedsquares);
-
-
-
+            self.boardgame.set_randomly_dropped_squares(droppedsquares);
+            
+            
             if self.gameeffects.get_knightified(){
                 self.boardgame.knightify();
             }
             else{
                 self.boardgame.unaugment_abilities();
             }
-
-
+            
         }
         
-
-
+        
+        
     }
-
-
-
-
+    
+    
+    
+    
     
     
     fn set_if_game_is_over(&mut self){
-
+        
         //if the game isnt already over
         if self.gameover.is_none(){
-
+            
             if self.gameeffects.get_loss_without_king() == true{
-
+                
                 //if the player doesnt have a king
                 //and neither player has drawn a card yet
-                if ! self.boardgame.does_player_have_king(1){
+                if ! self.boardgame.does_player_have_king(&1){
                     self.gameover = Some(2);
                 }
-                if ! self.boardgame.does_player_have_king(2){
+                if ! self.boardgame.does_player_have_king(&2){
                     self.gameover = Some(1);
                 }
             }
-    
-    
-            if self.gameeffects.get_loss_without_pieces() == true{
-    
-                if ! self.boardgame.does_player_have_pieces(&1){
-                    self.gameover = Some(2);
-                }
-                if ! self.boardgame.does_player_have_pieces(&2){
-                    self.gameover = Some(1);
-                }
-            }
-    
+            
+            
+            if ! self.boardgame.does_player_have_pieces(&1){  self.gameover = Some(2);   }
+            if ! self.boardgame.does_player_have_pieces(&2){  self.gameover = Some(1);   }
+            
             
             //check if either player has no time left on their clock
-            if self.turnmanager.get_players_total_ticks_left(1) == 0{
-                self.gameover = Some(2);
-            }
-            if self.turnmanager.get_players_total_ticks_left(2) == 0{
-                self.gameover = Some(1);
-            }
-    
+            if self.turnmanager.get_players_total_ticks_left(1) == 0{   self.gameover = Some(2);  }
+            if self.turnmanager.get_players_total_ticks_left(2) == 0{   self.gameover = Some(1);  }
+            
         }
-
-    
         
     }
     
@@ -346,74 +336,92 @@ impl MainGame{
     
     fn apply_card_effect(&mut self, playerid: &u8, cardeffect: CardEffect){
         
-
+        
         //set the last card effect if its any effect other than "turns until draw available"
         if let CardEffect::TurnsUntilDrawAvailable(_ ) = cardeffect{
         }
         else{
-            self.lastcardeffect = Some((cardeffect.clone(), 0  ));
+            self.lastcardeffect.push( (cardeffect.clone(), 100  ) );
         }
         
+
+        /*
+        self.gameeffects.remove_card_effect(CardEffect::LossWithoutKing);
+        self.gameeffects.remove_card_effect(CardEffect::PawnsPromoted);
+        */
+
+
         
         match cardeffect{
             
             CardEffect::MakePoolGame => {
                 panic!("pool games not working");
             },
-            CardEffect::BackToBackTurns => {
-               self.gameeffects.set_double_turns();
+            CardEffect::BackToBackTurns 
+            | CardEffect::TurnsTimed(_) 
+            | CardEffect::TurnsUntilDrawAvailable(_) 
+            | CardEffect::Knight 
+            | CardEffect::LossWithoutKing  
+            | CardEffect::PawnsPromoted
+            | CardEffect::KingsReplaced
+            => {
+                self.gameeffects.set_card_effect(cardeffect);
             },
             CardEffect::HalveTimeLeft => {
                 self.turnmanager.halve_time_left();
             },
             CardEffect::RaiseSquares(number) => {    
-                self.gameeffects.add_raised_squares(number );
+                self.gameeffects.set_card_effect(cardeffect);
 
-                let raisedsquares = self.gameeffects.get_raised_squares();
-                self.boardgame.set_randomly_raised_squares(raisedsquares);
+                self.boardgame.set_randomly_raised_squares(  self.gameeffects.get_raised_squares()    );
             },
             CardEffect::RemoveSquares(number) => {    
-                self.gameeffects.add_removed_squares(number);
-
-                let removedsquares = self.gameeffects.get_removed_squares();
-                self.boardgame.set_randomly_dropped_squares(removedsquares);
-            },
-            CardEffect::TurnsTimed(ticks) => {    
-                self.gameeffects.set_turn_length(ticks);
+                self.gameeffects.set_card_effect(cardeffect);
+                
+                self.boardgame.set_randomly_dropped_squares(  self.gameeffects.get_dropped_squares()   );
             },
             CardEffect::AddChessPieces => {
                 self.boardgame.add_chess_pieces();
             },
             CardEffect::AddCheckersPieces => {
+                self.gameeffects.remove_card_effect(CardEffect::PawnsPromoted);
+                self.gameeffects.remove_card_effect(CardEffect::LossWithoutKing);
+
                 self.boardgame.add_checkers_pieces();
             },
-            CardEffect::TurnsUntilDrawAvailable(turns) => {
-                self.gameeffects.set_turns_until_draw_available(turns);
-            },
             CardEffect::SplitPieceIntoPawns =>{
+                self.gameeffects.remove_card_effect(CardEffect::PawnsPromoted);
+                self.gameeffects.remove_card_effect(CardEffect::LossWithoutKing);
 
-                self.boardgame.split_piece_into_pawns();
+                self.boardgame.split_highest_piece_into_pawns();
             },
             CardEffect::Checkerify =>{
+                self.gameeffects.remove_card_effect(CardEffect::PawnsPromoted);
+                self.gameeffects.remove_card_effect(CardEffect::LossWithoutKing);
 
                 self.boardgame.checkerify();
             },
-            CardEffect::Knight => {
+            CardEffect::Chessify =>{
+                self.gameeffects.set_card_effect(CardEffect::PawnsPromoted);
+                self.gameeffects.set_card_effect(CardEffect::LossWithoutKing);
 
-                self.gameeffects.set_knightified();
+
+                self.boardgame.chessify();
             },
 
-
+            
+            
         }
-
-
-
+        
+        
+        
     }
     
     
     
     //perform an input that is valid, and it is the turn of the player
     fn perform_input(&mut self, playerid: &u8, playerinput: &PlayerInput) {
+
         
         
         if let PlayerInput::pieceaction(pieceid, pieceaction) = playerinput {
@@ -422,13 +430,11 @@ impl MainGame{
         }
         else if let PlayerInput::drawcard = playerinput{
             
-            self.gameeffects.card_drawn();
-
             let randomcardeffect = self.gameeffects.get_random_card_effect();
             
             self.apply_card_effect(playerid, randomcardeffect );
-        
-            self.apply_card_effect(playerid, CardEffect::TurnsUntilDrawAvailable(3)  );
+            
+            self.apply_card_effect(playerid, CardEffect::TurnsUntilDrawAvailable(5)  );
         }
         else{
             panic!("unhandled input to be performed {:?}", playerinput);
@@ -477,11 +483,11 @@ impl MainGame{
     
     //is this board game object a square
     pub fn is_board_game_object_square(&self, objectid: u16) -> bool{
-        self.boardgame.is_board_game_object_square(objectid)
+        self.boardgame.is_board_game_object_square(&objectid)
     }
     //is this board game object a piece
     pub fn is_board_game_object_piece(&self, objectid: u16) -> bool{
-        self.boardgame.is_board_game_object_piece(objectid)
+        self.boardgame.is_board_game_object_piece(&objectid)
     }
     
     
@@ -530,7 +536,7 @@ impl MainGame{
     }
     
     
-    pub fn get_board_game_object_ids(&self) -> Vec<u16>{
+    pub fn get_board_game_object_ids(&self) -> HashSet<u16>{
         self.boardgame.get_object_ids()
     }
     
@@ -571,8 +577,7 @@ impl MainGame{
         
         for objectid in boardobjectids{
             
-            let position = self.boardgame.get_object_translation(objectid);
-            let rotation = self.boardgame.get_object_rotation(objectid);
+            let (position, rotation) = self.boardgame.get_object_isometry(&objectid);
             
             let isonmission = self.boardgame.is_object_on_mission(objectid);
             
@@ -580,7 +585,7 @@ impl MainGame{
                 
                 let visiblegamepiece = VisibleGamePieceObject{
                     owner: self.boardgame.get_owner_of_piece(objectid),
-                    typename: self.boardgame.get_piece_type_name(objectid),
+                    typename: self.boardgame.get_piece_image_location(objectid),
                 };
                 
                 let boardobject = VisibleGameBoardObject{
@@ -596,7 +601,7 @@ impl MainGame{
             else if self.is_board_game_object_square(objectid){
                 
                 let visiblegamesquare = VisibleGameSquareObject{
-                    iswhite: self.boardgame.is_boardsquare_white(objectid),
+                    iswhite: self.boardgame.is_boardsquare_white(&objectid),
                 };
                 
                 let boardobject = VisibleGameBoardObject{
@@ -613,11 +618,22 @@ impl MainGame{
         }
         
         
+        let lastcard;
+        
+        if let Some( (lastcardeffect, _) ) = &self.lastcardeffect.first(){
+            
+            lastcard = Some( lastcardeffect.clone() );
+        }
+        else{
+            lastcard = None;
+        }
+        
+        
         
         VisibleGameState{
             
             isgameover: self.gameover,
-
+            
             turnsuntildrawavailable: self.gameeffects.get_turns_until_draw_available(),
             
             player1totalticksleft: self.turnmanager.get_players_total_ticks_left(1),
@@ -634,7 +650,7 @@ impl MainGame{
             
             gameeffects: self.gameeffects.clone(),
             
-            lastcardeffect: self.lastcardeffect.clone(),
+            lastcardeffect: lastcard,
             
         }
         
@@ -643,8 +659,8 @@ impl MainGame{
     
     //the actions allowed by the piece and the objects it captures or lands on
     pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec< (PieceAction, Vec<u16> ) >){
-    
-        self.boardgame.get_piece_valid_actions_and_targets(pieceid)
+        
+        self.boardgame.get_piece_valid_actions_and_targets(&pieceid)
     }
     
     
@@ -687,8 +703,8 @@ pub struct VisibleGameState{
     pub gameeffects: GameEffects,
     
     
-    //the most recent card effect applied, and how long since
-    pub lastcardeffect: Option< (CardEffect, u32) >,    
+    //the most recent card effect applied
+    pub lastcardeffect: Option< CardEffect >,    
     
     
 }
