@@ -1,37 +1,9 @@
-
-
-/*
-//the perspective to the 
-fn perspective_to_float_rotation(perspective: &u8) -> f32{
-    
-    return (*perspective as f32) / 10.0;
-}
-*/
-
-/*
-objective boardsquare functions:
-
-new (0-7 are valid numbers)
-new from perspective
-from physical pos
-to physical pos
-get pos
-add relative pos
-
-
-relative boardsquare functions:
-
-new (positive & negative numbers +- 7)
-new from perspective (calculated differently than objective)
-get pos
-*/
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
 pub struct RelativeSquare{
     
-    relativepos: (i8,i8),
-    
+    relativepos: (i8,i8),    
 }
 
 impl RelativeSquare{
@@ -49,13 +21,14 @@ impl RelativeSquare{
         return None;
     }
     
-    pub fn new_from_perspective( relativepos: (i8,i8), perspectiverotation: f32) -> Option<RelativeSquare>{
+    pub fn new_from_perspective( relativepos: (i8,i8), perspectiverotation: f32 ) -> Option<RelativeSquare>{
         
         let floatpoint = (relativepos.0 as f32 , relativepos.1 as f32 );
         
         let rotrelposfloat = orthogonal_rotation::ortho_rotate_point_at_point(floatpoint, (0.0, 0.0) , perspectiverotation);
         
         let rotrelposi8 = (rotrelposfloat.0.round() as i8, rotrelposfloat.1.round() as i8);
+        
         
         return RelativeSquare::new( rotrelposi8 );
     }

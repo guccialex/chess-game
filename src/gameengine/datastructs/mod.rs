@@ -142,48 +142,37 @@ impl PieceAction{
         match *self{
             
             PieceAction::liftandmove( relativepos ) => {
-                
                 return Some( RelativeSquare::new(relativepos).unwrap()  );
             },
             PieceAction::slide( _,_ ) | PieceAction::capturelessslide(_,_)=> {
-                
                 return None;
             },
             PieceAction::checkerscapture(direction) => {
-                
                 return Some( RelativeSquare::new_from_perspective( (0,2), direction ).unwrap() );
             },
             PieceAction::flick(_,_) => {
                 return None;
             },
         }
-        
     }
     
     pub fn get_slide_forces(&self) -> Option<RelativeSquare>{
         
-        
         match *self{
             
             PieceAction::liftandmove( relativepos ) => {
-                
                 return None;
             },
             PieceAction::slide( rotation, distance ) | PieceAction::capturelessslide( rotation, distance) => {
-                
                 return RelativeSquare::new_from_perspective( (0, distance as i8), rotation );
-            
             },
             PieceAction::checkerscapture(direction) => {
-                
                 return None;
             },
             PieceAction::flick(_,_) => {
                 return None;
             },
         }
-        
-        
     }
     
     pub fn get_flick_forces(&self) -> Option<(f32,f32)> {
