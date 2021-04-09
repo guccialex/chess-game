@@ -410,6 +410,7 @@ impl GameEngine{
             }
             
             
+            
             self.create_piece(
                 BoardSquarePosID::new_from_perspective((0, 0), perspective).unwrap(),
                 playerx,
