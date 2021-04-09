@@ -8,7 +8,7 @@ use gameengine::GameEngine;
 
 //pub use gameengine::GameEngine::is_board_game_object_square;
 
-pub use gameengine::PieceAction;
+pub use gameengine::FullAction;
 
 
 mod datastructs;
@@ -27,7 +27,7 @@ use serde::{Serialize, Deserialize};
 pub enum PlayerInput{
     
     //perform an action on a piece
-    pieceaction(u16, PieceAction),
+    pieceaction(u16, FullAction),
     
     //draw card from the deck
     drawcard,
@@ -308,7 +308,9 @@ impl MainGame{
     fn is_input_valid(&self, playerid: &u8, input: &PlayerInput) -> bool{
         
         if let PlayerInput::pieceaction(pieceid, pieceaction) = input.clone(){
-            return self.is_piece_action_valid( &(pieceid as u16), &pieceaction);
+
+            return self.boardgame.is_action_allowed(&pieceaction, &pieceid);
+            //return self.is_piece_action_valid( &(pieceid as u16), &pieceaction);
         }
         
         else if let PlayerInput::drawcard = input{
@@ -318,15 +320,6 @@ impl MainGame{
         //if any of the cases are missed
         panic!(" why isnt this case dealt with? ");
     }
-    
-    
-    
-    
-    fn is_piece_action_valid(&self, pieceid: &u16,  pieceaction: &PieceAction) -> bool{
-        
-        self.boardgame.is_action_allowed(pieceaction, pieceid)
-    }
-    
     
     
     
@@ -443,52 +436,14 @@ impl MainGame{
     }
     
     
-    
-    
-    
-    
-}
-
-
-
-
-
-//i am adopting the idea that if a function is a single line and only called in one other place
-//even if theres a potential for the way of that value being determined, you should probably get rid of that function
-
-
-
-
-
-
-
-
-
-
-//getters
-//NONE OF THE FUNCTIONS IN THE FIRST IMPL BLOCK SHOULD RELY ON THESE FUNCTIONS
-//the functions the user interfaces
-//generally these two groups of functions dont depend on each other
-impl MainGame{
-    
-    
-    
-    
     //can a player do a draw card action
     fn can_player_draw(& self, playerid: &u8) -> bool{
         
         self.gameeffects.is_draw_available()
     }
-    
-    
-    //is this board game object a square
-    pub fn is_board_game_object_square(&self, objectid: u16) -> bool{
-        self.boardgame.is_board_game_object_square(&objectid)
-    }
-    //is this board game object a piece
-    pub fn is_board_game_object_piece(&self, objectid: u16) -> bool{
-        self.boardgame.is_board_game_object_piece(&objectid)
-    }
+
+
+
     
     
     //get the state of the game as a string
@@ -497,7 +452,6 @@ impl MainGame{
         let binstate = bincode::serialize(&self).unwrap();        
         let vecofchar = binstate.iter().map(|b| *b as char).collect::<Vec<_>>();
         let stringstate = vecofchar.iter().collect::<String>();
-        
         
         stringstate
     }
@@ -535,11 +489,7 @@ impl MainGame{
         return Err( () );
     }
     
-    
-    pub fn get_board_game_object_ids(&self) -> HashSet<u16>{
-        self.boardgame.get_object_ids()
-    }
-    
+
     
     //get the input that a player sends and set it to be performed next tick
     //return whether this input is valid for this player to have queued
@@ -560,72 +510,51 @@ impl MainGame{
     }
     
     
-    pub fn get_board_game_object_owner(&self, objectid: u16) -> Option<u8>{
-        
-        Some(self.boardgame.get_owner_of_piece(objectid))
-    }
+
+
+
+
     
+
+    
+    //the actions allowed by the piece and the objects it captures or lands on
+    pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec< (FullAction, Vec<u16> ) >){
+        
+        self.boardgame.get_piece_valid_actions_and_targets(&pieceid)
+    }
+
+
+
+
+    pub fn is_object_selectable(&self, playerid: &u8, objectid: &u16) -> bool{
+
+        return self.boardgame.does_player_own_object(playerid, objectid);
+    }
+
+
     
     //get the state of the game
     pub fn get_visible_game_state(&self, playerid: &u8) -> VisibleGameState{
         
         
-        let mut boardobjects = Vec::new();
-        
-        
-        let boardobjectids = self.get_board_game_object_ids();
-        
-        for objectid in boardobjectids{
-            
-            let (position, rotation) = self.boardgame.get_object_isometry(&objectid);
-            
-            let isonmission = self.boardgame.is_object_on_mission(objectid);
-            
-            if self.is_board_game_object_piece(objectid){
-                
-                let visiblegamepiece = VisibleGamePieceObject{
-                    owner: self.boardgame.get_owner_of_piece(objectid),
-                    typename: self.boardgame.get_piece_image_location(objectid),
-                };
-                
-                let boardobject = VisibleGameBoardObject{
-                    position: position,
-                    rotation: rotation,
-                    id: objectid,
-                    isonmission: isonmission,
-                    objecttype: VisibleGameObjectType::Piece(visiblegamepiece),
-                };
-                
-                boardobjects.push(boardobject);
-            }
-            else if self.is_board_game_object_square(objectid){
-                
-                let visiblegamesquare = VisibleGameSquareObject{
-                    iswhite: self.boardgame.is_boardsquare_white(&objectid),
-                };
-                
-                let boardobject = VisibleGameBoardObject{
-                    position: position,
-                    rotation: rotation,
-                    id: objectid,
-                    isonmission: isonmission,
-                    objecttype: VisibleGameObjectType::Square(visiblegamesquare),
-                };
-                
-                boardobjects.push(boardobject);
-            }
-            
-        }
-        
         
         let lastcard;
         
         if let Some( (lastcardeffect, _) ) = &self.lastcardeffect.first(){
-            
             lastcard = Some( lastcardeffect.clone() );
         }
         else{
             lastcard = None;
+        }
+
+
+        let mut activeturnsandlength: HashMap<u8, u32> = HashMap::new();
+
+        for activeplayer in self.turnmanager.get_current_players(){
+
+            let ticksleft = self.turnmanager.get_ticks_left_for_players_turn(activeplayer);
+
+            activeturnsandlength.insert( activeplayer, ticksleft );
         }
         
         
@@ -644,26 +573,15 @@ impl MainGame{
             
             player2ticksleft: self.turnmanager.get_ticks_left_for_players_turn(2),
             
-            playerswithactiveturns: self.turnmanager.get_current_players(),
+            playerswithactiveturns: activeturnsandlength,
             
-            boardobjects: boardobjects,
+            boardobjects: self.boardgame.get_visible_board_game(),
             
             gameeffects: self.gameeffects.clone(),
             
             lastcardeffect: lastcard,
-            
         }
-        
     }
-    
-    
-    //the actions allowed by the piece and the objects it captures or lands on
-    pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec< (PieceAction, Vec<u16> ) >){
-        
-        self.boardgame.get_piece_valid_actions_and_targets(&pieceid)
-    }
-    
-    
 }
 
 
@@ -671,6 +589,9 @@ impl MainGame{
 
 
 
+
+pub use gameengine::VisibleGameBoardObject;
+pub use gameengine::VisibleGameObjectType;
 
 
 
@@ -680,7 +601,6 @@ pub struct VisibleGameState{
     
     //has either player won
     pub isgameover: Option<u8>,
-    
     
     //the deck
     //whether the move is available
@@ -693,77 +613,16 @@ pub struct VisibleGameState{
     pub player2ticksleft: u32,
     
     //the players whos turn it is right now
-    pub playerswithactiveturns: HashSet<u8>,
-    
-    
-    pub boardobjects: Vec<VisibleGameBoardObject>,
-    
+    //and how much ticks they have left for their turn
+    pub playerswithactiveturns: HashMap<u8, u32>,
     
     //the effects currently applied to the game
     pub gameeffects: GameEffects,
     
-    
     //the most recent card effect applied
     pub lastcardeffect: Option< CardEffect >,    
     
-    
-}
-
-impl VisibleGameState{
-    
-    
-    pub fn get_piece_plane_position(&self, id: u16) -> Option< (f32,f32) >{
-        
-        for curobject in &self.boardobjects{
-            
-            if id == curobject.id{
-                
-                return Some( (curobject.rotation.0, curobject.rotation.2) );
-                
-            }
-        }
-        
-        None
-    }
-    
-}
-
-pub struct VisibleGameBoardObject{
-    
-    pub position: (f32,f32,f32),
-    
-    pub rotation: (f32,f32,f32),
-    
-    pub id: u16,
-    
-    pub isonmission: bool,
-    
-    pub objecttype: VisibleGameObjectType,
-    
-}
-
-
-#[derive(Eq, PartialEq)]
-pub enum VisibleGameObjectType{
-    
-    Piece(VisibleGamePieceObject),
-    Square(VisibleGameSquareObject),
-}
-
-#[derive(Eq, PartialEq)]
-pub struct VisibleGamePieceObject{
-    
-    pub owner: u8,
-    
-    pub typename: String,
-    
-}
-
-#[derive(Eq, PartialEq)]
-pub struct VisibleGameSquareObject{
-    
-    pub iswhite: bool,
-    
+    pub boardobjects: Vec<VisibleGameBoardObject>,
 }
 
 

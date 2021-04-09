@@ -23,7 +23,7 @@ rand = {version = "0.7.3", features = [ "wasm-bindgen" ] }
 
 bincode = "1.3.2"
 
-orthogonal-rotation = "0.0.9"
+orthogonal-rotation = "*"#{ path = "../orthogonal_rotation" }
 
 
 

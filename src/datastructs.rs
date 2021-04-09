@@ -65,7 +65,11 @@ pub enum CardEffect{
     PawnsPromoted,
     
     
-    
+    //how about a card that lets all pieces capture THROUGH all pieces
+    //like all capture slides can go as far as wanted
+    //a card that skews each movement like half of a 1/8th rotation
+
+
     
     //set the rules to 
     
@@ -97,13 +101,13 @@ impl CardEffect{
         let mut jokereffects = Vec::new();
         
         
-        //jokereffects.push(CardEffect::BackToBackTurns);
-        //jokereffects.push(CardEffect::HalveTimeLeft);
+        jokereffects.push(CardEffect::BackToBackTurns);
+        jokereffects.push(CardEffect::HalveTimeLeft);
         //jokereffects.push(CardEffect::MakePoolGame);
-        //jokereffects.push(CardEffect::TurnsTimed(30) );
-        //jokereffects.push(CardEffect::RaiseSquares(7));
-        //jokereffects.push(CardEffect::RemoveSquares(7));
-        //jokereffects.push(CardEffect::SplitPieceIntoPawns);
+        jokereffects.push(CardEffect::TurnsTimed(30) );
+        jokereffects.push(CardEffect::RaiseSquares(7));
+        jokereffects.push(CardEffect::RemoveSquares(7));
+        jokereffects.push(CardEffect::SplitPieceIntoPawns);
         jokereffects.push(CardEffect::Checkerify);
         jokereffects.push(CardEffect::Chessify );
         jokereffects.push(CardEffect::Knight);
@@ -700,7 +704,6 @@ impl TurnManager{
     //if it is this players turn, return how many ticks they have left in their turn
     pub fn get_ticks_left_for_players_turn(&self, playerid: u8) -> u32{
         
-        
         let (curplayerid, turnlength, _) = self.turns.get(&self.currentturn).unwrap();
         
         if playerid == *curplayerid{
@@ -710,7 +713,6 @@ impl TurnManager{
         };
         
         return 0;
-        
     }
     
     
@@ -726,27 +728,19 @@ impl TurnManager{
             else{
                 return *ticksleft as u32;
             }
-            
         }
         
         panic!("this player doesnt have a total ticks count");
     }
-    
-    
-    
+
+
     pub fn halve_time_left(&mut self){
-        
         
         for (player, timeleft) in self.playertimeleft.iter_mut(){
             
             *timeleft = *timeleft / 2;
         }
-        
-        
     }
-    
-    
-    
     
 }
 

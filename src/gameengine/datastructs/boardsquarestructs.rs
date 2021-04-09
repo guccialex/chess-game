@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone, Debug)]
 pub struct RelativeSquare{
     
     relativepos: (i8,i8),    
@@ -23,29 +23,22 @@ impl RelativeSquare{
     
     pub fn new_from_perspective( relativepos: (i8,i8), perspectiverotation: f32 ) -> Option<RelativeSquare>{
         
-        let floatpoint = (relativepos.0 as f32 , relativepos.1 as f32 );
+        let rotpos = orthogonal_rotation::ortho_rotate_i8_point_at_point(relativepos , (0,0), perspectiverotation);
         
-        let rotrelposfloat = orthogonal_rotation::ortho_rotate_point_at_point(floatpoint, (0.0, 0.0) , perspectiverotation);
-        
-        let rotrelposi8 = (rotrelposfloat.0.round() as i8, rotrelposfloat.1.round() as i8);
-        
-        
-        return RelativeSquare::new( rotrelposi8 );
+        return RelativeSquare::new( rotpos );
     }
     
     pub fn get_relative_pos(&self) -> (i8,i8){
         
         return self.relativepos;
     }
-
-
+    
+    
     //maybe pass in the offset this piece is from the square its on?
     pub fn to_relative_float(&self) -> (f32,f32){
-
+        
         (self.relativepos.0 as f32, self.relativepos.1 as f32)
-
     }
-
 
 }
 
@@ -59,26 +52,24 @@ pub struct BoardSquarePosID{
 }
 
 impl BoardSquarePosID{
-
-
-
-
+    
     pub fn get_range_on_self(&self) -> ((f32,f32),(f32,f32),(f32,f32)){
-
+        
         let pos = self.to_physical_pos();
-
         let xrange = (pos.0 - 0.5, pos.0 + 0.5);
-
         let yrange = (-10.0, 10.0);
-
         let zrange = (pos.1 - 0.5, pos.1 + 0.5);
-
-
+            
         return (xrange, yrange, zrange);
     }
-
-
     
+
+    pub fn is_white(&self) -> bool{
+
+        ((self.pos.0 + self.pos.1) % 2) == 0
+
+    }
+
     pub fn new( pos: (i8,i8) ) -> Option<BoardSquarePosID>{
         
         //if its in range, return those integers, otherwise return none
@@ -96,15 +87,13 @@ impl BoardSquarePosID{
     
     pub fn new_from_perspective( pos: (i8,i8), perspectiverotation: f32) -> Option<BoardSquarePosID>{
         
-        
-        let floatpoint = (pos.0 as f32 , pos.1 as f32 );
-        
-        //the center of the board is at pos 
-        let rotrelposfloat = orthogonal_rotation::ortho_rotate_point_at_point(floatpoint, (3.5, 3.5) , perspectiverotation);
-        
-        let rotrelposi8 = (rotrelposfloat.0.round() as i8, rotrelposfloat.1.round() as i8);
-        
-        return BoardSquarePosID::new( rotrelposi8 );
+        let rotpos = orthogonal_rotation::ortho_rotate_i8_point_at_bot_left_of_point(
+            pos, (4,4), perspectiverotation
+        );
+
+        //panic!("the points {:?}, to {:?}, rotamount{:?}", pos, rotpos, perspectiverotation);
+
+        return BoardSquarePosID::new( rotpos );
     }
     
     pub fn from_physical_pos( fpos: (f32,f32) ) -> Option<BoardSquarePosID>{
