@@ -49,7 +49,12 @@ pub struct FullAction{
 
     squaresdropped: HashSet<( RelativeSquare, u32 )>,
 
+    //the squares that are captured
+
+    capturedsquares: HashSet<RelativeSquare>,
+
     conditions: HashSet<( RelativeSquare, SquareCondition )>,
+
 
 
     //flick force to apply to the piece
@@ -70,14 +75,18 @@ impl FullAction{
 
 
         let mut conditions = HashSet::new();
-        conditions.insert(  (opponentsposition, SquareCondition::OpponentRequired)  );
+        conditions.insert(  (opponentsposition.clone(), SquareCondition::OpponentRequired)  );
         conditions.insert(  (destinationposition.clone(), SquareCondition::EmptyRequired)  );
 
+        let mut capturedsquares = HashSet::new();
+        capturedsquares.insert(opponentsposition.clone());
 
         FullAction{
             destination: Some( (destinationposition, TypeOfMovement::Lift) ),
 
             squaresdropped: squaresdropped,
+
+            capturedsquares: capturedsquares,
 
             conditions: conditions,
 
@@ -129,6 +138,9 @@ impl FullAction{
             }
         }
 
+        
+        let mut capturedsquares = HashSet::new();
+        capturedsquares.insert(destinationposition.clone().unwrap());
 
         FullAction{
             destination: Some( (destinationposition.unwrap(), TypeOfMovement::Slide) ),
@@ -136,6 +148,8 @@ impl FullAction{
             squaresdropped: squaresdropped,
 
             conditions: conditions,
+
+            capturedsquares: capturedsquares,
 
             force: None,
         }
@@ -150,6 +164,8 @@ impl FullAction{
 
             conditions: HashSet::new(),
 
+            capturedsquares: HashSet::new(),
+
             force: Some( (*direction, *force) ),
         }
     }
@@ -162,12 +178,18 @@ impl FullAction{
         let mut conditions = HashSet::new();
         conditions.insert( (destinationsquare.clone(), SquareCondition::NoneFriendlyRequired) );
 
+        
+        let mut capturedsquares = HashSet::new();
+        capturedsquares.insert(destinationsquare.clone());
+
         FullAction{
             destination: Some( (destinationsquare.clone(), TypeOfMovement::Lift) ),
 
             squaresdropped: squaresdropped,
 
             conditions: conditions,
+            
+            capturedsquares: capturedsquares,
 
             force: None,
         }
@@ -189,6 +211,12 @@ impl FullAction{
         self.squaresdropped.clone()
     }
 
+    pub fn get_squares_captured(&self) -> HashSet<RelativeSquare>{
+
+        self.capturedsquares.clone()
+
+    }
+
     pub fn get_flick_forces(&self) -> Option<(f32,f32)> {
         
         self.force
@@ -205,6 +233,7 @@ impl FullAction{
 
         return None;
     }
+
 
     pub fn get_conditions(&self) -> HashSet<( RelativeSquare, SquareCondition )>{
 
@@ -265,7 +294,7 @@ impl PieceType{
             PieceType::Bishop => 3,
             PieceType::Rook => 4,
             PieceType::Queen => 5,
-            PieceType::King => 1,
+            PieceType::King => 12,
             PieceType::Checker => 2,
         }
     }
@@ -440,7 +469,6 @@ impl PieceType{
         }
     }
 
-
     
     fn is_action_valid(&self, ownerdirection: &f32, hasmoved: &bool, action: &FullAction) -> bool{
         
@@ -453,8 +481,6 @@ impl PieceType{
         return false;
     }
     
-
-
 }
 
 
@@ -491,7 +517,7 @@ impl PieceData{
             piecetype: PieceType::Nothing,
             augmented: HashSet::new(),
             hasmoved: false,
-            value: 0,
+            value: 1,
         }
     }
 
@@ -586,18 +612,3 @@ impl PieceData{
 
 
 
-
-
-/*
-//theres piece data
-all information about a certain piece
-call to get all actions valid
-
-//actions
-what an action does, and what its conditions are
-
-//type
-The name of the piece
-And the actions associated with each piece
-
-*/

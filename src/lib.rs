@@ -55,8 +55,6 @@ pub struct MainGame{
     
     
     
-    
-    
     totalticks: u32,
     
     //the list of the last cards played and how many more ticks until that card has
@@ -68,6 +66,14 @@ pub struct MainGame{
     
     //if the game is finished, and who the winner is
     gameover: Option<u8>,
+    
+    
+    //what players if any, have their actions performed automatically by an ai
+    aiplayer: HashSet<u8>,
+
+
+    //the tick number that the last action was performed
+    sincelastaction: u32,
 }
 
 
@@ -92,8 +98,12 @@ impl MainGame{
             gameover: None,
             gameeffects: GameEffects::new(),
             lastcardeffect: Vec::new(),
+            
+            
+            aiplayer: HashSet::new(),
+
+            sincelastaction: 10000,
         }
-        
         
     }
     
@@ -102,12 +112,11 @@ impl MainGame{
     pub fn new_two_player(  ) -> MainGame{
         
         let mut toreturn = MainGame::default_game();
-
         
         
         toreturn.apply_card_effect(&1, CardEffect::AddChessPieces);
         toreturn.apply_card_effect(&1, CardEffect::TurnsUntilDrawAvailable(10));
-
+        
         toreturn.apply_card_effect(&1, CardEffect::LossWithoutKing);
         toreturn.apply_card_effect(&1, CardEffect::PawnsPromoted);
         
@@ -122,14 +131,18 @@ impl MainGame{
         
         let mut toreturn = MainGame::default_game();
         
-
-        toreturn.apply_card_effect(&1, CardEffect::AddChessPieces);
-        toreturn.apply_card_effect(&1, CardEffect::TurnsTimed(30));
-        toreturn.apply_card_effect(&1, CardEffect::TurnsUntilDrawAvailable(10));
-
-        toreturn.apply_card_effect(&1, CardEffect::PawnsPromoted);
-        toreturn.apply_card_effect(&1, CardEffect::LossWithoutKing);        
         
+        toreturn.apply_card_effect(&1, CardEffect::AddChessPieces);
+        //toreturn.apply_card_effect(&1, CardEffect::TurnsTimed(60));
+        toreturn.apply_card_effect(&1, CardEffect::TurnsUntilDrawAvailable(10));
+        
+        toreturn.apply_card_effect(&1, CardEffect::PawnsPromoted);
+        toreturn.apply_card_effect(&1, CardEffect::LossWithoutKing);    
+        
+        
+        //player 1 is AI
+        toreturn.aiplayer.insert(2);
+        //toreturn.aiplayer.insert(1);
         
         toreturn
     }
@@ -140,7 +153,6 @@ impl MainGame{
 
 //THE METHODS REQUIRED FOR THE TICK METHOD
 impl MainGame{ 
-    
     
     
     //get what pieces are captures in the game engine and remove them from here
@@ -227,8 +239,34 @@ impl MainGame{
         }
         
         
+        
+        
+        
+        //for each player that is controlled by an AI
+        for playerid in self.aiplayer.clone().iter(){
+            
+            //if its been 30 seconds since the last tick
+            //and its this players turn
+            if self.sincelastaction > 60{
+
+                if self.turnmanager.get_current_players().contains(playerid){
+
+                    if self.totalticks % 10 == 0{
+
+                        let action = self.boardgame.get_best_fullaction_for_player(playerid);
+                    
+                        let input = PlayerInput::pieceaction( action.0, action.1);
+                        
+                        self.receive_input(*playerid, input);     
+                    }    
+                }
+            }
+        }
+
+
+        self.sincelastaction +=1;
+        
     }
-    
     
     
     //apply the effects of the game
@@ -266,9 +304,6 @@ impl MainGame{
     
     
     
-    
-    
-    
     fn set_if_game_is_over(&mut self){
         
         //if the game isnt already over
@@ -302,13 +337,12 @@ impl MainGame{
     
     
     
-    
     //check if input is valid rather than just if the action is
     //if the player is the one sending the request or some shit like that i guess
     fn is_input_valid(&self, playerid: &u8, input: &PlayerInput) -> bool{
         
         if let PlayerInput::pieceaction(pieceid, pieceaction) = input.clone(){
-
+            
             return self.boardgame.is_action_allowed(&pieceaction, &pieceid);
             //return self.is_piece_action_valid( &(pieceid as u16), &pieceaction);
         }
@@ -325,8 +359,6 @@ impl MainGame{
     
     
     
-    
-    
     fn apply_card_effect(&mut self, playerid: &u8, cardeffect: CardEffect){
         
         
@@ -337,13 +369,13 @@ impl MainGame{
             self.lastcardeffect.push( (cardeffect.clone(), 100  ) );
         }
         
-
+        
         /*
         self.gameeffects.remove_card_effect(CardEffect::LossWithoutKing);
         self.gameeffects.remove_card_effect(CardEffect::PawnsPromoted);
         */
-
-
+        
+        
         
         match cardeffect{
             
@@ -365,7 +397,7 @@ impl MainGame{
             },
             CardEffect::RaiseSquares(number) => {    
                 self.gameeffects.set_card_effect(cardeffect);
-
+                
                 self.boardgame.set_randomly_raised_squares(  self.gameeffects.get_raised_squares()    );
             },
             CardEffect::RemoveSquares(number) => {    
@@ -379,29 +411,29 @@ impl MainGame{
             CardEffect::AddCheckersPieces => {
                 self.gameeffects.remove_card_effect(CardEffect::PawnsPromoted);
                 self.gameeffects.remove_card_effect(CardEffect::LossWithoutKing);
-
+                
                 self.boardgame.add_checkers_pieces();
             },
             CardEffect::SplitPieceIntoPawns =>{
                 self.gameeffects.remove_card_effect(CardEffect::PawnsPromoted);
                 self.gameeffects.remove_card_effect(CardEffect::LossWithoutKing);
-
+                
                 self.boardgame.split_highest_piece_into_pawns();
             },
             CardEffect::Checkerify =>{
                 self.gameeffects.remove_card_effect(CardEffect::PawnsPromoted);
                 self.gameeffects.remove_card_effect(CardEffect::LossWithoutKing);
-
+                
                 self.boardgame.checkerify();
             },
             CardEffect::Chessify =>{
                 self.gameeffects.set_card_effect(CardEffect::PawnsPromoted);
                 self.gameeffects.set_card_effect(CardEffect::LossWithoutKing);
-
-
+                
+                
                 self.boardgame.chessify();
             },
-
+            
             
             
         }
@@ -414,9 +446,10 @@ impl MainGame{
     
     //perform an input that is valid, and it is the turn of the player
     fn perform_input(&mut self, playerid: &u8, playerinput: &PlayerInput) {
+        
+        
+        self.sincelastaction = 0;
 
-        
-        
         if let PlayerInput::pieceaction(pieceid, pieceaction) = playerinput {
             
             self.boardgame.perform_action( *pieceid, pieceaction.clone() );
@@ -441,9 +474,7 @@ impl MainGame{
         
         self.gameeffects.is_draw_available()
     }
-
-
-
+    
     
     
     //get the state of the game as a string
@@ -489,7 +520,7 @@ impl MainGame{
         return Err( () );
     }
     
-
+    
     
     //get the input that a player sends and set it to be performed next tick
     //return whether this input is valid for this player to have queued
@@ -510,28 +541,22 @@ impl MainGame{
     }
     
     
-
-
-
-
-    
-
     
     //the actions allowed by the piece and the objects it captures or lands on
     pub fn get_actions_allowed_by_piece(&self, pieceid: u16) -> (bool, Vec< (FullAction, Vec<u16> ) >){
         
         self.boardgame.get_piece_valid_actions_and_targets(&pieceid)
     }
-
-
-
-
+    
+    
+    
+    
     pub fn is_object_selectable(&self, playerid: &u8, objectid: &u16) -> bool{
-
+        
         return self.boardgame.does_player_own_object(playerid, objectid);
     }
-
-
+    
+    
     
     //get the state of the game
     pub fn get_visible_game_state(&self, playerid: &u8) -> VisibleGameState{
@@ -546,14 +571,14 @@ impl MainGame{
         else{
             lastcard = None;
         }
-
-
+        
+        
         let mut activeturnsandlength: HashMap<u8, u32> = HashMap::new();
-
+        
         for activeplayer in self.turnmanager.get_current_players(){
-
+            
             let ticksleft = self.turnmanager.get_ticks_left_for_players_turn(activeplayer);
-
+            
             activeturnsandlength.insert( activeplayer, ticksleft );
         }
         

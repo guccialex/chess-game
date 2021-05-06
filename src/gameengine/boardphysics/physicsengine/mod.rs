@@ -1,4 +1,4 @@
-use rapier3d::dynamics::{JointSet, RigidBodySet, IntegrationParameters};
+use rapier3d::dynamics::{CCDSolver, JointSet, RigidBodySet, IntegrationParameters};
 use rapier3d::geometry::{BroadPhase, NarrowPhase, ColliderSet};
 use rapier3d::pipeline::PhysicsPipeline;
 
@@ -38,6 +38,7 @@ pub struct RapierPhysicsWrapper{
     colliders: ColliderSet,
     joints: JointSet,
     
+    ccdsolver: CCDSolver,
     
     //objectid to its rigidbody handle
     bodyhandles: HashMap<u16, RigidBodyHandle>,
@@ -92,7 +93,7 @@ impl RapierPhysicsWrapper{
         
         integration_parameters.warmstart_coeff = 1.0;
         integration_parameters.max_ccd_substeps = 10;
-        integration_parameters.multiple_ccd_substep_sensor_events_enabled = true;
+        //integration_parameters.multiple_ccd_substep_sensor_events_enabled = true;
         integration_parameters.set_inv_dt(30.0);
         
         
@@ -106,6 +107,7 @@ impl RapierPhysicsWrapper{
             bodies: bodies,
             colliders: colliders,
             joints: joints,
+            ccdsolver: CCDSolver::new(),
             
             bodyhandles: HashMap::new(),
             shapehandles: HashMap::new(),
@@ -455,7 +457,7 @@ impl RapierPhysicsWrapper{
         
         let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
         
-        rigidbody.body_status = BodyStatus::Static;
+        rigidbody.set_body_status(BodyStatus::Static) ;
     }
     
     
@@ -463,6 +465,8 @@ impl RapierPhysicsWrapper{
     pub fn tick(&mut self){
         
         self.tick_missions();
+
+        let mut oldstatus = HashMap::new();
         
         //make the object static for the objects it should be static for this tick
         for objid in &self.no_gravity_for_tick{
@@ -470,6 +474,11 @@ impl RapierPhysicsWrapper{
             let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
             
             rigidbody.set_gravity_scale(0.0, false);
+
+            oldstatus.insert( objid , rigidbody.body_status() );
+
+            rigidbody.set_body_status(BodyStatus::Static) ;
+
             
         }
         
@@ -485,6 +494,7 @@ impl RapierPhysicsWrapper{
             &mut self.bodies,
             &mut self.colliders,
             &mut self.joints,
+            &mut self.ccdsolver,
             &(),
             &(),
         );
@@ -496,6 +506,8 @@ impl RapierPhysicsWrapper{
             let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
             
             rigidbody.set_gravity_scale(1.0, false);
+            
+            rigidbody.set_body_status( *oldstatus.get(objid).unwrap() );
         };
         
         
@@ -509,17 +521,16 @@ impl RapierPhysicsWrapper{
     
     fn does_object_with_id_exist(&self, id: &u16) -> bool{
         
-        let rbhandle = self.bodyhandles.get(id).unwrap();
-        
-        if let Some(_) = self.bodies.get(*rbhandle){
+        if let Some(rbhandle) = self.bodyhandles.get(id){
+
+            if let Some(_) = self.bodies.get(*rbhandle){
             
-            return true;
+                return true;
+            }
         }
-        else{
             
-            return false;
-        }
-        
+        return false;
+
     } 
     
     
@@ -846,7 +857,6 @@ impl Mission{
         return(false);
     }
     
-    
     fn is_current_impulse(&self) -> bool{
         
         for (starttick, endtick, vector) in &self.impulses{
@@ -861,8 +871,6 @@ impl Mission{
     }
     
     
-    
-    
     pub fn set_default_isometry(&mut self, pos: (f32,f32,f32), rot: (f32,f32,f32)){
         
         self.defaultpos = Some( (pos, rot) );
@@ -872,6 +880,5 @@ impl Mission{
         
         self.defaultpos
     }
-    
     
 }

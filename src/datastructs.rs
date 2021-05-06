@@ -82,10 +82,7 @@ pub enum CardEffect{
     set the rules of the game to:
     
     loss without pieces
-    
     */
-    
-    
     
 }
 
@@ -104,9 +101,9 @@ impl CardEffect{
         jokereffects.push(CardEffect::BackToBackTurns);
         jokereffects.push(CardEffect::HalveTimeLeft);
         //jokereffects.push(CardEffect::MakePoolGame);
-        jokereffects.push(CardEffect::TurnsTimed(30) );
-        jokereffects.push(CardEffect::RaiseSquares(7));
-        jokereffects.push(CardEffect::RemoveSquares(7));
+        jokereffects.push(CardEffect::TurnsTimed(60) );
+        jokereffects.push(CardEffect::RaiseSquares(11));
+        jokereffects.push(CardEffect::RemoveSquares(11));
         jokereffects.push(CardEffect::SplitPieceIntoPawns);
         jokereffects.push(CardEffect::Checkerify);
         jokereffects.push(CardEffect::Chessify );
@@ -184,9 +181,7 @@ pub struct GameEffects{
     
     
     //the list of card effects of this game
-    cardeffects: Vec<CardEffect>,
-    
-    
+    cardeffects: Vec<CardEffect>,    
     
 }
 
@@ -322,8 +317,6 @@ impl GameEffects{
     
     
     
-    
-    
     pub fn get_game_effect_names(&self) -> Vec<String>{
         
         let mut toreturn = Vec::new();
@@ -339,7 +332,6 @@ impl GameEffects{
 
 
     //SETTERS
-    
     
     pub fn decrement_raised_and_dropped_squares(&mut self){
 
@@ -357,8 +349,6 @@ impl GameEffects{
     }
     
     
-    
-    
     pub fn decrement_turns_until_draw_available(&mut self){
         
         for effect in self.cardeffects.iter_mut(){
@@ -368,10 +358,6 @@ impl GameEffects{
         }
 
     }
-    
-    
-    
-    
     
     
     
@@ -456,9 +442,6 @@ impl GameEffects{
 
         return None;
     }
-    
-    
-    
     
 }
 

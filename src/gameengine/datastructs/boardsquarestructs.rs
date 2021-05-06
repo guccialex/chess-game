@@ -44,7 +44,7 @@ impl RelativeSquare{
 
 
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone, Debug)]
 pub struct BoardSquarePosID{
     
     pos: (i8,i8),
