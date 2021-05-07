@@ -738,8 +738,14 @@ impl GameEngine{
                     
                     match squarecondition{
                         
-                        //if the square needs to be empty
+                        //if the square needs to be empty and not on a mission
                         SquareCondition::EmptyRequired => { 
+
+                            let cursquareobjectid = self.boardobjects.get_boardsquare_object_id(&cursquarepos).unwrap();
+
+                            if self.boardphysics.is_object_on_mission(&cursquareobjectid){
+                                return false;
+                            }
                             
                             if ! piecesonsquare.is_empty(){
                                 return false;
