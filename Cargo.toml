@@ -30,7 +30,8 @@ orthogonal-rotation = "0.0.10"#{ path = "../orthogonal_rotation" }
 rapier3d = { version = "0.8.0", features = [ "serde-serialize", "wasm-bindgen", "enhanced-determinism" ] }
 
 
-
+console_log = "0.2.0"
+log = "0.4"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -1,20 +1,14 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-//use ncollide3d::shape::ConvexHull;
 
 use serde::{Serialize, Deserialize};
 
-mod boardsquarestructs;
+use crate::boardsquarestructs;
 
-pub use boardsquarestructs::BoardSquarePosID;
-pub use boardsquarestructs::RelativeSquare;
+use boardsquarestructs::SquarePos;
+use boardsquarestructs::RelativeSquare;
 
-
-//ive lost sight of ht egoal im working towards
-//of what would make this "good code"
-//I cant settle on a way to structure this that makes it clear its the best way, or even a good way
-//so I think im just going to aim for doing it in the shortest amount of lines
 
 
 fn dir_from_pers(objectdirection: f32, playerdirection: f32) -> f32{
@@ -42,6 +36,22 @@ enum TypeOfMovement{
 }
 
 
+//convert an action into the missions that must be applied to each object
+enum Action{
+
+    CheckersCapture,
+
+    CantCaptureSlide,
+
+    MustCaptureSlide,
+
+    LiftAndMove,
+}
+
+
+
+
+//the definition of an action
 #[derive(PartialEq, Serialize, Deserialize, Clone, Debug)]
 pub struct FullAction{
 
@@ -50,11 +60,9 @@ pub struct FullAction{
     squaresdropped: HashSet<( RelativeSquare, u32 )>,
 
     //the squares that are captured
-
-    capturedsquares: HashSet<RelativeSquare>,
+    capturedsquares: HashSet< RelativeSquare >,
 
     conditions: HashSet<( RelativeSquare, SquareCondition )>,
-
 
 
     //flick force to apply to the piece
@@ -63,7 +71,6 @@ pub struct FullAction{
 
 
 impl FullAction{
-
 
     fn new_checkers_capture(direction: &f32) -> FullAction{
 
@@ -94,7 +101,6 @@ impl FullAction{
         }
     }
 
-
     fn new_cant_capture_slide(direction: &f32, distance: &u8) -> FullAction{
 
         let mut newslide = FullAction::new_slide(direction, distance);
@@ -104,7 +110,6 @@ impl FullAction{
         newslide
     }
 
-
     fn new_must_capture_slide( direction: &f32, distance: &u8) -> FullAction{
 
         let mut newslide = FullAction::new_slide(direction, distance);
@@ -113,7 +118,6 @@ impl FullAction{
 
         newslide
     }
-
 
     fn new_slide( direction: &f32, distance: &u8) -> FullAction{
 
@@ -195,15 +199,12 @@ impl FullAction{
         }
     }
 
-
     fn is_equal(&self, other:&FullAction) -> bool{
 
         return self == other;
     }
-    
 
-
-
+    //the squares it captures
 
     //get the squares dropped by this action and the tick it happens
     pub fn get_squares_dropped(&self) -> HashSet<( RelativeSquare, u32 )>{
@@ -222,7 +223,6 @@ impl FullAction{
         self.force
     }
 
-
     //get the square moved to
     pub fn get_destination_square(&self) -> Option<RelativeSquare>{
         
@@ -234,13 +234,11 @@ impl FullAction{
         return None;
     }
 
-
+    //given the state of the 
     pub fn get_conditions(&self) -> HashSet<( RelativeSquare, SquareCondition )>{
 
         self.conditions.clone()
-
     }
-
 
     pub fn is_lifted(&self) -> bool{
 
@@ -256,13 +254,6 @@ impl FullAction{
     }
 
 }
-
-
-
-
-
-
-
 
 
 
@@ -468,28 +459,12 @@ impl PieceType{
             PieceType::Checker => format!("checker.png"),
         }
     }
-
-    
-    fn is_action_valid(&self, ownerdirection: &f32, hasmoved: &bool, action: &FullAction) -> bool{
-        
-        for validaction in &self.get_actions(ownerdirection, hasmoved){
-            if validaction.is_equal(action){
-                return true;
-            }
-        }
-        
-        return false;
-    }
-    
 }
 
 
 
 
-
-//a struct that has the information about the piece
-//what type of piece it is
-//what actions its allowed to perform
+//information about a piece
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PieceData{
     
@@ -497,8 +472,6 @@ pub struct PieceData{
     piecetype: PieceType,
 
     augmented: HashSet<PieceType>,
-    
-    value: u8,
     
     //if the piece has moved (used for castling and moving pawns forward)
     hasmoved: bool,
@@ -517,7 +490,6 @@ impl PieceData{
             piecetype: PieceType::Nothing,
             augmented: HashSet::new(),
             hasmoved: false,
-            value: 1,
         }
     }
 
@@ -526,33 +498,32 @@ impl PieceData{
         return &self.piecetype == piecetype;
     }
 
-
     //give this piece the abilities of a knight
-    pub fn augment_knight_abilities(&mut self){
+    pub fn augment(&mut self, piecetype: &PieceType){
 
-        self.augmented.insert( PieceType::Knight );
+        self.augmented.insert(piecetype.clone());
     } 
 
     //remove any augmentations this piece might have, so it just has the default effects again
-    pub fn remove_ability_augmentations(&mut self){
+    pub fn remove_augmentations(&mut self){
 
         self.augmented = HashSet::new();
     }
 
 
-    pub fn get_value(&self) -> u8{  
-        return self.value;
+    pub fn get_value(&self) -> u8{
+
+        return self.piecetype.value();
     }
     
     
     pub fn set_piecetype(&mut self, piecetype: PieceType){
         
-        self.value = piecetype.value();
         self.piecetype = piecetype;
     }
     
     
-    pub fn moved_piece(&mut self){
+    pub fn is_moved(&mut self){
         self.hasmoved = true;
     }
     
@@ -561,10 +532,8 @@ impl PieceData{
     }
     
 
-
-
-    //get the piece actions that are listable
-    pub fn get_numberable_actions(&self, ownerdirection: &f32) -> Vec<FullAction>{
+    //get the piece actions
+    pub fn get_allowed_actions(&self, ownerdirection: &f32) -> Vec<FullAction>{
 
         let mut alltypes = HashSet::new();
 
@@ -586,25 +555,17 @@ impl PieceData{
     
     //if this action is valid by the piecedata
     //return the conditions required for this action
-    pub fn is_action_valid(&self, action: &FullAction, ownerdirection: &f32) -> bool{
+    pub fn is_action_allowed(&self, action: &FullAction, ownerdirection: &f32) -> bool{
         
-        let mut alltypes = HashSet::new();
+        for possibleaction in self.get_allowed_actions(ownerdirection){
 
-        alltypes.insert( self.piecetype.clone() );
-        alltypes.extend( self.augmented.clone() );
-
-        
-        for piecetype in alltypes{
-
-            if piecetype.is_action_valid( ownerdirection, &self.hasmoved, action   ){
+            if &possibleaction == action{
 
                 return true;
-            };
-
-
+            }
         }
 
-        return false;        
+        return false;
     }
 
        

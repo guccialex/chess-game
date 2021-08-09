@@ -4,6 +4,8 @@ use rapier3d::pipeline::PhysicsPipeline;
 
 use rapier3d::dynamics::{BodyStatus, RigidBodyBuilder};
 
+
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -17,10 +19,15 @@ use rapier3d::geometry::{ColliderBuilder, Shape, Ball};
 
 use serde::{Serialize, Deserialize};
 
-
-
+use rapier3d::dynamics::RigidBody;
 use rapier3d::dynamics::RigidBodyHandle;
+use rapier3d::geometry::Collider;
 use rapier3d::geometry::ColliderHandle;
+use rapier3d::geometry::SharedShape;
+
+
+use rapier3d::geometry::Cuboid;
+use rapier3d::geometry::Cylinder;
 
 
 
@@ -52,8 +59,6 @@ pub struct RapierPhysicsWrapper{
     no_gravity_for_tick: HashSet<u16>,
     
     
-    
-    
     //the misions
     //the map of piece to mission
     missions: HashMap<u16, Mission>,
@@ -66,18 +71,83 @@ pub struct RapierPhysicsWrapper{
 
 
 
+use rapier3d::na::Point3;
+use rapier3d::geometry::Ray;
+use rapier3d::geometry::InteractionGroups;
 
-
+use rapier3d::pipeline::QueryPipeline;
 //a getter and setter for the state of the physics engine
 //its the 
 impl RapierPhysicsWrapper{
+
+    
+    //pass in a position, and the direction of looking
+    pub fn get_object_intersection(& self, ray: (Point3<f32>, Vector3<f32>) ) -> Option<u16>{
+
+        let ray = Ray::new( ray.0, ray.1 );
+        let max_toi = 1000.0;
+        let solid = true;
+
+        let groups = InteractionGroups::all();
+
+
+        let mut wallhandles: Vec<ColliderHandle> = Vec::new();
+
+        for wallid in 0..4{
+            wallhandles.push( self.shapehandles.get(&wallid).unwrap().clone()  );
+        }
+
+
+        let tclosure = move |handle, _: &Collider| { 
+
+            let wallhandles = wallhandles.clone();
+
+            if wallhandles.contains(&handle){
+
+                return false;
+            }
+
+            true
+        } ;
+
+        //to filter out the wall, aka, the things with ID 0-3
+        let filter: std::option::Option<&dyn for<'r> std::ops::Fn(rapier3d::geometry::ColliderHandle, &'r rapier3d::geometry::Collider) -> bool>
+         = Some( & tclosure );
+
+
+        let mut query_pipeline = QueryPipeline::new();
+
+        query_pipeline.update(&self.bodies, &self.colliders);
+
+
+
+
+        if let Some((handle, toi)) = query_pipeline.cast_ray(
+            &self.colliders, &ray, max_toi, solid, groups, filter
+        ) {
+            
+            //get the id of the shape
+            for (id, curhandle) in &self.shapehandles.clone(){
+
+                if &handle == curhandle{
+
+                    return Some(*id);
+                }
+            }
+            
+            panic!("ray intersects with a shape that doesnt have an id?");
+        }else{
+
+            //panic!(" no intersection");
+
+            return None;
+        }
+
+    }
+    
     
     
     pub fn new() -> RapierPhysicsWrapper{
-        
-        //this should be stored but not serialized. hmm
-        //let mut pipeline = PhysicsPipeline::new();
-        
         
         let gravity = Vector3::new(0.0, -20.0, 0.0);
         let mut integration_parameters = IntegrationParameters::default();
@@ -100,19 +170,21 @@ impl RapierPhysicsWrapper{
         
         // Run the simulation in the game loop.
         RapierPhysicsWrapper{
-            gravity: gravity,
-            integration_parameters: integration_parameters,
-            broad_phase: broad_phase,
-            narrow_phase: narrow_phase,
-            bodies: bodies,
-            colliders: colliders,
-            joints: joints,
+            gravity,
+            integration_parameters,
+            broad_phase,
+            narrow_phase,
+            bodies,
+            colliders,
+            joints,
             ccdsolver: CCDSolver::new(),
+
             
             bodyhandles: HashMap::new(),
             shapehandles: HashMap::new(),
             totalobjects: 0,
             no_gravity_for_tick: HashSet::new(),
+
             
             missions: HashMap::new(),
             futuremissions: Vec::new(),
@@ -130,22 +202,18 @@ impl RapierPhysicsWrapper{
         let objectid = self.totalobjects;
         self.totalobjects += 1;
         
-        
         let rigid_body = RigidBodyBuilder::new(BodyStatus::Dynamic)
         .angular_damping(3.5)
         .linear_damping(0.0)
         .can_sleep(false)
         .build();
         
-        
         let rbhandle = self.bodies.insert(rigid_body);
-        
         self.bodyhandles.insert(objectid, rbhandle);
         
         
-        
         let collider = ColliderBuilder::cuboid(1.0, 1.0, 1.0)
-        .translation(0.0, 0.0, 0.0)
+        .translation( 0.0, 0.0, 0.0 )
         .density(1.3)
         .friction(0.8)
         .build();
@@ -155,16 +223,12 @@ impl RapierPhysicsWrapper{
         
         self.shapehandles.insert(objectid, chandle);
         
-        
         if isstatic{
             self.make_static(&objectid);
         }
         
-        return objectid;        
-        
+        return objectid;
     }
-    
-    
     
     
     pub fn remove_object(&mut self, id:&u16){
@@ -181,26 +245,29 @@ impl RapierPhysicsWrapper{
     }
     
     
-    
-    
-    
-    
     fn remove_gravity_for_tick(&mut self, ID: &u16){
         self.no_gravity_for_tick.insert(*ID);
     }
     
     
-    //physical property getters and setters
-    
+    pub fn get_mut_rigidbody(&mut self, ID: &u16) -> &mut RigidBody{
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
+        self.bodies.get_mut(*rbhandle).unwrap()
+    }
+
+    pub fn get_rigidbody(& self, ID: &u16) -> & RigidBody{
+
+        let rbhandle = self.bodyhandles.get(ID).unwrap();
+        self.bodies.get(*rbhandle).unwrap()
+    }
+
     
     //apply a change of position to an object
     fn apply_delta_position(&mut self, ID: &u16, deltapos: (f32,f32,f32) ){
         
-        use  nalgebra::geometry::Translation3;
+        use nalgebra::geometry::Translation3;
         
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        
-        let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
+        let rigidbody = self.get_mut_rigidbody(ID);
         
         let mut pos = *rigidbody.position();
         
@@ -208,81 +275,51 @@ impl RapierPhysicsWrapper{
         
         pos.append_translation_mut(&tra);
         
-        if !rigidbody.is_moving() || true {
-            rigidbody.set_position(pos, false);
-        }
-        
+        rigidbody.set_position(pos, false);
     }
     
     //apply a impulse force to an object
     fn apply_delta_impulse(&mut self, ID: &u16, impulse: Vector3<f32>){
-        
-        
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        
-        let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
-        
-        //rigidbody.wake_up(true);
-        
-        if !rigidbody.is_moving() || true {
-            rigidbody.apply_impulse(impulse, false);
-        }
-        
-        
+        self.get_mut_rigidbody(ID).apply_impulse(impulse, false);
     }
-    
-    
-    pub fn set_translation(&mut self, ID: &u16, position: (f32,f32,f32)  ) {
-        
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        
-        let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
-        
-        let pos = Isometry3::translation(position.0, position.1, position.2);
-        
-        if !rigidbody.is_moving() || true {
-            rigidbody.set_position(pos, false);
-        }
-        
-    }
-    
+
+
     //get the translation of the position of an object
     pub fn get_translation(&self, ID: &u16) -> (f32,f32,f32){
         
-        
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        
-        let rigidbody = self.bodies.get(*rbhandle).unwrap();
-        
-        let translation = rigidbody.position().translation;
+        let translation = self.get_rigidbody(ID).position().translation;
         
         (translation.x, translation.y, translation.z)
-        
     }
+    
+    pub fn set_translation(&mut self, ID: &u16, position: (f32,f32,f32)  ) {
+        
+        let pos = Isometry3::translation(position.0, position.1, position.2);
+        self.get_mut_rigidbody(ID).set_position(pos, false);
+    }
+
+    
+    pub fn get_isometry(&self, ID: &u16) -> Isometry3<f32>{
+        self.get_rigidbody(ID).position().clone()
+    }
+
+    pub fn set_isometry(&mut self, ID: &u16, isometry: Isometry3<Real>){
+        self.get_mut_rigidbody(ID).set_position(isometry, false);
+    }
+
     
     //get the translation of an object
     pub fn get_rotation(&self, ID: &u16) -> (f32,f32,f32){
         
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        
-        let rigidbody = self.bodies.get(*rbhandle).unwrap();
-        
-        let rotation = rigidbody.position().rotation.euler_angles();
+        let rotation = self.get_rigidbody(ID).position().rotation.euler_angles();
         
         (rotation.0, rotation.1, rotation.2)
-        
     }
     
     pub fn set_rotation(&mut self, ID: &u16, rotation:(f32,f32,f32) ){
-        
-        
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        let mut rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
-        
-        
-        let oldisometry = rigidbody.position();
+
+        let oldisometry = self.get_mut_rigidbody(ID).position();
         let oldtranslation = oldisometry.translation;
-        
         
         use nalgebra::geometry::UnitQuaternion;
         
@@ -290,20 +327,15 @@ impl RapierPhysicsWrapper{
         
         let newisometry = Isometry3::from_parts(oldtranslation, newrotation);
         
-        
-        if !rigidbody.is_moving() || true {
-            rigidbody.set_position(newisometry, false);
-        }
-        
+        self.get_mut_rigidbody(ID).set_position(newisometry, false);
     }
+
     
+    /*
     //get its velocity in each dimension
     pub fn get_linear_velocity(&self, ID: &u16) -> (f32,f32,f32){
         
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        let rigidbody = self.bodies.get(*rbhandle).unwrap();
-        
-        let linvel = rigidbody.linvel();
+        let linvel = self.get_mut_rigidbody(ID).linvel();
         
         (linvel.x, linvel.y, linvel.z)
     }
@@ -311,153 +343,85 @@ impl RapierPhysicsWrapper{
     //get its velocity in each dimension
     pub fn set_linear_velocity(&mut self, ID: &u16, linearvelocity:(f32,f32,f32) ){
         
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
-        
-        
         let linvel = Vector3::new(linearvelocity.0, linearvelocity.1, linearvelocity.2);
         
-        rigidbody.set_linvel(linvel, false);
+        self.get_mut_rigidbody(ID).set_linvel(linvel, false);
     }
-    
+
     //get its velocity in each dimension
     pub fn get_angular_velocity(&self, ID: &u16) -> (f32,f32,f32){
         
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        let rigidbody = self.bodies.get(*rbhandle).unwrap();
-        
-        let linvel = rigidbody.angvel();
+        let linvel = self.get_mut_rigidbody(ID).angvel();
         
         (linvel.x, linvel.y, linvel.z)
-        
     }
     
     //get its velocity in each dimension
     pub fn set_angular_velocity(&mut self, ID: &u16, angularvelocity:(f32,f32,f32) ){
         
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
-        
-        
         let angvel = Vector3::new(angularvelocity.0, angularvelocity.1, angularvelocity.2);
         
-        rigidbody.set_angvel(angvel, false);
+        self.get_mut_rigidbody(ID).set_angvel(angvel, false);
     }
+    */
     
+
+    pub fn get_mut_collider(&mut self, ID: &u16) -> &mut Collider{
+
+        let chandle = self.shapehandles.get(ID).unwrap();
+
+        self.colliders.get_mut( *chandle ).unwrap()
+    }
+
+    pub fn get_collider(& self, ID: &u16) -> & Collider{
+
+        let chandle = self.shapehandles.get(ID).unwrap();
+
+        self.colliders.get( *chandle ).unwrap()
+    }
+
+
+    pub fn get_shape(& self, ID: &u16) -> Box<dyn Shape>{
+
+        self.get_collider(ID).shape().clone_box()
+    }
+
     
     pub fn set_shape_sphere(&mut self, ID: &u16, diameter: f32){
         
         let radius = diameter /2.0;
-        self.remove_bodies_colldiers(ID);
-        
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        
-        let collider = ColliderBuilder::ball(radius).build();
-        
-        
-        
-        
-        let oldfriction = collider.friction;
-        let oldrestitution = collider.restitution;
-        
-        let chandle = self.colliders.insert(collider, *rbhandle, &mut self.bodies);
-        self.shapehandles.insert(*ID, chandle);
-        
-        let collider = self.colliders.get_mut(chandle).unwrap();
-        collider.friction = oldfriction;
-        collider.restitution = oldrestitution;
-        
+
+        self.get_mut_collider(ID).set_shape( SharedShape::new( Ball::new(radius) ) );
     }
-    
     
     pub fn set_shape_cuboid(&mut self, ID: &u16, dimensions: (f32,f32,f32)){
         
         let dimensions = (dimensions.0 / 2.0, dimensions.1/2.0, dimensions.2 / 2.0);
         
-        self.remove_bodies_colldiers(ID);
-        
-        
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        
-        let collider = ColliderBuilder::cuboid(dimensions.0, dimensions.1, dimensions.2).build();
-        
-        
-        
-        
-        let oldfriction = collider.friction;
-        let oldrestitution = collider.restitution;
-        
-        let chandle = self.colliders.insert(collider, *rbhandle, &mut self.bodies);
-        self.shapehandles.insert(*ID, chandle);
-        
-        let collider = self.colliders.get_mut(chandle).unwrap();
-        collider.friction = oldfriction;
-        collider.restitution = oldrestitution;
-        
+        self.get_mut_collider(ID).set_shape( SharedShape::new( Cuboid::new( Vector3::new(dimensions.0, dimensions.1, dimensions.2) ) ) );
     }
     
     pub fn set_shape_cylinder(&mut self, ID: &u16, height: f32, diameter: f32){
         
-        
-        
-        let halfheight = height/2.0;
+        let halfheight = height /2.0;
         let radius = diameter /2.0;
         
-        self.remove_bodies_colldiers(ID);
-        
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        
-        let collider = ColliderBuilder::cylinder(halfheight, radius).build();
-        
-        
-        
-        
-        
-        let oldfriction = collider.friction;
-        let oldrestitution = collider.restitution;
-        
-        let chandle = self.colliders.insert(collider, *rbhandle, &mut self.bodies);
-        self.shapehandles.insert(*ID, chandle);
-        
-        let collider = self.colliders.get_mut(chandle).unwrap();
-        collider.friction = oldfriction;
-        collider.restitution = oldrestitution;
+        self.get_mut_collider(ID).set_shape( SharedShape::new( Cylinder::new( halfheight, radius) ) ) ;   
     }
     
-    //remove the colliders from the body of this object
-    fn remove_bodies_colldiers(&mut self, ID: &u16){
-        
-        //get the colliders associated with the rigidbody with this ID
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        let rigidbody = self.bodies.get_mut(*rbhandle).unwrap().clone();
-        
-        let colliders = rigidbody.colliders();
-        
-        for colliderhandle in colliders{
-            //remove them from the collider set
-            self.colliders.remove(*colliderhandle, &mut self.bodies, true );
-        }
-        
-    }
     
     
     pub fn set_materials(&mut self, ID: &u16, elasticity: f32, friction: f32){
-        let colliderid = self.shapehandles.get(ID).unwrap();
         
-        let collider = self.colliders.get_mut(*colliderid).unwrap();
-        
+        let collider = self.get_mut_collider(ID);
+
         collider.friction = friction;
         collider.restitution = elasticity;
     }
     
     
-    //DO NOT SET THIS AFTER CREATION
     fn make_static(&mut self, ID: &u16){  
-        let rbhandle = self.bodyhandles.get(ID).unwrap();
-        
-        let rigidbody = self.bodies.get_mut(*rbhandle).unwrap();
-        
-        rigidbody.set_body_status(BodyStatus::Static) ;
+        self.get_mut_rigidbody(ID).set_body_status(BodyStatus::Static) ;
     }
     
     
@@ -477,9 +441,7 @@ impl RapierPhysicsWrapper{
 
             oldstatus.insert( objid , rigidbody.body_status() );
 
-            rigidbody.set_body_status(BodyStatus::Static) ;
-
-            
+            rigidbody.set_body_status(BodyStatus::Static) ;            
         }
         
         
@@ -574,21 +536,19 @@ impl RapierPhysicsWrapper{
     }
     
     
-    pub fn end_mission(&mut self, id: &u16){
-        
-        
+    pub fn end_mission(&mut self, ID: &u16){
+
         //if this object is on a mission
-        if let Some(mission) = self.missions.get(id){
+        if let Some(mission) = self.missions.get(ID){
             
             //if this object has a default isometry
-            if let Some((pos, rot)) = mission.get_default_isometry(){
+            if let Some(isometry) = mission.get_default_isometry(){
                 
-                self.set_translation(id, pos);
-                self.set_rotation(id, rot);
+                self.set_isometry(ID, isometry);
             }
         }
         
-        self.missions.remove(id);
+        self.missions.remove(ID);
     }
     
     
@@ -701,6 +661,7 @@ impl RapierPhysicsWrapper{
 
 
 
+use rapier3d::math::Real;
 
 
 
@@ -716,19 +677,18 @@ pub struct Mission{
     
     //the force (impulse) to apply when the current tick is in range
     //a vector with the scalar of the force
-    impulses: Vec< (u32, u32, Vector3<f32>) >,
+    impulses: Vec< (u32, u32, Vector3<Real>) >,
     
     //the change in position to apply when the current tick is in range
     //(call the "disable gravity for a tick" when this is being called)
-    positionchanges: Vec< (u32, u32, Vector3<f32>) >,
+    positionchanges: Vec< (u32, u32, Vector3<Real>) >,
     
     //the position and velocity that this object should be in when this mission is over
-    defaultpos: Option<((f32,f32,f32), (f32,f32,f32))>,
+    defaultpos: Option< Isometry3<Real> >,
     
     
     //if the mission has started, it cant have its position, impulse or default position change
     started: bool,
-    
     
     
     //user data
@@ -759,6 +719,7 @@ impl Mission{
         self.impulses.push( (starttick, endtick, Vector3::new(stepchange.0 , stepchange.1 , stepchange.2) ) );
     }
     
+
     pub fn default_mission(data: u16) -> Mission{
         
         Mission{
@@ -871,13 +832,11 @@ impl Mission{
     }
     
     
-    pub fn set_default_isometry(&mut self, pos: (f32,f32,f32), rot: (f32,f32,f32)){
-        
-        self.defaultpos = Some( (pos, rot) );
+    pub fn set_default_isometry(&mut self, isometry: Isometry3<f32> ){
+        self.defaultpos = Some( isometry );
     }
     
-    pub fn get_default_isometry(&self) -> Option<((f32,f32,f32), (f32,f32,f32))>{
-        
+    fn get_default_isometry(&self) -> Option<Isometry3<Real>>{
         self.defaultpos
     }
     

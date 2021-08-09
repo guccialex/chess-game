@@ -13,6 +13,7 @@ mod physicsengine;
 use physicsengine::RapierPhysicsWrapper;
 use physicsengine::Mission;
 
+use rapier3d::na::Isometry3;
 
 use serde::{Serialize, Deserialize};
 
@@ -24,8 +25,13 @@ use serde::{Serialize, Deserialize};
 pub struct BoardPhysics{
 
     physics: RapierPhysicsWrapper,
+
+
 }
 
+use rapier3d::na;
+use na::Point3;
+use na::Vector3;
 
 
 impl BoardPhysics{
@@ -39,6 +45,9 @@ impl BoardPhysics{
         {
             let horizontalwalldimensions = (20.0 , 20.0 , 4.0);
             let verticalwalldimensions = (4.0 , 20.0 , 20.0 );
+
+            //se their collision group to "1"
+            //and then ignore that group when doing queries
             
             let physicalid = boardgame.add_object(true);
             boardgame.set_translation( &physicalid,  (0.0,0.0,-6.0) );
@@ -61,6 +70,11 @@ impl BoardPhysics{
         BoardPhysics{
             physics: boardgame
         }
+    }
+
+    pub fn get_object_intersection(& self, ray: (Point3<f32>, Vector3<f32>) ) -> Option<u16>{
+
+        self.physics.get_object_intersection(ray )
     }
 
     
@@ -88,7 +102,6 @@ impl BoardPhysics{
     }
 
 
-    
     
     //get object 1's x&z position relative to object 2's
     fn flat_plane_object_offset(&self, object1: u16, object2: u16 ) -> (f32,f32){
@@ -132,7 +145,11 @@ impl BoardPhysics{
     
     
 
+    //used for the VisibleGameBoardObject constructor
+    pub fn get_isometry(&self, objectid: &u16) -> Isometry3<f32>{
 
+        self.physics.get_isometry(objectid)
+    }
 
 
 
@@ -197,9 +214,8 @@ impl BoardPhysics{
     //set the current position of the object as the default position on the object
     fn mission_set_current_pos_as_default(&self, id: &u16,  mission: &mut Mission){
         
-        let pos = self.physics.get_translation(id);
-        let rot = self.physics.get_rotation(id);
-        mission.set_default_isometry(pos, rot);
+        mission.set_default_isometry( self.physics.get_isometry(id) );
+
     }    
     
     pub fn is_object_on_mission(&self, id: &u16) -> bool{
@@ -227,22 +243,29 @@ impl BoardPhysics{
 
 
 
-    //should really only be used for the "get boardsquare piece is on" function
-    pub fn get_translation(&self, objectid: &u16) -> (f32,f32,f32){
-
-        self.physics.get_translation(objectid)
-    }
-
-    //used for the VisibleGameBoardObject constructor
-    pub fn get_rotation(&self, objectid: &u16) -> (f32,f32,f32){
-
-        self.physics.get_rotation(objectid)
-    }
 
 
 
 }
 
+
+
+use rapier3d::geometry::Shape;
+
+
+
+//getters for the physical appearance
+impl BoardPhysics{
+
+
+    pub fn get_isometry_and_shape(& self, id: &u16) -> (Isometry3<f32>, Box<dyn Shape>){
+
+        return ( self.physics.get_isometry(id), self.physics.get_shape(id) );
+    }
+
+
+
+}
 
 
 
@@ -353,7 +376,6 @@ impl Mission{
         let waitstillend = 5 + ticks;
         let restoreend = waitstillend + 5;
         
-        
         //lower
         toreturn.add_position_change(0, enddrop, (0.0, -2.0, 0.0) );
         
@@ -417,7 +439,6 @@ enum MissionType{
 impl MissionType{
     
     fn to_number(&self) -> u16{
-        
         match *self{
             MissionType::LongDrop => 0,
             MissionType::LongRaise => 1,
