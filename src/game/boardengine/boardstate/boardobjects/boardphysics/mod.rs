@@ -26,7 +26,6 @@ pub struct BoardPhysics{
 
     physics: RapierPhysicsWrapper,
 
-
 }
 
 use rapier3d::na;
@@ -49,6 +48,7 @@ impl BoardPhysics{
             //se their collision group to "1"
             //and then ignore that group when doing queries
             
+            /*
             let physicalid = boardgame.add_object(true);
             boardgame.set_translation( &physicalid,  (0.0,0.0,-6.0) );
             boardgame.set_shape_cuboid(&physicalid, horizontalwalldimensions );
@@ -64,6 +64,7 @@ impl BoardPhysics{
             let physicalid = boardgame.add_object(true);
             boardgame.set_translation( &physicalid,  (6.0,0.0,0.0) );
             boardgame.set_shape_cuboid(&physicalid, verticalwalldimensions );
+            */
         }
 
 
@@ -78,9 +79,9 @@ impl BoardPhysics{
     }
 
     
-    pub fn create_piece_object(&mut self, pos: (f32,f32,f32) ) -> u16{
+    pub fn create_piece_object(&mut self, id: u16,  pos: (f32,f32,f32) ) -> u16{
         
-        let objectid = self.physics.add_object(false);
+        let objectid = self.physics.add_object(id, false);
         
         self.physics.set_shape_cylinder(&objectid, 0.5, 0.7 );
         self.physics.set_materials(&objectid, 0.5, 0.5);
@@ -90,9 +91,9 @@ impl BoardPhysics{
     }
 
     
-    pub fn create_boardsquare_object(&mut self, pos: (f32, f32, f32) ) -> u16{
+    pub fn create_boardsquare_object(&mut self, id: u16, pos: (f32, f32, f32) ) -> u16{
         
-        let objectid = self.physics.add_object( true );
+        let objectid = self.physics.add_object( id, true );
         
         self.physics.set_shape_cuboid(&objectid, (1.0, 1.0, 1.0) );
         self.physics.set_materials(&objectid, 0.0, 0.0);        

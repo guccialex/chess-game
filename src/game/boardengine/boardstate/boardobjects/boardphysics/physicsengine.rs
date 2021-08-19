@@ -52,8 +52,6 @@ pub struct RapierPhysicsWrapper{
     //the main shape/collider associated with each body
     shapehandles: HashMap<u16, ColliderHandle>,
     
-    totalobjects: u16,
-    
     
     //objects who will be considered static for the next physical tick
     no_gravity_for_tick: HashSet<u16>,
@@ -182,7 +180,7 @@ impl RapierPhysicsWrapper{
             
             bodyhandles: HashMap::new(),
             shapehandles: HashMap::new(),
-            totalobjects: 0,
+
             no_gravity_for_tick: HashSet::new(),
 
             
@@ -197,10 +195,13 @@ impl RapierPhysicsWrapper{
     
     //add an object to this physics world
     //return the ID for the object
-    pub fn add_object(&mut self, isstatic: bool) -> u16{
+    pub fn add_object(&mut self, objectid: u16, isstatic: bool) -> u16{
         
-        let objectid = self.totalobjects;
-        self.totalobjects += 1;
+        if self.bodyhandles.contains_key(&objectid){
+
+            panic!("object with that ID already exists");
+        }
+
         
         let rigid_body = RigidBodyBuilder::new(BodyStatus::Dynamic)
         .angular_damping(3.5)
@@ -232,6 +233,15 @@ impl RapierPhysicsWrapper{
     
     
     pub fn remove_object(&mut self, id:&u16){
+        
+        
+        //wake every rigidbody
+        for (x, _) in self.bodyhandles.clone().iter_mut(){
+            
+            let x = self.get_mut_rigidbody(x);
+            x.wake_up( true );
+        }
+
         
         if let Some(rhandle) = self.bodyhandles.remove(id){
             
