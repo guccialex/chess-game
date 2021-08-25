@@ -89,28 +89,28 @@ impl RapierPhysicsWrapper{
         let groups = InteractionGroups::all();
 
 
+        //when I have wallhandles
+        /*
         let mut wallhandles: Vec<ColliderHandle> = Vec::new();
 
         for wallid in 0..4{
             wallhandles.push( self.shapehandles.get(&wallid).unwrap().clone()  );
         }
-
-
         let tclosure = move |handle, _: &Collider| { 
 
             let wallhandles = wallhandles.clone();
-
             if wallhandles.contains(&handle){
-
                 return false;
             }
-
             true
-        } ;
+        };
 
         //to filter out the wall, aka, the things with ID 0-3
         let filter: std::option::Option<&dyn for<'r> std::ops::Fn(rapier3d::geometry::ColliderHandle, &'r rapier3d::geometry::Collider) -> bool>
          = Some( & tclosure );
+        */
+
+        let filter = None;
 
 
         let mut query_pipeline = QueryPipeline::new();
@@ -203,12 +203,16 @@ impl RapierPhysicsWrapper{
         }
 
         
-        let rigid_body = RigidBodyBuilder::new(BodyStatus::Dynamic)
+        let mut rigid_body = RigidBodyBuilder::new(BodyStatus::Dynamic)
         .angular_damping(3.5)
         .linear_damping(0.0)
         .can_sleep(false)
-        .build();
+        //.restrict_rotations(false, true, false)
         
+        .build();
+
+        
+
         let rbhandle = self.bodies.insert(rigid_body);
         self.bodyhandles.insert(objectid, rbhandle);
         
@@ -674,6 +678,7 @@ impl RapierPhysicsWrapper{
 use rapier3d::math::Real;
 
 
+//the objects 
 
 //a mission
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -730,8 +735,10 @@ impl Mission{
     }
     
 
-    pub fn default_mission(data: u16) -> Mission{
+    pub fn default_mission() -> Mission{
         
+        let data = 1;
+
         Mission{
             currenttick: 0,
             

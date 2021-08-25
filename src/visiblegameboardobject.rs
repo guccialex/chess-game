@@ -16,4 +16,7 @@ pub struct VisibleGameBoardObject{
     pub color: (f32,f32,f32),
     
     pub texturelocation: Option<String>,
+
+    //the amount the piece is rotated if this is a piece
+    pub rotation: Option<f32>,
 }

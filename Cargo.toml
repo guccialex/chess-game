@@ -1,5 +1,5 @@
 [package]
-name = "chessengine"
+name = "board"
 version = "0.1.0"
 authors = ["alex <alex.gusain@gmail.com>"]
 edition = "2018"
