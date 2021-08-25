@@ -1,5 +1,5 @@
 [package]
-name = "board"
+name = "chessengine"
 version = "0.1.0"
 authors = ["alex <alex.gusain@gmail.com>"]
 edition = "2018"
@@ -25,6 +25,9 @@ bincode = "1.3.2"
 
 orthogonal-rotation = "0.0.10"#{ path = "../orthogonal_rotation" }
 
+
+#board = { path = "../board" }
+board = { git = "https://github.com/guccialex/board" }
 
 
 rapier3d = { version = "0.8.0", features = [ "serde-serialize", "wasm-bindgen", "enhanced-determinism" ] }
