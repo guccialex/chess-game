@@ -95,6 +95,20 @@ pub struct ServerInterface{
 
 impl ServerInterface{
 
+
+    pub fn new() -> ServerInterface{
+
+
+        ServerInterface{
+
+            game: Game::new(),
+
+        }
+
+    }
+
+
+
     pub fn get_game_string_state(&self) -> Vec<u8>{
 
         bincode::serialize(&self.game).unwrap()
