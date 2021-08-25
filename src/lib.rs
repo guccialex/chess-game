@@ -98,13 +98,9 @@ impl ServerInterface{
 
     pub fn new() -> ServerInterface{
 
-
         ServerInterface{
-
             game: Game::new(),
-
         }
-
     }
 
 
@@ -112,6 +108,14 @@ impl ServerInterface{
     pub fn get_game_string_state(&self) -> Vec<u8>{
 
         bincode::serialize(&self.game).unwrap()
+    }
+
+    pub fn receive_bin_input(&mut self, player: u8, gameinput: Vec<u8>){
+
+        if let Ok(input) = bincode::deserialize( &gameinput){
+            
+            self.game.receive_input(player, input);
+        }
     }
 
     pub fn receive_input(&mut self, player: u8, gameinput: GameInput){
