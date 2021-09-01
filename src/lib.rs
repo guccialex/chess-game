@@ -115,9 +115,10 @@ impl ServerInterface{
 
         if let Ok(input) = bincode::deserialize( &gameinput){
 
-            println!("received input");
+            let isvalid = self.game.receive_input(player, input);
+
+            println!("received input, is valid: {:?}", isvalid);
             
-            self.game.receive_input(player, input);
         }
     }
 
