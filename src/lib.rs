@@ -114,6 +114,8 @@ impl ServerInterface{
     pub fn receive_bin_input(&mut self, player: u8, gameinput: Vec<u8>){
 
         if let Ok(input) = bincode::deserialize( &gameinput){
+
+            println!("received input");
             
             self.game.receive_input(player, input);
         }
