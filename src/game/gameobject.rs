@@ -7,5 +7,4 @@ pub enum GameObject{
 
     BoardObject(BoardObject),
 
-    Deck,
 }

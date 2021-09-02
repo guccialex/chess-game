@@ -17,19 +17,22 @@ mod visiblegamestate;
 pub use visiblegamestate::VisibleGameState;
 
 
-mod gameeffect;
-
-use gameeffect::CardEffect;
-use gameeffect::EffectTrait;
-use std::any::Any;
-
-
+mod cards;
+use cards::Cards;
+use cards::CardEffect;
+use cards::EffectTrait;
 
 use rapier3d::na::Point3;
 use rapier3d::na::Vector3;
 use std::collections::HashMap;
 
 use serde::{Serialize, Deserialize};
+
+
+
+//raw data structs
+
+//turn into values
 
 
 #[derive(Serialize, Deserialize)]
@@ -44,7 +47,11 @@ pub struct Game{
 
     queuedinputs: HashMap<u8, GameInput>,
 
-    lastcardeffect: Option< ( i32, String ) >,
+
+    cards: Cards,
+
+    //how many ticks ago was the last effect drawn
+    lastcardeffect: i32,
 }
 
 
@@ -58,18 +65,22 @@ impl Game{
             turnmanager: TurnManager::new_two_player(1, 2, 10000, 2),
             gameover: None,
             queuedinputs: HashMap::new(),
-            lastcardeffect: None,
+
+            cards: Cards::new(),
+            lastcardeffect: 0,
         };
 
-        toreturn.lastcardeffect = Some( (50, gameeffect::set_card_effect(CardEffect::HalveTimeLeft , toreturn.get_mut_effect_x())) );
-
-        toreturn.lastcardeffect = Some( (50, gameeffect::set_card_effect(CardEffect::TurnsTimed(10) , toreturn.get_mut_effect_x())) );
+        
+        //toreturn.lastcardeffect = Some( (50, gameeffect::set_card_effect(CardEffect::HalveTimeLeft , toreturn.get_mut_effect_x())) );
+        //toreturn.lastcardeffect = Some( (50, gameeffect::set_card_effect(CardEffect::TurnsTimed(10) , toreturn.get_mut_effect_x())) );
 
         toreturn
     }
 
 
 
+    //get the boardobject targeted
+    //or get the game object?
     pub fn get_gameobject_targeted(&self, ray: (Point3<f32>, Vector3<f32>)) -> Option<GameObject>{
 
         if let Some( objectid) = self.boardengine.get_object_intersection(ray){
@@ -95,10 +106,6 @@ impl Game{
             }
         }
 
-        if let Some(GameObject::Deck) = clicked{
-
-            return Some( GameInput::Draw );
-        }
 
         return None;
     }
@@ -119,7 +126,6 @@ impl Game{
 
     pub fn tick(&mut self) {
 
-        //log::info!("jello");
         for player in self.turnmanager.get_current_players(){
 
             if let Some(queuedinput) = self.queuedinputs.remove(&player){
@@ -128,26 +134,13 @@ impl Game{
 
                 self.turnmanager.player_took_action(player);
             }
-
         }
 
         self.boardengine.tick();
 
         self.turnmanager.tick();
-
-
-        {
-            if let Some((tick, _)) = &mut self.lastcardeffect{
-                *tick = *tick - 1;
-            }
     
-            if let Some((tick, _)) = self.lastcardeffect.clone(){
-                if tick <= 0{
-                    self.lastcardeffect = None;
-                }
-            }
-        }
-
+        self.lastcardeffect += 1;
 
     }
 
@@ -175,9 +168,9 @@ impl Game{
 
         let mut lastcardeffect = None;
 
-        if let Some((_, effect)) = &self.lastcardeffect{
+        if self.lastcardeffect < 10{
 
-            lastcardeffect = Some(effect.clone());
+            lastcardeffect = self.cards.get_last_effect_texture();
         }
 
         VisibleGameState{
@@ -194,7 +187,7 @@ impl Game{
             
             playerswithactiveturns,
         
-            gameeffects: gameeffect::get_card_effect_textures( self.get_effect_x() ),
+            gameeffects: Cards::get_active_card_effect_textures( self.get_effect_x() ),
             
             lastcardeffect,
             
@@ -202,7 +195,6 @@ impl Game{
         }
         
     }
-
 
 
     fn is_game_over(&self) -> Option<u8>{
@@ -221,8 +213,7 @@ impl Game{
             }
         }
 
-        if let GameInput::Draw = input{
-
+        if let GameInput::Draw(_) = input{
             return self.turnmanager.can_player_draw(playerid);
         }
 
@@ -238,14 +229,15 @@ impl Game{
 
             if self.boardengine.is_action_valid( &piece, &action){
 
-
                 self.boardengine.perform_action(&piece, &action);
             }
         }
+        if let GameInput::Draw(pile) = input{
 
-        if let GameInput::Draw = input{
+            let mut temp = self.cards.clone();
+            temp.draw_card_from_pile(pile, self.get_mut_effect_x() );
+            self.cards = temp;
 
-            gameeffect::draw( self.get_mut_effect_x() );
 
             self.turnmanager.player_drew();
         }    
@@ -254,26 +246,23 @@ impl Game{
 
 
 
-
     fn get_effect_x(& self) -> Vec<& dyn EffectTrait>{
-
         let mut toreturn: Vec<& dyn EffectTrait> = Vec::new();
-
         toreturn.push(  & self.turnmanager );
         toreturn.push(  & self.boardengine );
-
         toreturn
     }
 
 
     fn get_mut_effect_x(&mut self) -> Vec<& mut dyn EffectTrait>{
-
         let mut toreturn: Vec<&mut dyn EffectTrait> = Vec::new();
-
         toreturn.push(  &mut self.turnmanager );
         toreturn.push(  &mut self.boardengine );
-
         toreturn
     }
     
+
+
+
+
 }

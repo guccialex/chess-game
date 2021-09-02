@@ -9,7 +9,8 @@ use board::Piece;
 #[derive(Serialize, Deserialize, Clone)]
 pub enum GameInput{
 
-    Draw,
+    //draw from what pile
+    Draw(u16),
 
     FullAction(Piece, FullAction),    
 }

@@ -11,8 +11,8 @@ use serde::{Serialize, Deserialize};
 //apply a card effect
 //get game effects
 
-use super::gameeffect::CardEffect;
-use super::gameeffect::EffectTrait;
+use super::CardEffect;
+use super::EffectTrait;
 
 
 impl EffectTrait for TurnManager{

@@ -364,12 +364,19 @@ impl BoardEngine{
 
 
 
+//board cards
+//implements 
+struct BoardCards{
+
+
+
+}
 
 
 
 
-use super::gameeffect::CardEffect;
-use super::gameeffect::EffectTrait;
+use super::CardEffect;
+use super::EffectTrait;
 
 
 impl EffectTrait for BoardEngine{
@@ -382,11 +389,7 @@ impl EffectTrait for BoardEngine{
                 log::info!("cant apply that effect");
                 //panic!("card effect not settable");
             }
-
-
         }
-
-
     }
 
     fn get_effects(&self) -> Vec<CardEffect>{

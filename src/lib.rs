@@ -42,13 +42,12 @@ impl PlayerInterface{
 
 
     //draw when i dont have a way to know when im clicking on a deck
-    pub fn draw(&mut self) -> Vec<u8>{
+    pub fn draw(&mut self, pile: u16) -> Vec<u8>{
 
-        self.game.receive_input(self.playerid, GameInput::Draw);
+        self.game.receive_input(self.playerid, GameInput::Draw(pile) );
 
-        return bincode::serialize( &GameInput::Draw ).unwrap();
+        return bincode::serialize( &GameInput::Draw(pile) ).unwrap();
     }
-
 
     pub fn click(&mut self, selected: Option<GameObject>, ray: (Point3<f32>, Vector3<f32>)) -> (Option<GameObject>, Option<Vec<u8>>){
 
@@ -132,6 +131,9 @@ impl ServerInterface{
         self.game.tick();
     }
 }
+
+
+
 
 
 

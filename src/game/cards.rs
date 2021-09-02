@@ -1,61 +1,105 @@
 use serde::{Serialize, Deserialize};
 
 
-/*
-use turnmanager::TurnManager;
-use boardengine::BoardEngine;
-*/
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Cards{
+
+    //the cards at the top of each pile
+    piles: [CardEffect; 4],
+    lastcardeffect: Option< String  >,
+}
 
 
-//get the card effects
-//that are in these structs that implement effect trait
-pub fn get_card_effects(x: Vec<& dyn EffectTrait>) -> Vec<CardEffect>{
+impl Cards{
 
-    let mut toreturn = Vec::new();
 
-    for y in x{
-        toreturn.extend( y.get_effects() );
+    pub fn new() -> Cards{
+
+        let mut piles = [CardEffect::Chessify,CardEffect::Chessify,CardEffect::Chessify,CardEffect::Chessify ];
+
+        Cards{
+
+            piles,
+            lastcardeffect: None,
+        }
+
     }
 
-    toreturn
-}
 
-
-pub fn get_card_effect_textures(x: Vec<& dyn EffectTrait>) -> Vec<String>{
-
-    let mut toreturn = Vec::new();
-
-    for effect in get_card_effects(x){
-
-        toreturn.push( effect.get_card_texture_location() );
+    pub fn get_last_effect_texture(&self) -> Option<String>{
+        self.lastcardeffect.clone()
     }
 
-    return toreturn;
-}
 
+    pub fn draw_card_from_pile(&mut self, pile: &u16, x: Vec<&mut dyn EffectTrait>) {
 
-//set the card effect onto these structs that implement effecttrait
-pub fn set_card_effect( effect: CardEffect, x: Vec<&mut dyn EffectTrait>) -> String{
-
-    log::info!("applying effect {:?}", effect.get_card_texture_location());
-
-    for y in x{
-        y.apply_effect( effect.clone() );
+        if let Some(effect) = self.piles.get(*pile as usize){
+            self.set_card_effect( effect.clone() , x );
+        }
+        else{
+            panic!("that card pile doesnt exist");
+        }
     }
 
-    return effect.get_card_texture_location();
+            
+    pub fn set_random_card_effect(&mut self, x: Vec<&mut dyn EffectTrait>) {
+
+        let effect = CardEffect::get_joker_card_effect();
+        let effect = CardEffect::RemoveSquares(2);
+        self.set_card_effect(effect, x);
+    }
+
+
+    //set the card effect onto these structs that implement effecttrait
+    pub fn set_card_effect(&mut self, effect: CardEffect, x: Vec<&mut dyn EffectTrait>) {
+
+        log::info!("applying effect {:?}", effect.get_card_texture_location());
+
+        for y in x{
+            y.apply_effect( effect.clone() );
+        }
+
+        self.lastcardeffect = Some( effect.get_card_texture_location() );
+    }
+
+
+
+    //get the card effects
+    //that are in these structs that implement effect trait
+    fn get_card_effects(x: Vec<& dyn EffectTrait>) -> Vec<CardEffect>{
+
+        let mut toreturn = Vec::new();
+
+        for y in x{
+            toreturn.extend( y.get_effects() );
+        }
+
+        toreturn
+    }
+
+
+    pub fn get_active_card_effect_textures(x: Vec<& dyn EffectTrait>) -> Vec<String>{
+
+        let mut toreturn = Vec::new();
+    
+        for effect in Cards::get_card_effects(x){
+    
+            toreturn.push( effect.get_card_texture_location() );
+        }
+    
+        return toreturn;
+    }
+
+
+    pub fn get_card_pile_textures(&self) -> [CardEffect; 4]{
+        self.piles.clone()
+    }
+
+
 }
 
 
 
-pub fn draw( x: Vec<&mut dyn EffectTrait>) -> String{
-
-    let effect = CardEffect::get_joker_card_effect();
-
-    let effect = CardEffect::RemoveSquares(2);
-
-    return set_card_effect(effect, x);
-}
 
 
 
@@ -198,6 +242,10 @@ pub fn get_effects_texture_locations(&self) -> Vec<String>{
 */
 
 
+//the turn manager and the board engine implement these traits to apply and get the effects on them
+
+//a list of card effects
+
 
 
 
@@ -211,6 +259,10 @@ pub trait EffectTrait{
 
 
 
+//a list of objects that represents 
+
+//the game gets the list of cards active
+//and applies cards to apply
 
 
 
@@ -222,85 +274,43 @@ pub enum CardEffect{
     
     BackToBackTurns, 
     HalveTimeLeft,
-    
-    TurnsTimed(u32),
-
-    
-    
+    TurnsTimed(u32),    
     AddChessPieces,
     AddCheckersPieces,
-    
-    
     TurnsUntilDrawAvailable(u32),
-    
-
-    //split a piece into multiple pawns
     SplitPieceIntoPawns,
     Checkerify,
     Chessify,
     Knight,
-    
-
-
-
     RemoveSquares(u32),
-
-    //increase the size of the board by this many pieces
     AddSquares(u32),
-
     //delay actions by X moves
     //pieces actions are set and displayed but dont occur until the next move is placed
     //maybe implent this later, its not straightforward, or straightforward how interesting this would be
     //DelayAction(u32),
-
     //change how many ticks it takes for a piece to move 1 square
     //should speed be a component of "fullaction"?
     //no. that complicates, beyond simplicity the ability to check if a move is available by whether its in a list
     //(or i can change the EQ implementation on my fullaction to not consider speed if its the same)
     ChangeSpeed(u32),
-
-
     //increase the piece to the next level (pawn to knight to bishop to rook to queen)
     LevelPieces,
-
-
     //give both player x new random pieces at different points on the board
     AddRandomPieces(u32),
-
-
     //tilt all actions by this amount
     //f32 is not serializable
     //so by 1/64 full rotations
     TiltActions(u32),
-
-
     //split a random piece from both players pieces into pawns
     SplitIntoPawns,
-
-
     MakeCheckers,
-
-
     //9 random and adjacent squares on the board will drop in 3 turns (they're color coded for how long until dropping)
     MakeBomb,
-    
-
     //for X turns, all moves turn into flicks (lift and move upwards flick with power proportional to distance)
     //(slides, grounded flicks with power proportional to distance)
     MovesBecomeFlicks(u32),
-
-
-    //chess 960 distribution
-
-
-
-
-
-
     KingsReplaced(bool),
-
     LossWithoutKing(bool),
-
     PawnsPromoted(bool),    
 }
 
