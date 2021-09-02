@@ -15,7 +15,7 @@ impl Cards{
 
     pub fn new() -> Cards{
 
-        let mut piles = [CardEffect::Chessify,CardEffect::Chessify,CardEffect::Chessify,CardEffect::Chessify ];
+        let mut piles = [CardEffect::AddSquares(2),CardEffect::Chessify,CardEffect::Chessify,CardEffect::Chessify ];
 
         Cards{
 
@@ -44,7 +44,7 @@ impl Cards{
             
     pub fn set_random_card_effect(&mut self, x: Vec<&mut dyn EffectTrait>) {
 
-        let effect = CardEffect::get_joker_card_effect();
+        //let effect = CardEffect::get_joker_card_effect();
         let effect = CardEffect::RemoveSquares(2);
         self.set_card_effect(effect, x);
     }
@@ -284,6 +284,19 @@ pub enum CardEffect{
     Knight,
     RemoveSquares(u32),
     AddSquares(u32),
+    ChangeSpeed(u32),
+    LevelPieces,
+    AddRandomPieces(u32),
+    TiltActions(u32),
+    SplitIntoPawns,
+    MakeCheckers,
+    MakeBomb,
+    MovesBecomeFlicks(u32),
+    KingsReplaced(bool),
+    LossWithoutKing(bool),
+    PawnsPromoted(bool),    
+
+
     //delay actions by X moves
     //pieces actions are set and displayed but dont occur until the next move is placed
     //maybe implent this later, its not straightforward, or straightforward how interesting this would be
@@ -292,31 +305,21 @@ pub enum CardEffect{
     //should speed be a component of "fullaction"?
     //no. that complicates, beyond simplicity the ability to check if a move is available by whether its in a list
     //(or i can change the EQ implementation on my fullaction to not consider speed if its the same)
-    ChangeSpeed(u32),
     //increase the piece to the next level (pawn to knight to bishop to rook to queen)
-    LevelPieces,
     //give both player x new random pieces at different points on the board
-    AddRandomPieces(u32),
     //tilt all actions by this amount
     //f32 is not serializable
     //so by 1/64 full rotations
-    TiltActions(u32),
     //split a random piece from both players pieces into pawns
-    SplitIntoPawns,
-    MakeCheckers,
     //9 random and adjacent squares on the board will drop in 3 turns (they're color coded for how long until dropping)
-    MakeBomb,
     //for X turns, all moves turn into flicks (lift and move upwards flick with power proportional to distance)
     //(slides, grounded flicks with power proportional to distance)
-    MovesBecomeFlicks(u32),
-    KingsReplaced(bool),
-    LossWithoutKing(bool),
-    PawnsPromoted(bool),    
 }
 
 
 impl CardEffect{  
     
+    /*
     //get a random card effect playable on the board
     fn get_joker_card_effect() -> CardEffect{
         
@@ -343,45 +346,42 @@ impl CardEffect{
         
         jokereffect    
     }
+    */
     
     //card texture 
     fn get_card_texture_location(&self) -> String{
         
-        
-        return format!("halvetimeleft.png");
-        /*
-        match self{
-            
-            CardEffect::BackToBackTurns => format!("backtoback.png"),
-            
-            CardEffect::HalveTimeLeft =>format!("halvetimeleft.png"),
-            
-            CardEffect::RemoveSquares(_) => format!("droppedsquares.png"),
-            
-            CardEffect::AddChessPieces => format!("addchesspieces.png"),
-            
-            CardEffect::AddCheckersPieces => format!("addcheckerspieces.png"),
-            
-            CardEffect::TurnsTimed(_) => format!("turnstimed.png"),
-            
-            CardEffect::TurnsUntilDrawAvailable(turns) => format!("{:?}turnsuntildraw.png", turns),
-            
-            CardEffect::SplitPieceIntoPawns => format!("splitpieceintopawns.png"),
-            
-            CardEffect::Checkerify => format!("checkerify.png"),
-            
-            CardEffect::Knight => format!("knight.png"),
-            
-            CardEffect::KingsReplaced(x) => format!("kingsreplaced.png"),
-            
-            CardEffect::LossWithoutKing(x) => format!("losswithoutking.png"),
-            
-            CardEffect::PawnsPromoted(x) => format!("pawnspromoted.png"),
 
+        
+        match self{
+            CardEffect::BackToBackTurns => format!("backtoback.png"), 
+            CardEffect::HalveTimeLeft => format!("halvetimeleft.png"),
+            CardEffect::TurnsTimed(u32) => format!("XX.png"),
+            CardEffect::AddChessPieces => format!("addchesspieces.png"),
+            CardEffect::AddCheckersPieces  => format!("addcheckerspieces.png"),
+            CardEffect::TurnsUntilDrawAvailable(turns) => format!("{:?}turnsuntildraw.png", turns),
+            CardEffect::SplitPieceIntoPawns => format!("splitpieceintopawns.png"),
+            CardEffect::Checkerify => format!("checkerify.png"),
             CardEffect::Chessify => format!("chessify.png"),
+            CardEffect::Knight => format!("knight.png"),
+            CardEffect::RemoveSquares(u32)=> format!("droppedsquares.png"),
+            CardEffect::AddSquares(u32)=> format!("XX.png"),
+            CardEffect::ChangeSpeed(u32)=> format!("XX.png"),
+            CardEffect::LevelPieces=> format!("XX.png"),
+            CardEffect::AddRandomPieces(u32)=> format!("XX.png"),
+            CardEffect::TiltActions(u32)=> format!("XX.png"),
+            CardEffect::SplitIntoPawns=> format!("XX.png"),
+            CardEffect::MakeCheckers=> format!("XX.png"),
+            CardEffect::MakeBomb=> format!("XX.png"),
+            CardEffect::MovesBecomeFlicks(u32)=> format!("XX.png"),
+            CardEffect::KingsReplaced(bool) => format!("kingsreplaced.png"),
+            CardEffect::LossWithoutKing(bool) => format!("losswithoutking.png"),
+            CardEffect::PawnsPromoted(bool)=> format!("pawnspromoted.png"),
+
         }
-        */
+        
         
     }
     
 }
+

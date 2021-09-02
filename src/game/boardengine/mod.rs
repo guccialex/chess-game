@@ -363,15 +363,7 @@ impl BoardEngine{
 
 
 
-
-//board cards
-//implements 
-struct BoardCards{
-
-
-
-}
-
+//make board effect public
 
 
 
@@ -385,11 +377,42 @@ impl EffectTrait for BoardEngine{
 
         match effect{
 
-            _ => {
-                log::info!("cant apply that effect");
-                //panic!("card effect not settable");
-            }
-        }
+            CardEffect::BackToBackTurns => {  }, 
+            CardEffect::HalveTimeLeft => {  },
+            CardEffect::TurnsTimed(turns) => {  },
+            CardEffect::TurnsUntilDrawAvailable(turns) => {  },
+
+            CardEffect::AddChessPieces => {  },
+            CardEffect::AddCheckersPieces  => {  },
+            CardEffect::SplitPieceIntoPawns => {  },
+            CardEffect::Checkerify => {  },
+            CardEffect::Chessify => {  },
+            CardEffect::Knight => {  },
+            CardEffect::RemoveSquares(number) => { 
+
+             },
+            CardEffect::AddSquares(number) => { 
+
+                for _ in 0..number{
+                    self.board.create_square();
+                }
+                
+             },
+            CardEffect::ChangeSpeed(u32) => {  },
+            CardEffect::LevelPieces => {  },
+            CardEffect::AddRandomPieces(u32)=> {  },
+            CardEffect::TiltActions(u32)=> {  },
+            CardEffect::SplitIntoPawns=> {  },
+            CardEffect::MakeCheckers=> {  },
+            CardEffect::MakeBomb=> {  },
+            CardEffect::MovesBecomeFlicks(u32)=> {  },
+            CardEffect::KingsReplaced(bool) => {  },
+            CardEffect::LossWithoutKing(bool) => {  },
+            CardEffect::PawnsPromoted(bool)=> {  },
+        };
+
+
+
     }
 
     fn get_effects(&self) -> Vec<CardEffect>{
