@@ -70,7 +70,10 @@ impl Game{
             lastcardeffect: 0,
         };
 
+
+        toreturn.perform_card_effect( CardEffect::TurnsTimed(10) );
         
+        //toreturn.perform_input(1, input:GameInput)
         //toreturn.lastcardeffect = Some( (50, gameeffect::set_card_effect(CardEffect::HalveTimeLeft , toreturn.get_mut_effect_x())) );
         //toreturn.lastcardeffect = Some( (50, gameeffect::set_card_effect(CardEffect::TurnsTimed(10) , toreturn.get_mut_effect_x())) );
 
@@ -238,11 +241,19 @@ impl Game{
             temp.draw_card_from_pile(pile, self.get_mut_effect_x() );
             self.cards = temp;
 
-
             self.turnmanager.player_drew();
         }    
 
     }
+
+    fn perform_card_effect(&mut self, effect: CardEffect){
+
+        let mut temp = self.cards.clone();
+        temp.set_card_effect( effect , self.get_mut_effect_x() );
+        self.cards = temp;
+
+    }
+
 
 
 
@@ -264,5 +275,6 @@ impl Game{
 
 
 
-
 }
+
+

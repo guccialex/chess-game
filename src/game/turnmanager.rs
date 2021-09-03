@@ -139,7 +139,7 @@ impl TurnManager{
         TurnManager{
 
             turnsinarow: 1,
-            tickstotaketurn: Some(100),
+            tickstotaketurn: None,
             turnsuntildraw: Some(turnsuntildraw),
 
             currentplayer: 1,

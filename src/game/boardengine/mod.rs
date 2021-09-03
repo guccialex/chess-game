@@ -229,6 +229,10 @@ impl BoardEngine{
     }
 
 
+    //data about the state of the game
+    //the length 
+
+
 
 
 
@@ -393,10 +397,11 @@ impl EffectTrait for BoardEngine{
              },
             CardEffect::AddSquares(number) => { 
 
+                log::info!("the number {:?}", number);
                 for _ in 0..number{
                     self.board.create_square();
                 }
-                
+
              },
             CardEffect::ChangeSpeed(u32) => {  },
             CardEffect::LevelPieces => {  },

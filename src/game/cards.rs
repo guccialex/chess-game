@@ -15,7 +15,7 @@ impl Cards{
 
     pub fn new() -> Cards{
 
-        let mut piles = [CardEffect::AddSquares(2),CardEffect::Chessify,CardEffect::Chessify,CardEffect::Chessify ];
+        let mut piles = [CardEffect::AddSquares(10),CardEffect::AddSquares(10),CardEffect::AddSquares(10), CardEffect::AddSquares(10) ];
 
         Cards{
 
@@ -33,7 +33,8 @@ impl Cards{
 
     pub fn draw_card_from_pile(&mut self, pile: &u16, x: Vec<&mut dyn EffectTrait>) {
 
-        if let Some(effect) = self.piles.get(*pile as usize){
+        if let Some(effect) = self.piles.get(*pile as usize).clone(){
+            
             self.set_card_effect( effect.clone() , x );
         }
         else{
@@ -52,6 +53,7 @@ impl Cards{
 
     //set the card effect onto these structs that implement effecttrait
     pub fn set_card_effect(&mut self, effect: CardEffect, x: Vec<&mut dyn EffectTrait>) {
+        //log::info!("pebis");
 
         log::info!("applying effect {:?}", effect.get_card_texture_location());
 
