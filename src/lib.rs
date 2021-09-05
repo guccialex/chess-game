@@ -23,7 +23,7 @@ pub struct PlayerInterface{
 
 impl PlayerInterface{
 
-    pub fn new() -> PlayerInterface{
+    pub fn new(playerid: u8) -> PlayerInterface{
 
         use log::Level;
         use log::info;
@@ -32,7 +32,7 @@ impl PlayerInterface{
 
         PlayerInterface{
 
-            playerid: 1,
+            playerid,
 
             game: Game::new(),
 
@@ -40,6 +40,30 @@ impl PlayerInterface{
 
     }
 
+
+    
+    //the non player takes actions
+    pub fn opponent_takes_action(&mut self){
+
+        let opponent;
+
+        if self.playerid == 1{
+            opponent = 2;
+        }
+        else{
+            opponent =1;
+        }
+
+        self.game.automatically_set_player_actions( opponent );
+
+
+    }
+    
+
+
+    pub fn get_id(&self) -> u8{
+        return self.playerid;
+    }
 
     //draw when i dont have a way to know when im clicking on a deck
     pub fn draw(&mut self, pile: u16) -> Vec<u8>{

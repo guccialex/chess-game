@@ -7,6 +7,8 @@ pub struct Cards{
     //the cards at the top of each pile
     piles: [CardEffect; 4],
     lastcardeffect: Option< String  >,
+
+    usedeffects: Vec<CardEffect>,
 }
 
 
@@ -15,15 +17,28 @@ impl Cards{
 
     pub fn new() -> Cards{
 
-        let mut piles = [CardEffect::AddSquares(10),CardEffect::AddSquares(10),CardEffect::AddSquares(10), CardEffect::AddSquares(10) ];
+        let mut piles = [CardEffect::AddSquares(20), CardEffect::Knight, CardEffect::RemoveSquares(20) , CardEffect::ChangeSpeed(100) ];
+
+        let mut usedeffects = Vec::new();
+
+        usedeffects.push( piles[0].clone() );
+        usedeffects.push( piles[1].clone() );
+        usedeffects.push( piles[2].clone() );
+        usedeffects.push( piles[3].clone() );
 
         Cards{
 
             piles,
             lastcardeffect: None,
+
+            usedeffects
+            
         }
 
     }
+
+
+    
 
 
     pub fn get_last_effect_texture(&self) -> Option<String>{
@@ -31,11 +46,62 @@ impl Cards{
     }
 
 
+    pub fn has_effect_been_used(&self, effect: &CardEffect) -> bool{
+
+        if self.usedeffects.contains( effect ){
+            return true
+        }
+
+        return false;
+
+    }
+
+
+
     pub fn draw_card_from_pile(&mut self, pile: &u16, x: Vec<&mut dyn EffectTrait>) {
 
         if let Some(effect) = self.piles.get(*pile as usize).clone(){
-            
+
+            let effect = effect.clone();
+
             self.set_card_effect( effect.clone() , x );
+
+
+            //set the effect to replace it
+
+
+            
+            self.usedeffects.push(effect.clone());
+
+
+            use std::collections::HashSet;
+
+            let mut effects = HashSet::new();
+            effects.insert( CardEffect::ChangeSpeed(200) );
+            effects.insert( CardEffect::HalveTimeLeft );
+            effects.insert( CardEffect::IntoFlicks );
+            effects.insert( CardEffect::Knight );
+            effects.insert( CardEffect::TurnsTimed(200) );
+            effects.insert( CardEffect::RemoveSquares(20) );
+            effects.insert( CardEffect::AddSquares(20) );
+            effects.insert( CardEffect::BackToBackTurns );
+
+
+
+
+            for effect in effects{
+
+                //if the effect hasnt been used before
+                if ! self.has_effect_been_used( &effect ){
+
+                    self.piles[*pile as usize] = effect;
+
+                    return ();
+                }
+            }
+
+
+
         }
         else{
             panic!("that card pile doesnt exist");
@@ -93,8 +159,15 @@ impl Cards{
     }
 
 
-    pub fn get_card_pile_textures(&self) -> [CardEffect; 4]{
-        self.piles.clone()
+    pub fn get_card_pile_textures(&self) -> [String; 4]{
+
+        [
+            self.piles[0].get_card_texture_location(),
+            self.piles[1].get_card_texture_location(),
+            self.piles[2].get_card_texture_location(),
+            self.piles[3].get_card_texture_location(),
+        ]
+
     }
 
 
@@ -292,8 +365,7 @@ pub enum CardEffect{
     TiltActions(u32),
     SplitIntoPawns,
     MakeCheckers,
-    MakeBomb,
-    MovesBecomeFlicks(u32),
+    IntoFlicks,
     KingsReplaced(bool),
     LossWithoutKing(bool),
     PawnsPromoted(bool),    
@@ -358,7 +430,7 @@ impl CardEffect{
         match self{
             CardEffect::BackToBackTurns => format!("backtoback.png"), 
             CardEffect::HalveTimeLeft => format!("halvetimeleft.png"),
-            CardEffect::TurnsTimed(u32) => format!("XX.png"),
+            CardEffect::TurnsTimed(u32) => format!("turnstimed.png"),
             CardEffect::AddChessPieces => format!("addchesspieces.png"),
             CardEffect::AddCheckersPieces  => format!("addcheckerspieces.png"),
             CardEffect::TurnsUntilDrawAvailable(turns) => format!("{:?}turnsuntildraw.png", turns),
@@ -367,15 +439,14 @@ impl CardEffect{
             CardEffect::Chessify => format!("chessify.png"),
             CardEffect::Knight => format!("knight.png"),
             CardEffect::RemoveSquares(u32)=> format!("droppedsquares.png"),
-            CardEffect::AddSquares(u32)=> format!("XX.png"),
-            CardEffect::ChangeSpeed(u32)=> format!("XX.png"),
+            CardEffect::AddSquares(u32)=> format!("addsquares.png"),
+            CardEffect::ChangeSpeed(u32)=> format!("slower.png"),
             CardEffect::LevelPieces=> format!("XX.png"),
             CardEffect::AddRandomPieces(u32)=> format!("XX.png"),
             CardEffect::TiltActions(u32)=> format!("XX.png"),
             CardEffect::SplitIntoPawns=> format!("XX.png"),
             CardEffect::MakeCheckers=> format!("XX.png"),
-            CardEffect::MakeBomb=> format!("XX.png"),
-            CardEffect::MovesBecomeFlicks(u32)=> format!("XX.png"),
+            CardEffect::IntoFlicks=> format!("intoflick.png"),
             CardEffect::KingsReplaced(bool) => format!("kingsreplaced.png"),
             CardEffect::LossWithoutKing(bool) => format!("losswithoutking.png"),
             CardEffect::PawnsPromoted(bool)=> format!("pawnspromoted.png"),

@@ -62,7 +62,7 @@ impl Game{
         let mut toreturn = Game{
 
             boardengine: BoardEngine::new(),
-            turnmanager: TurnManager::new_two_player(1, 2, 10000, 2),
+            turnmanager: TurnManager::new_two_player(1, 2, 5000, 2),
             gameover: None,
             queuedinputs: HashMap::new(),
 
@@ -71,14 +71,26 @@ impl Game{
         };
 
 
-        toreturn.perform_card_effect( CardEffect::TurnsTimed(10) );
+        //toreturn.perform_card_effect( CardEffect::TurnsTimed(10) );
         
-        //toreturn.perform_input(1, input:GameInput)
-        //toreturn.lastcardeffect = Some( (50, gameeffect::set_card_effect(CardEffect::HalveTimeLeft , toreturn.get_mut_effect_x())) );
-        //toreturn.lastcardeffect = Some( (50, gameeffect::set_card_effect(CardEffect::TurnsTimed(10) , toreturn.get_mut_effect_x())) );
+
 
         toreturn
     }
+
+
+    pub fn automatically_set_player_actions(&mut self, playerid: u8){
+
+        let fullaction = self.boardengine.get_players_ideal_action(playerid);
+
+        let input = GameInput::FullAction( fullaction.0, fullaction.1 );
+
+        self.receive_input(playerid, input);
+
+    }
+
+
+
 
 
 
@@ -180,13 +192,13 @@ impl Game{
             
             isgameover: self.is_game_over(),
             
-            turnsuntildrawavailable: self.turnmanager.turns_until_draw(),
-            
             player1totalticksleft,
             player2totalticksleft,
             
             player1ticksleft,
             player2ticksleft,
+
+            piles: self.cards.get_card_pile_textures(),
             
             playerswithactiveturns,
         
@@ -210,7 +222,7 @@ impl Game{
         
         if let GameInput::FullAction(piece, action) = input{
 
-            if self.boardengine.is_action_valid( &piece, &action){
+            if self.boardengine.is_action_valid( playerid, &piece, &action){
 
                 return true;
             }
@@ -228,21 +240,23 @@ impl Game{
 
     fn perform_input(&mut self, player: &u8,  input: &GameInput){
 
-        if let GameInput::FullAction(piece, action) = input{
+        if self.is_gameinput_valid(player, input){
 
-            if self.boardengine.is_action_valid( &piece, &action){
+            if let GameInput::FullAction(piece, action) = input{
 
                 self.boardengine.perform_action(&piece, &action);
             }
+            if let GameInput::Draw(pile) = input{
+    
+                let mut temp = self.cards.clone();
+                temp.draw_card_from_pile(pile, self.get_mut_effect_x() );
+                self.cards = temp;
+    
+                self.turnmanager.player_drew();
+
+                self.lastcardeffect = 0;
+            }
         }
-        if let GameInput::Draw(pile) = input{
-
-            let mut temp = self.cards.clone();
-            temp.draw_card_from_pile(pile, self.get_mut_effect_x() );
-            self.cards = temp;
-
-            self.turnmanager.player_drew();
-        }    
 
     }
 
@@ -251,7 +265,6 @@ impl Game{
         let mut temp = self.cards.clone();
         temp.set_card_effect( effect , self.get_mut_effect_x() );
         self.cards = temp;
-
     }
 
 

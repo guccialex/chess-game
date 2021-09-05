@@ -1,5 +1,5 @@
 
-use board::Board;
+//use board::Board;
 use board::BoardObject;
 use board::FullAction;
 use board::Piece;
@@ -8,6 +8,13 @@ use board::RelativeSquare;
 use board::Square;
 use board::SquarePos;
 use board::VisibleGameBoardObject;
+
+
+use board::boardstructs;
+
+use board::BoardState;
+use board::PieceDatas;
+
 
 
 
@@ -49,7 +56,11 @@ use serde::{Serialize, Deserialize};
 #[derive(Serialize, Deserialize)]
 pub struct BoardEngine{
 
-    board: Board,
+    boardstate: BoardState,
+    
+    piecedatas: PieceDatas,
+
+
 
     ownerdirection: HashMap<u8, f32>,
 
@@ -79,9 +90,10 @@ impl BoardEngine{
         ownerdirection.insert( 2, 0.5);
 
         let mut toreturn = BoardEngine{
-            board: Board::new(),
-            ownerdirection,
+            boardstate: BoardState::new(),
+            piecedatas: PieceDatas::new(),
 
+            ownerdirection,
             movesareflicks: false,
         };
 
@@ -89,17 +101,11 @@ impl BoardEngine{
 
         for x in 0..100{
 
-            toreturn.board.create_square();
+            board::create_next_boardsquare( &mut toreturn.boardstate );
         }
+
 
         toreturn.create_chess_pieces();
-
-
-        /*
-        for x in 0..100{
-            toreturn.board.create_piece( &PieceType::Pawn, &SquarePos::new_from_perspective( (4, 4), 0.0 ) , &1, &0.0 );
-        }
-        */
 
 
         toreturn
@@ -110,6 +116,55 @@ impl BoardEngine{
 
         self.movesareflicks = true;
     }
+
+
+
+    //the effects stored where?
+    //what effects:
+    /*
+
+        //values store here:
+
+        CardEffect::MovesBecomeFlicks(u32)=> {  },
+        CardEffect::KingsReplaced(bool) => {  },
+        CardEffect::LossWithoutKing(bool) => {  },
+        CardEffect::PawnsPromoted(bool)=> {  },
+
+
+        //effects stored in "piecedata"
+        
+        //or when I
+        //"get allowed actions"
+        //i have to pass "knight" and "tilt actions"
+        //in
+    
+        CardEffect::TiltActions(u32)=> {  },
+        CardEffect::ChangeSpeed(u32) => {  },
+        CardEffect::Knight => { 
+
+    */
+
+    /*
+    //get the move the player should make
+    pub fn get_ideal_move_of_player(&self, playerid: &u8) -> FullAction{
+
+        //get the pieces of this player
+        
+        //self.piecedatas
+
+
+
+
+    }
+    */
+
+    pub fn get_players_ideal_action(&self, playerid: u8) -> (Piece, FullAction){
+
+        return board::get_player_best_action(&self.piecedatas,&self.boardstate, playerid);
+
+    }
+
+
 
 
     pub fn add_random_pieces(&mut self, x: u32){
@@ -149,24 +204,24 @@ impl BoardEngine{
             
             for x in 0..8{
 
-                self.board.create_piece( &PieceType::Pawn, &SquarePos::new_from_perspective( (x, 1), *rotation ) , &playerx, rotation );
+                board::create_piece( &mut self.piecedatas, &mut self.boardstate, &PieceType::Pawn, &SquarePos::new_from_perspective( (x, 1), *rotation ) , &playerx, rotation );
             }
 
-            self.board.create_piece( &PieceType::Rook, &SquarePos::new_from_perspective( (0, 0), *rotation ) , &playerx, rotation );
+            board::create_piece( &mut self.piecedatas, &mut self.boardstate, &PieceType::Rook, &SquarePos::new_from_perspective( (0, 0), *rotation ) , &playerx, rotation );
 
-            self.board.create_piece( &PieceType::Knight, &SquarePos::new_from_perspective( (1, 0), *rotation ) , &playerx, rotation );
+            board::create_piece( &mut self.piecedatas, &mut self.boardstate, &PieceType::Knight, &SquarePos::new_from_perspective( (1, 0), *rotation ) , &playerx, rotation );
             
-            self.board.create_piece( &PieceType::Bishop, &SquarePos::new_from_perspective( (2, 0), *rotation ) , &playerx, rotation );
+            board::create_piece( &mut self.piecedatas, &mut self.boardstate, &PieceType::Bishop, &SquarePos::new_from_perspective( (2, 0), *rotation ) , &playerx, rotation );
             
-            self.board.create_piece( &PieceType::Queen, &SquarePos::new_from_perspective( (3, 0), *rotation ) , &playerx, rotation );
+            board::create_piece( &mut self.piecedatas, &mut self.boardstate, &PieceType::Queen, &SquarePos::new_from_perspective( (3, 0), *rotation ) , &playerx, rotation );
             
-            self.board.create_piece( &PieceType::King, &SquarePos::new_from_perspective( (4, 0), *rotation ) , &playerx, rotation );
+            board::create_piece( &mut self.piecedatas, &mut self.boardstate, &PieceType::King, &SquarePos::new_from_perspective( (4, 0), *rotation ) , &playerx, rotation );
             
-            self.board.create_piece( &PieceType::Bishop, &SquarePos::new_from_perspective( (5, 0), *rotation ) , &playerx, rotation );
+            board::create_piece( &mut self.piecedatas, &mut self.boardstate, &PieceType::Bishop, &SquarePos::new_from_perspective( (5, 0), *rotation ) , &playerx, rotation );
             
-            self.board.create_piece( &PieceType::Knight, &SquarePos::new_from_perspective( (6, 0), *rotation ) , &playerx, rotation );
+            board::create_piece( &mut self.piecedatas, &mut self.boardstate, &PieceType::Knight, &SquarePos::new_from_perspective( (6, 0), *rotation ) , &playerx, rotation );
             
-            self.board.create_piece( &PieceType::Rook, &SquarePos::new_from_perspective( (7, 0), *rotation ) , &playerx, rotation );
+            board::create_piece( &mut self.piecedatas, &mut self.boardstate, &PieceType::Rook, &SquarePos::new_from_perspective( (7, 0), *rotation ) , &playerx, rotation );
             
         };
 
@@ -174,13 +229,18 @@ impl BoardEngine{
 
 
     pub fn get_object_intersection(&self, ray: (Point3<f32>, Vector3<f32>)) -> Option<BoardObject>{
-        self.board.get_object_intersection(ray)
+        board::get_object_intersection(& self.boardstate, ray)
     }
 
 
-    pub fn is_action_valid(& self, piece: &Piece, action: &FullAction ) -> bool{
+    pub fn is_action_valid(& self, playerid: &u8, piece: &Piece, action: &FullAction ) -> bool{
 
-        self.board.is_action_valid(piece, action)
+        if board::does_player_own_piece( &self.piecedatas, playerid, piece ){
+
+            return board::is_action_valid(&self.piecedatas, &self.boardstate, piece, action);
+        }
+
+        return false;
     }
 
 
@@ -194,13 +254,13 @@ impl BoardEngine{
         }
 
 
-        self.board.perform_action(piece, &action);
+        board::perform_action(&mut self.piecedatas, &mut self.boardstate, piece, &action);
     }
 
 
     pub fn tick(&mut self){
 
-        self.board.tick();
+        board::tick(&mut self.piecedatas, &mut self.boardstate);
     }
 
 
@@ -211,7 +271,7 @@ impl BoardEngine{
 
             if let Some(target) = clicked{
 
-                if let Some(action) = self.board.objects_to_action(&piece, &target){
+                if let Some(action) = board::objects_to_action(& self.piecedatas, &self.boardstate, &piece, &target){
 
                     return Some( (piece, action) );
                 }
@@ -225,7 +285,7 @@ impl BoardEngine{
 
     pub fn get_visible_board_game_objects(&self, selected: &Option<BoardObject>) -> Vec<VisibleGameBoardObject>{
 
-        return self.board.get_visible_board_game_objects( selected );
+        return board::get_visible_board_game_objects( & self.piecedatas, &self.boardstate, selected );
     }
 
 
@@ -386,31 +446,51 @@ impl EffectTrait for BoardEngine{
             CardEffect::TurnsTimed(turns) => {  },
             CardEffect::TurnsUntilDrawAvailable(turns) => {  },
 
-            CardEffect::AddChessPieces => {  },
-            CardEffect::AddCheckersPieces  => {  },
-            CardEffect::SplitPieceIntoPawns => {  },
+
+            CardEffect::AddChessPieces => {
+
+
+            },
+            CardEffect::AddCheckersPieces  => { 
+
+
+            },
+            CardEffect::SplitPieceIntoPawns => { 
+
+
+            },
             CardEffect::Checkerify => {  },
             CardEffect::Chessify => {  },
-            CardEffect::Knight => {  },
-            CardEffect::RemoveSquares(number) => { 
 
+            CardEffect::Knight => { 
+                self.piecedatas.augment_knight();
+
+             },
+            CardEffect::RemoveSquares(number) => { 
+                for _ in 0..number{
+                    board::remove_random_square(&mut self.boardstate);
+                }
              },
             CardEffect::AddSquares(number) => { 
-
                 log::info!("the number {:?}", number);
                 for _ in 0..number{
-                    self.board.create_square();
+                    board::create_next_boardsquare(&mut self.boardstate);
                 }
-
              },
-            CardEffect::ChangeSpeed(u32) => {  },
+
+            CardEffect::ChangeSpeed(ticks) => { 
+                self.boardstate.set_speed( ticks );
+             },
             CardEffect::LevelPieces => {  },
             CardEffect::AddRandomPieces(u32)=> {  },
             CardEffect::TiltActions(u32)=> {  },
             CardEffect::SplitIntoPawns=> {  },
-            CardEffect::MakeCheckers=> {  },
-            CardEffect::MakeBomb=> {  },
-            CardEffect::MovesBecomeFlicks(u32)=> {  },
+            CardEffect::MakeCheckers=> {
+
+              },
+            CardEffect::IntoFlicks=> {    
+                self.boardstate.set_is_flicked( true )
+            },
             CardEffect::KingsReplaced(bool) => {  },
             CardEffect::LossWithoutKing(bool) => {  },
             CardEffect::PawnsPromoted(bool)=> {  },
@@ -423,6 +503,9 @@ impl EffectTrait for BoardEngine{
     fn get_effects(&self) -> Vec<CardEffect>{
 
         let mut toreturn = Vec::new();
+
+
+        toreturn.push( CardEffect::HalveTimeLeft );
 
         return toreturn;
     }

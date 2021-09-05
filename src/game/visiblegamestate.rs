@@ -12,7 +12,7 @@ pub struct VisibleGameState{
     
     //the deck
     //whether the move is available
-    pub turnsuntildrawavailable: Option<u32>,
+    //pub turnsuntildrawavailable: Option<u32>,
     
     pub player1totalticksleft: u32,
     pub player2totalticksleft: u32,
@@ -25,6 +25,9 @@ pub struct VisibleGameState{
     
     //if its their turn
     pub playerswithactiveturns: HashSet<u8>,
+
+
+    pub piles: [String; 4],
     
 
     //the list of game effects as locations of their texture
@@ -38,7 +41,4 @@ pub struct VisibleGameState{
     //just click objects is the input
     pub boardobjects: Vec<VisibleGameBoardObject>,
 }
-
-
-
 

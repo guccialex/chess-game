@@ -33,15 +33,11 @@ impl EffectTrait for TurnManager{
                 self.tickstotaketurn = Some(ticks);
             },
             CardEffect::TurnsUntilDrawAvailable(turns) =>{
-
                 self.turnsuntildraw = Some(turns);
-
-
             },
             //half this players turn ticks
             _ => {
                 log::info!("cant apply that effect");
-                //panic!("card effect not settable");
             }
 
 
@@ -53,7 +49,7 @@ impl EffectTrait for TurnManager{
     fn get_effects(&self) -> Vec<CardEffect>{
 
         let mut toreturn = Vec::new();
-        /*
+        
 
         if let Some(x) = self.tickstotaketurn{
 
@@ -65,8 +61,13 @@ impl EffectTrait for TurnManager{
             toreturn.push( CardEffect::BackToBackTurns );
         };
 
-        toreturn.push( CardEffect::PawnsPromoted );
-        */
+        if let Some(turns) = self.turns_until_draw(){
+
+            toreturn.push(  CardEffect::TurnsUntilDrawAvailable(turns) );
+        };
+        
+        //toreturn.push( CardEffect::PawnsPromoted );
+        
 
 
         return toreturn;
@@ -76,23 +77,6 @@ impl EffectTrait for TurnManager{
 }
 
 
-impl TurnManager{
-
-    fn relevant_effects() -> Vec<CardEffect>{
-
-        let mut toreturn = Vec::new();
-
-        /*
-        toreturn.push( CardEffect::TurnsUntilDrawAvailable );
-        toreturn.push( CardEffect::TurnsTimed(10) );
-        */
-
-
-        toreturn
-
-    }
-
-}
 
 
 
@@ -127,8 +111,8 @@ impl TurnManager{
         
 
         let mut turns = HashMap::new();
-        turns.insert(0, (player1, 100000, 1) );
-        turns.insert(1, (player2, 100000, 0) );
+        turns.insert(0, (player1, 1000000, 1) );
+        turns.insert(1, (player2, 1000000, 0) );
         
 
         let mut totaltimeleft = HashMap::new();
