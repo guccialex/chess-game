@@ -266,7 +266,7 @@ pub fn get_pieces_below_border( boardstate: &mut BoardState) -> Vec<Piece>{
 
         let translation = boardstate.physics.get_isometry(&piece.id);
 
-        if translation.translation.y <= -3.{
+        if translation.translation.y <= -0.5{
             toreturn.push(piece.clone());
         }
     }

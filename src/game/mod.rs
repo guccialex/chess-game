@@ -157,7 +157,7 @@ impl Game{
                     self.turnmanager.player_took_action(player);
 
 
-                    self.tickstotryaction = 10;
+                    self.tickstotryaction = 20;
     
                     break;
                 }
