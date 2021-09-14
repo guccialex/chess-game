@@ -150,24 +150,33 @@ impl Game{
 
             for player in self.turnmanager.get_current_players(){
 
-                if let Some(queuedinput) = self.queuedinputs.remove(&player){
-    
-                    self.perform_input( &player, &queuedinput );
-    
-                    self.turnmanager.player_took_action(player);
+                //if there is an input queued
+                if let Some(queuedinput) = self.queuedinputs.get(&player){
 
+                    if self.is_gameinput_valid(&player, &queuedinput){
 
-                    self.tickstotryaction = 20;
-    
-                    break;
+                        if let Some(queuedinput) = self.queuedinputs.remove(&player){ 
+
+                            self.perform_input( &player, &queuedinput );
+            
+                            self.turnmanager.player_took_action(player);
+        
+                            self.tickstotryaction = 20;
+            
+                            break;
+                        }
+
+                    }
+
                 }
+
+
             }
 
         }
 
 
         self.tickstotryaction += -1;
-
 
 
         self.boardengine.tick();
