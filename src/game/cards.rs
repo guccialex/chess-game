@@ -17,7 +17,7 @@ impl Cards{
 
     pub fn new() -> Cards{
 
-        let mut piles = [CardEffect::AddSquares(20), CardEffect::Knight, CardEffect::RemoveSquares(20) , CardEffect::ChangeSpeed(100) ];
+        let mut piles = [CardEffect::AddSquares(30), CardEffect::Knight, CardEffect::RemoveSquares(10) , CardEffect::ChangeSpeed(100) ];
 
         let mut usedeffects = Vec::new();
 
