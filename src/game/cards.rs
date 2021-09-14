@@ -18,7 +18,7 @@ impl Cards{
 
     pub fn new() -> Cards{
 
-        let mut piles = [CardEffect::AddSquares(30), CardEffect::Knight, CardEffect::RemoveSquares(15) , CardEffect::HalveTimeLeft ];
+        let mut piles = [CardEffect::AddSquares(30), CardEffect::AddRandomPieces(5) , CardEffect::RemoveSquares(15) , CardEffect::HalveTimeLeft ];
 
 
         let mut randomorder = HashSet::new();
