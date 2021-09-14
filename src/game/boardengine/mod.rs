@@ -99,7 +99,7 @@ impl BoardEngine{
 
 
 
-        for x in 0..100{
+        for x in 0..64{
 
             board::create_next_boardsquare( &mut toreturn.boardstate );
         }
