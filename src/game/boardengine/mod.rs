@@ -180,13 +180,15 @@ impl BoardEngine{
                 pos = SquarePos::new( (3,3) );
             }
             else{
-                pos = SquarePos::new( (3,3) );
+                pos = SquarePos::new( (6,6) );
             }
+
+            let piecetype = PieceType::get_random();
+
 
             for _ in 0..x{
 
-
-                board::create_piece(&mut self.piecedatas, &mut self.boardstate, &PieceType::get_random() , &pos, &owner, self.ownerdirection.get( &owner).unwrap() );
+                board::create_piece(&mut self.piecedatas, &mut self.boardstate, &piecetype , &pos, &owner, self.ownerdirection.get( &owner).unwrap() );
                 
             }
 
