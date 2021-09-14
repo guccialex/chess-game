@@ -57,8 +57,7 @@ impl PlayerInterface{
         }
 
         self.game.automatically_set_player_actions( opponent );
-
-
+        
     }
     
 

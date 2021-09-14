@@ -8,7 +8,7 @@ pub struct Cards{
     piles: [CardEffect; 4],
     lastcardeffect: Option< String  >,
 
-    usedeffects: Vec<CardEffect>,
+    queuedeffects: Vec<CardEffect>,
 }
 
 
@@ -19,41 +19,32 @@ impl Cards{
 
         let mut piles = [CardEffect::AddSquares(30), CardEffect::Knight, CardEffect::RemoveSquares(10) , CardEffect::ChangeSpeed(100) ];
 
-        let mut usedeffects = Vec::new();
+        let mut queuedeffects = Vec::new();
 
-        usedeffects.push( piles[0].clone() );
-        usedeffects.push( piles[1].clone() );
-        usedeffects.push( piles[2].clone() );
-        usedeffects.push( piles[3].clone() );
+        queuedeffects.push( CardEffect::ChangeSpeed(200) );
+        queuedeffects.push( CardEffect::HalveTimeLeft );
+        queuedeffects.push( CardEffect::IntoFlicks );
+        queuedeffects.push( CardEffect::Knight );
+        queuedeffects.push( CardEffect::TurnsTimed(200) );
+        queuedeffects.push( CardEffect::RemoveSquares(20) );
+        queuedeffects.push( CardEffect::AddSquares(20) );
+        queuedeffects.push( CardEffect::BackToBackTurns );
+
 
         Cards{
 
             piles,
             lastcardeffect: None,
-
-            usedeffects
+            queuedeffects
             
         }
 
     }
 
 
-    
-
 
     pub fn get_last_effect_texture(&self) -> Option<String>{
         self.lastcardeffect.clone()
-    }
-
-
-    pub fn has_effect_been_used(&self, effect: &CardEffect) -> bool{
-
-        if self.usedeffects.contains( effect ){
-            return true
-        }
-
-        return false;
-
     }
 
 
@@ -67,40 +58,9 @@ impl Cards{
             self.set_card_effect( effect.clone() , x );
 
 
-            //set the effect to replace it
-
-
-            
-            self.usedeffects.push(effect.clone());
-
-
-            use std::collections::HashSet;
-
-            let mut effects = HashSet::new();
-            effects.insert( CardEffect::ChangeSpeed(200) );
-            effects.insert( CardEffect::HalveTimeLeft );
-            effects.insert( CardEffect::IntoFlicks );
-            effects.insert( CardEffect::Knight );
-            effects.insert( CardEffect::TurnsTimed(200) );
-            effects.insert( CardEffect::RemoveSquares(20) );
-            effects.insert( CardEffect::AddSquares(20) );
-            effects.insert( CardEffect::BackToBackTurns );
-
-
-
-
-            for effect in effects{
-
-                //if the effect hasnt been used before
-                if ! self.has_effect_been_used( &effect ){
-
-                    self.piles[*pile as usize] = effect;
-
-                    return ();
-                }
+            if let Some(neweffect) = self.queuedeffects.pop(){
+                self.piles[*pile as usize] = neweffect;
             }
-
-
 
         }
         else{
