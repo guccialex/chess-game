@@ -74,9 +74,6 @@ impl Game{
 
             tickstotryaction: 10,
         };
-
-
-        //toreturn.perform_card_effect( CardEffect::TurnsTimed(10) );
         
 
 
@@ -161,7 +158,7 @@ impl Game{
         
                         self.turnmanager.player_took_action(player);
     
-                        self.tickstotryaction = 20;
+                        self.tickstotryaction = 10;
 
                         self.queuedinputs.remove(&player);
         
