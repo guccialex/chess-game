@@ -52,6 +52,9 @@ pub struct Game{
 
     //how many ticks ago was the last effect drawn
     lastcardeffect: i32,
+
+    //ticks to wait before applying a new effect
+    tickstotryaction: i32,
 }
 
 
@@ -68,6 +71,8 @@ impl Game{
 
             cards: Cards::new(),
             lastcardeffect: 0,
+
+            tickstotryaction: 10,
         };
 
 
@@ -141,21 +146,33 @@ impl Game{
 
     pub fn tick(&mut self) {
 
-        for player in self.turnmanager.get_current_players(){
+        if self.tickstotryaction <= 0{
 
-            if let Some(queuedinput) = self.queuedinputs.remove(&player){
+            for player in self.turnmanager.get_current_players(){
 
-                self.perform_input( &player, &queuedinput );
+                if let Some(queuedinput) = self.queuedinputs.remove(&player){
+    
+                    self.perform_input( &player, &queuedinput );
+    
+                    self.turnmanager.player_took_action(player);
 
-                self.turnmanager.player_took_action(player);
 
-                break;
+                    self.tickstotryaction = 10;
+    
+                    break;
+                }
             }
+
         }
+
+
+        self.tickstotryaction += -1;
+
+
 
         self.boardengine.tick();
 
-        
+
         self.turnmanager.tick();
     
         self.lastcardeffect += 1;
