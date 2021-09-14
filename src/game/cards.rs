@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 
+use std::collections::HashSet;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Cards{
@@ -17,26 +18,28 @@ impl Cards{
 
     pub fn new() -> Cards{
 
-        let mut piles = [CardEffect::AddSquares(30), CardEffect::Knight, CardEffect::RemoveSquares(10) , CardEffect::ChangeSpeed(100) ];
+        let mut piles = [CardEffect::AddSquares(30), CardEffect::Knight, CardEffect::RemoveSquares(15) , CardEffect::HalveTimeLeft ];
 
-        let mut queuedeffects = Vec::new();
 
-        queuedeffects.push( CardEffect::ChangeSpeed(200) );
-        queuedeffects.push( CardEffect::HalveTimeLeft );
-        queuedeffects.push( CardEffect::IntoFlicks );
-        queuedeffects.push( CardEffect::Knight );
-        queuedeffects.push( CardEffect::TurnsTimed(200) );
-        queuedeffects.push( CardEffect::RemoveSquares(20) );
-        queuedeffects.push( CardEffect::AddSquares(20) );
-        queuedeffects.push( CardEffect::BackToBackTurns );
+        let mut randomorder = HashSet::new();
 
+        randomorder.insert( CardEffect::ChangeSpeed(200) );
+        randomorder.insert( CardEffect::AddRandomPieces(15) );
+        randomorder.insert( CardEffect::IntoFlicks );
+        randomorder.insert( CardEffect::Knight );
+        randomorder.insert( CardEffect::TurnsTimed(200) );
+        randomorder.insert( CardEffect::RemoveSquares(15) );
+        randomorder.insert( CardEffect::AddSquares(30) );
+        randomorder.insert( CardEffect::BackToBackTurns );
+
+
+        let queuedeffects = randomorder.into_iter().collect();
 
         Cards{
 
             piles,
             lastcardeffect: None,
             queuedeffects
-            
         }
 
     }
@@ -138,151 +141,6 @@ impl Cards{
 
 
 
-/*
-fn combine_and_remove_redundant_effects(&mut self){
-
-    //the variants are the only ones that could have multiple versions added to this struct
-    //so combine them and remove multiple ones
-
-    let mut oldraisesquare : Option<(usize, u32)> = None;
-    let mut olddropsquare : Option<(usize, u32)> = None;
-    let mut oldturnstimed : Option<(usize, u32)> = None;
-    let mut oldturnsuntildraw : Option<(usize, u32)> = None;
-
-    let mut curindex = 0;
-
-    let mut indextoremove: Option<usize> = None;
-
-
-    //I think I should learn closures. It was hard to ever see a use for them before this
-    //because I didnt know how to use them
-    //but it seems like to make this cleaner, those might be important
-    for effect in self.cardeffects.iter_mut(){
-
-        match effect{
-
-            CardEffect::RaiseSquares(num) =>{
-
-                if let Some( (oldindex, oldvalue) ) = oldraisesquare {
-
-                    *num += oldvalue;
-                    indextoremove = Some(oldindex);
-                }
-                else{
-                    oldraisesquare = Some( (curindex, num.clone()) );
-                }
-            },
-            CardEffect::RemoveSquares(num) =>{
-
-                if let Some( (oldindex, oldvalue) ) = olddropsquare {
-                    
-                    *num += oldvalue;
-                    indextoremove = Some(oldindex);
-                }
-                else{
-                    olddropsquare = Some( (curindex, num.clone()) );
-                }
-
-            },
-            CardEffect::TurnsTimed(num) =>{
-
-                if let Some( (oldindex, oldvalue) ) = oldturnstimed {
-                    
-                    *num = std::cmp::min(oldvalue, *num);
-                    indextoremove = Some(oldindex);
-                }
-                else{
-                    oldturnstimed = Some( (curindex, num.clone()) );
-                }
-
-            },
-            CardEffect::TurnsUntilDrawAvailable(value) =>{
-
-                if let Some( (oldindex, oldvalue) ) = oldturnsuntildraw {
-                    
-                    *value += oldvalue;
-                    indextoremove = Some(oldindex);
-                }
-                else{
-                    oldturnsuntildraw = Some( (curindex, value.clone()) );
-                }
-            },
-            _ => {},
-        };
-
-        curindex += 1;
-        
-    };
-
-
-    if let Some(indextoremove) = indextoremove{
-        self.cardeffects.remove(indextoremove);
-    }
-
-
-}
-*/
-
-
-/*
-*/
-
-
-
-
-/*
-pub fn remove_card_effect(&mut self, card: CardEffect){
-
-    //keep every element that isnt one passed in
-    self.cardeffects.retain(|x| x != &card);
-}
-*/
-
-
-//apply a random card effect
-//need a mutable reference to the turn manager
-//and the game engine
-
-/*
-pub fn get_random_card_effect(&self) -> CardEffect{
-    
-    for x in 0..10{
-        let mut toreturn = CardEffect::get_joker_card_effect();
-        
-        if self.cardeffects.contains( &toreturn ){
-            
-            continue;
-        };
-        
-        return toreturn;
-    }
-    
-    //default if no action available
-    return CardEffect::RaiseSquares(2);
-}
-*/
-
-
-/*
-pub fn get_effects_texture_locations(&self) -> Vec<String>{
-    
-    let mut toreturn = Vec::new();
-    
-    for effect in &self.get_card_effects(){
-        toreturn.push( effect.get_card_texture_location() );
-    }
-    
-    toreturn
-}
-*/
-
-
-//the turn manager and the board engine implement these traits to apply and get the effects on them
-
-//a list of card effects
-
-
-
 
 
 pub trait EffectTrait{
@@ -291,14 +149,6 @@ pub trait EffectTrait{
 
     fn get_effects(&self) -> Vec<CardEffect>;
 }
-
-
-
-//a list of objects that represents 
-
-//the game gets the list of cards active
-//and applies cards to apply
-
 
 
 
@@ -353,34 +203,6 @@ pub enum CardEffect{
 
 impl CardEffect{  
     
-    /*
-    //get a random card effect playable on the board
-    fn get_joker_card_effect() -> CardEffect{
-        
-        use rand::Rng;
-        
-        let mut jokereffects = Vec::new();
-        
-        
-        jokereffects.push(CardEffect::BackToBackTurns);
-        jokereffects.push(CardEffect::HalveTimeLeft);
-        //jokereffects.push(CardEffect::MakePoolGame);
-        jokereffects.push(CardEffect::TurnsTimed(60) );
-        jokereffects.push(CardEffect::RemoveSquares(11));
-        jokereffects.push(CardEffect::SplitPieceIntoPawns);
-        jokereffects.push(CardEffect::Checkerify);
-        jokereffects.push(CardEffect::Chessify );
-        jokereffects.push(CardEffect::Knight);
-
-        //jokereffects.push(CardEffect::SwapPawns);
-        
-        let mut rng = rand::thread_rng();
-        let effectnumb = rng.gen_range(0, jokereffects.len() );
-        let jokereffect = jokereffects[effectnumb].clone();
-        
-        jokereffect    
-    }
-    */
     
     //card texture 
     fn get_card_texture_location(&self) -> String{

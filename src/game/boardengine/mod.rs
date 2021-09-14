@@ -169,26 +169,29 @@ impl BoardEngine{
 
     pub fn add_random_pieces(&mut self, x: u32){
 
-        /*
+        //add x pieces for player x and y 
 
-        //add x pieces
-        //on a distribution
-        for _ in 0..x{
+    
+        for owner in 1..3{
 
-            self.board.create_piece( &PieceType::get_random() , pos: &SquarePos, owner: &u8, direction: &f32);
-            
+            let pos;
+
+            if owner == 1{
+                pos = SquarePos::new( (3,3) );
+            }
+            else{
+                pos = SquarePos::new( (3,3) );
+            }
+
+            for _ in 0..x{
+
+
+                board::create_piece(&mut self.piecedatas, &mut self.boardstate, &PieceType::get_random() , &pos, &owner, self.ownerdirection.get( &owner).unwrap() );
+                
+            }
+
         }
-        */
-
-        //get the empty squares as close to the backrow of player x's backrow as possible (randomly on that backest row)
-
-        //
-
-        //delay actions
-        //you can delay the actions
-        //and I think this should be stored in here, this state, like the delayed actions
-        //a vector, with the piece id and the action
-        //this 
+        
 
     }
 
@@ -337,10 +340,6 @@ impl BoardEngine{
     }
 
 
-    //give this player a random piece
-    pub fn add_random_piece(&mut self, playerid: u8){
-
-    }
 
 
     //pawns are promoted
@@ -482,7 +481,9 @@ impl EffectTrait for BoardEngine{
                 self.boardstate.set_speed( ticks );
              },
             CardEffect::LevelPieces => {  },
-            CardEffect::AddRandomPieces(u32)=> {  },
+            CardEffect::AddRandomPieces(val)=> { 
+                self.add_random_pieces(val);
+             },
             CardEffect::TiltActions(u32)=> {  },
             CardEffect::SplitIntoPawns=> {  },
             CardEffect::MakeCheckers=> {

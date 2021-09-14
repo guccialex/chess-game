@@ -257,6 +257,9 @@ pub fn remove_random_square( boardstate: &mut BoardState) {
 }
 
 
+
+
+
 //get the pieces below the kill range
 pub fn get_pieces_below_border( boardstate: &mut BoardState) -> Vec<Piece>{
 
