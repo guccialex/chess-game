@@ -101,6 +101,8 @@ impl PlayerInterface{
 
     pub fn tick(&mut self){
         self.game.tick();
+
+        log::info!("GAME TICK");
     } 
 
 

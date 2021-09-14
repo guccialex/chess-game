@@ -155,6 +155,7 @@ impl Game{
 
         self.boardengine.tick();
 
+        
         self.turnmanager.tick();
     
         self.lastcardeffect += 1;
