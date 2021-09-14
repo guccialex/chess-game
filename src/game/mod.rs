@@ -153,19 +153,19 @@ impl Game{
                 //if there is an input queued
                 if let Some(queuedinput) = self.queuedinputs.get(&player){
 
+                    let queuedinput = queuedinput.clone();
+
                     if self.is_gameinput_valid(&player, &queuedinput){
 
-                        if let Some(queuedinput) = self.queuedinputs.remove(&player){ 
-
-                            self.perform_input( &player, &queuedinput );
-            
-                            self.turnmanager.player_took_action(player);
+                        self.perform_input( &player, &queuedinput );
         
-                            self.tickstotryaction = 20;
-            
-                            break;
-                        }
+                        self.turnmanager.player_took_action(player);
+    
+                        self.tickstotryaction = 20;
 
+                        self.queuedinputs.remove(&player);
+        
+                        break;
                     }
 
                 }
