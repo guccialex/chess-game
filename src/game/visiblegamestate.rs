@@ -13,7 +13,6 @@ pub struct VisibleGameState{
     //the deck
     //whether the move is available
     //pub turnsuntildrawavailable: Option<u32>,
-    
     pub player1totalticksleft: u32,
     pub player2totalticksleft: u32,
     

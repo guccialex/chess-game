@@ -148,6 +148,8 @@ impl Game{
                 self.perform_input( &player, &queuedinput );
 
                 self.turnmanager.player_took_action(player);
+
+                break;
             }
         }
 
