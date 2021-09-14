@@ -27,6 +27,7 @@ impl Cards{
         randomorder.insert( CardEffect::AddRandomPieces(5) );
         randomorder.insert( CardEffect::AddRandomPieces(5) );
         randomorder.insert( CardEffect::AddRandomPieces(5) );
+        randomorder.insert( CardEffect::AddRandomPieces(5) );
         randomorder.insert( CardEffect::IntoFlicks );
         randomorder.insert( CardEffect::Knight );
         randomorder.insert( CardEffect::TurnsTimed(200) );
