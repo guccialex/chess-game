@@ -24,11 +24,9 @@ impl Cards{
         let mut randomorder = HashSet::new();
 
         randomorder.insert( CardEffect::ChangeSpeed(200) );
-        randomorder.insert( CardEffect::AddRandomPieces(15) );
-        randomorder.insert( CardEffect::AddRandomPieces(15) );
-        randomorder.insert( CardEffect::AddRandomPieces(15) );
-        randomorder.insert( CardEffect::AddRandomPieces(15) );
-        randomorder.insert( CardEffect::AddRandomPieces(15) );
+        randomorder.insert( CardEffect::AddRandomPieces(5) );
+        randomorder.insert( CardEffect::AddRandomPieces(5) );
+        randomorder.insert( CardEffect::AddRandomPieces(5) );
         randomorder.insert( CardEffect::IntoFlicks );
         randomorder.insert( CardEffect::Knight );
         randomorder.insert( CardEffect::TurnsTimed(200) );
@@ -228,7 +226,7 @@ impl CardEffect{
             CardEffect::AddSquares(u32)=> format!("addsquares.png"),
             CardEffect::ChangeSpeed(u32)=> format!("slower.png"),
             CardEffect::LevelPieces=> format!("XX.png"),
-            CardEffect::AddRandomPieces(u32)=> format!("XX.png"),
+            CardEffect::AddRandomPieces(u32)=> format!("addrandompieces.png"),
             CardEffect::TiltActions(u32)=> format!("XX.png"),
             CardEffect::SplitIntoPawns=> format!("XX.png"),
             CardEffect::MakeCheckers=> format!("XX.png"),
