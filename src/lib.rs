@@ -30,6 +30,8 @@ impl PlayerInterface{
         
         console_log::init_with_level(Level::Debug);
 
+        log::info!("updated version");
+
         PlayerInterface{
 
             playerid,
@@ -122,6 +124,7 @@ impl ServerInterface{
 
     pub fn new() -> ServerInterface{
 
+
         ServerInterface{
             game: Game::new(),
         }
@@ -139,8 +142,6 @@ impl ServerInterface{
         if let Ok(input) = bincode::deserialize( &gameinput){
 
             let isvalid = self.game.receive_input(player, input);
-
-            println!("received input, is valid: {:?}", isvalid);
             
         }
     }
