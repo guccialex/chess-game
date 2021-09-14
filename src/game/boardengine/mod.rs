@@ -172,27 +172,29 @@ impl BoardEngine{
         //add x pieces for player x and y 
 
     
-        for owner in 1..3{
 
-            let pos;
 
-            if owner == 1{
-                pos = SquarePos::new( (3,3) );
-            }
-            else{
-                pos = SquarePos::new( (6,6) );
-            }
+        for _ in 0..x{
 
             let piecetype = PieceType::get_random();
 
+            for owner in 1..3{
 
-            for _ in 0..x{
+                let pos;
+    
+                if owner == 1{
+                    pos = SquarePos::new( (3,3) );
+                }
+                else{
+                    pos = SquarePos::new( (6,6) );
+                }
 
-                board::create_piece(&mut self.piecedatas, &mut self.boardstate, &piecetype , &pos, &owner, self.ownerdirection.get( &owner).unwrap() );
                 
+                board::create_piece(&mut self.piecedatas, &mut self.boardstate, &piecetype , &pos, &owner, self.ownerdirection.get( &owner).unwrap() );
             }
 
         }
+
         
 
     }
