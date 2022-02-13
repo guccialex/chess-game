@@ -19,18 +19,18 @@ edition = "2021"
 
 serde = { version = "1.0.123", features = ["derive"] }
 
-rand = {version = "0.7.3", features = [ "wasm-bindgen" ] }
+#rand = {version = "0.7.3", features = [ "wasm-bindgen" ] }
 
 bincode = "1.3.2"
 
-orthogonal-rotation = "0.0.10"#{ path = "../orthogonal_rotation" }
+orthogonal-rotation = "0.0.10"
 
 
 board = { path = "board" }
 #board = { git = "https://github.com/guccialex/board" }
 
 
-rapier3d = { version = "0.8.0", features = [ "serde-serialize", "wasm-bindgen" ] }
+#rapier3d = { version = "0.8.0", features = [ "serde-serialize", "wasm-bindgen" ] }
 
 
 console_log = "0.2.0"

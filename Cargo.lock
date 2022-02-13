@@ -78,8 +78,6 @@ dependencies = [
  "console_log",
  "log",
  "orthogonal-rotation",
- "rand",
- "rapier3d",
  "serde",
 ]
 

@@ -74,7 +74,7 @@ pub struct BoardEngine{
 //store all data about t
 //a hashmap of pieceid to 
 
-use rapier3d::na;
+use board::rapier3d::na;
 use na::Point3;
 use na::Vector3;
 

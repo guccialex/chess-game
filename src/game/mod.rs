@@ -22,8 +22,10 @@ use cards::Cards;
 use cards::CardEffect;
 use cards::EffectTrait;
 
-use rapier3d::na::Point3;
-use rapier3d::na::Vector3;
+
+use board::rapier3d::na;
+use na::Point3;
+use na::Vector3;
 use std::collections::HashMap;
 
 use serde::{Serialize, Deserialize};

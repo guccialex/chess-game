@@ -6,7 +6,7 @@ pub use game::GameObject;
 pub use game::GameInput;
 use game::Game;
 
-pub use rapier3d;
+pub use board::rapier3d;
 
 use rapier3d::na::Point3;
 use rapier3d::na::Vector3;

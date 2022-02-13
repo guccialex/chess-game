@@ -1,6 +1,10 @@
 #![feature(hash_drain_filter)]
 
 
+pub use rapier3d;
+pub use serde;
+pub use rand;
+
 pub mod boardstructs;
 mod boardobject;
 mod squarestructs;
