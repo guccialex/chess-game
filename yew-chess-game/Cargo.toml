@@ -1,0 +1,38 @@
+[package]
+name = "yew-chess-game"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+
+#chessengine = { git = "https://github.com/guccialex/ccp-game/" }
+
+chessengine = { path = "../chessengine" }
+
+#kiss3d = "0.31.0"
+
+#reqwest = { version = "0.11.4",  features = ["json"] }
+
+#yew = "0.19.3"
+
+gloo-timers = "*"
+
+gloo-console = "*"
+
+
+bevy_mod_picking = "0.5"
+
+
+#console_error_panic_hook = "*"
+bevy = "0.6"
+
+bevy_web_asset = "0.2.0"
+
+#    <link data-trunk rel="copy-dir" href="static/"/>
+#    <link rel="icon" type="image/png"  href="/static/favicon2.ico">
+[profile.release]
+lto = true
+opt-level = 's'
