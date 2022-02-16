@@ -26,10 +26,17 @@ gloo-console = "*"
 bevy_mod_picking = "0.5"
 
 
-#console_error_panic_hook = "*"
-bevy = "0.6"
+console_error_panic_hook = "*"
+#bevy = "0.6"
 
-bevy_web_asset = "0.2.0"
+bevy = { version = "0.6", feature = ["png", "jpg", "jpeg", "bmp"] }
+
+bevy_web_asset = "0.2"
+
+
+web-sys = "0.3.56"
+
+reqwest = "*"
 
 #    <link data-trunk rel="copy-dir" href="static/"/>
 #    <link rel="icon" type="image/png"  href="/static/favicon2.ico">

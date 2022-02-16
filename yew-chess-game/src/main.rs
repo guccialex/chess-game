@@ -11,7 +11,7 @@ use bevy::{
 };
 
 //extern crate console_error_panic_hook;
-//use std::panic;
+use std::panic;
 use bevy_mod_picking::*;
 
 
@@ -19,20 +19,41 @@ use bevy_mod_picking::*;
 #[derive(PartialEq, Eq)]
 struct HeldMouse(bool);
 
+struct SincePlayerAction(i32);
+
+
 fn main() {
 
-    //panic::set_hook(Box::new(console_error_panic_hook::hook));
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
+    
+    let window = web_sys::window().expect("no global `window` exists");
+
+    let windowsize = (window.inner_width().unwrap().as_f64().unwrap() as f32  ,window.inner_height().unwrap().as_f64().unwrap() as f32);
 
     
     App::new()
         .add_plugins(DefaultPlugins)
+        
+        // .add_plugins_with(DefaultPlugins, |group| {
+        //     // The web asset plugin must be inserted in-between the
+        //     // `CorePlugin' and `AssetPlugin`. It needs to be after the
+        //     // CorePlugin, so that the IO task pool has already been constructed.
+        //     // And it must be before the `AssetPlugin` so that the asset plugin
+        //     // doesn't create another instance of an assert server. In general,
+        //     // the AssetPlugin should still run so that other aspects of the
+        //     // asset system are initialized correctly.
+        //     group.add_before::<bevy::asset::AssetPlugin, _>( bevy_web_asset::WebAssetPlugin)
+        // })
+
+        //.add_plugins( WebAssetPlugin )
         .insert_resource::<Option<PlayerInterface>>( None )
         .insert_resource::<Option<GameObject>>(None)
+        .insert_resource(SincePlayerAction(60))
         .insert_resource(HeldMouse(false))
         .add_plugins(DefaultPickingPlugins)
         .insert_resource(WindowDescriptor {
-            width: 300.,
-            height: 300.,
+            width: windowsize.0,
+            height: windowsize.1,
             ..Default::default()
         })
         .insert_resource(Msaa { samples: 4 })
@@ -46,6 +67,10 @@ fn main() {
         .add_system( control_camera )
         //.add_system( click_input_event )
         .add_system( print_events )
+
+        .add_startup_system( spawn_tasks )
+
+
 
         .run();
         // .insert_resource(WindowDescriptor {
@@ -83,13 +108,88 @@ fn held_mouse(
 }
 
 
+use bevy::tasks::AsyncComputeTaskPool;
+
+fn spawn_tasks(thread_pool: Res<AsyncComputeTaskPool>){
+
+
+    let task = thread_pool.spawn(async move {
+
+        log!("async runnign");
+
+
+        // let body = reqwest::get("https://www.rust-lang.org")
+        //     .await.unwrap()
+        //     .text()
+        //     .await.unwrap();
+
+
+        // log!( &format!("thing {:?}", body) );
+
+        //https://i.imgur.com/0vCAeat.png
+
+
+
+        let body = reqwest::get("https://cdn.pixabay.com/photo/2017/02/01/10/09/basics-2029357_960_720.png")
+            .await.unwrap();
+
+
+        log!( &format!("thing {:?}", body) );
+
+
+
+        /*
+        let mut rng = rand::thread_rng();
+        let start_time = Instant::now();
+        let duration = Duration::from_secs_f32(rng.gen_range(0.05..0.2));
+        while Instant::now() - start_time < duration {
+            // Spinning for 'duration', simulating doing hard
+            // compute work generating translation coords!
+        }
+
+        // Such hard work, all done!
+        Transform::from_xyz(x as f32, y as f32, z as f32)
+        */
+    });
+
+
+
+}
+
+
 /// set up a simple 3D scene
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+    //asset_server: Res<AssetServer>,
 ) {
 
+
+    //log!("THING GET!");
+    //let queen: Handle<Image> = asset_server.load("/static/xxb.png");
+    //log!(&format!("queen{:?}", queen));
+
+
+    /*
+    let mut mesh = Mesh::from(shape::Cube { size: 3.0 });
+
+    let material_handle = materials.add(StandardMaterial {
+        base_color_texture: Some( queen ),
+        alpha_mode: AlphaMode::Blend,
+        unlit: true,
+        ..Default::default()
+    });
+    */
+
+    // commands.spawn_bundle(PbrBundle {
+    //     mesh: meshes.add(   mesh ),
+    //     material: material_handle,
+    //     transform: Transform::from_xyz(0., 0., 0.),
+    //     ..Default::default()
+    // })
+    // .insert_bundle(PickableBundle::default());
 
 
     // light
@@ -112,13 +212,23 @@ fn setup(
 
 
 
-fn tick_game( mut game: ResMut< Option< PlayerInterface>  > ){
+fn tick_game( mut game: ResMut< Option< PlayerInterface>  > ,  mut sinceaction: ResMut< SincePlayerAction  > ){
 
     if let Some( game) = &mut*game{
 
         game.tick();
 
-        game.opponent_takes_action();
+
+
+        if sinceaction.0 > 100{
+
+            game.opponent_takes_action();
+            
+        }
+
+        sinceaction.0 += 1;
+
+
     }
 
 
@@ -132,7 +242,8 @@ fn update_objects(
     mut meshes: ResMut<Assets<Mesh>>,
     mut selected: ResMut< Option< GameObject >  >,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut objects: Query<(&mut Transform, &BoardObjectID, Entity, &Handle<StandardMaterial>)>
+    mut objects: Query<(&mut Transform, &BoardObjectID, Entity, &Handle<StandardMaterial>)>,
+    asset_server: Res<AssetServer>,
     ){
 
 
@@ -175,12 +286,11 @@ fn update_objects(
                     let newcolor = Color::rgb(object.color.0, object.color.1, object.color.2);
 
                     material.base_color = newcolor;
-
                 }
 
             }
             else{
-                log!("despawning", objectid.0.id());
+                //log!("despawning", objectid.0.id());
                 commands.entity(entity).despawn();
             }
         }
@@ -189,7 +299,7 @@ fn update_objects(
 
         for (id, object) in visibleobjects{
 
-            log!("Spawning ", id.0.id() );
+            //log!("Spawning ", id.0.id() );
 
             let xyz = object.isometry.translation.vector.as_slice();
 
@@ -197,7 +307,7 @@ fn update_objects(
             let y = xyz[1];            
             let z = xyz[2];
 
-            let color = Color::rgb(0., 0., 0.).into(); //Color::rgb(object.color.0, object.color.1, object.color.2).into();
+            let color = Color::rgb(0., 0., 0.);//.into(); //Color::rgb(object.color.0, object.color.1, object.color.2).into();
 
             use chessengine::TypedShape;
 
@@ -210,18 +320,48 @@ fn update_objects(
                 // mesh = Mesh::from(shape::Capsule{
                 //     radius: 0.7,
                 //     depth: 0.5,
-
                 //     rings: 10,
                 //     latitudes: 4,
                 //     longitudes: 2,
                 //     uv_profile: shape::CapsuleUvProfile::Uniform,
                 // });
 
-                mesh = Mesh::from( shape::Box::new(0.7, 0.5, 0.7) );
+                mesh = Mesh::from( shape::Box::new(0.65, 0.5, 0.65) );
             
             }
             else if let TypedShape::Cuboid( cuboid ) = typedshape{
 
+
+            }
+
+            
+
+            let mut material_handle = materials.add(StandardMaterial {
+                base_color: color,
+                //base_color_texture: Some( queen ),
+                alpha_mode: AlphaMode::Blend,
+                unlit: true,
+                ..Default::default()
+            });
+
+            
+
+            if let Some(texture) = &object.texturelocation{
+
+                let texture = "/static/pieceart/".to_string() +texture;
+                log!( &format!("texture {:?}", texture) );
+
+
+                let texture: Handle<Image> = asset_server.load(&texture);
+
+                //log!( &format!("texture {:?}", texture) );
+                material_handle = materials.add(StandardMaterial {
+                    base_color: color,
+                    base_color_texture: Some(texture),
+                    alpha_mode: AlphaMode::Blend,
+                    unlit: true,
+                    ..Default::default()
+                });
 
             }
 
@@ -230,7 +370,7 @@ fn update_objects(
 
             commands.spawn_bundle(PbrBundle {
                 mesh: meshes.add(   mesh ),
-                material: materials.add(color),
+                material: material_handle,
                 transform: Transform::from_xyz(x, y, z),
                 ..Default::default()
             })
@@ -257,18 +397,18 @@ fn control_camera(
 
     for (mut transform,_) in camera.iter_mut(){
 
-        log!("got camera");
+        //log!("got camera");
 
 
         if *mouse_held == HeldMouse(true){
 
-            log!("left mouse inputs");
+            //log!("left mouse inputs");
 
             let mut rotation_move = Vec2::ZERO;
 
             for ev in mouse_motion_events.iter() {
 
-                log!("mouse motion");
+                //log!("mouse motion");
 
                 rotation_move += ev.delta;
             }
@@ -318,7 +458,9 @@ fn print_events(
     mut game: ResMut< Option< PlayerInterface>  >,
     mut selected: ResMut< Option< GameObject >  >,
     mut events: EventReader<PickingEvent>,
-    objects: Query<(&BoardObjectID, Entity)>
+    objects: Query<(&BoardObjectID, Entity)>,
+
+    mut sinceaction: ResMut< SincePlayerAction  >
     ) {
     for event in events.iter() {
         match event {
@@ -329,7 +471,7 @@ fn print_events(
             PickingEvent::Clicked(e) =>
             { 
 
-                log!( &format!("{:?}", e));
+                //log!( &format!("{:?}", e));
 
                 //let mut clickedobject = None;
 
@@ -337,18 +479,24 @@ fn print_events(
 
                     if &entity == e{
                         //clickedobject = Some(objectid);
-                        log!( &format!("clicked{:?}", objectid.0.id() ));
+                        //log!( &format!("clicked{:?}", objectid.0.id() ));
 
 
                         if let Some(game) = &mut *game{
 
-                            log!("got game now selecte");
+                            //log!("got game now selecte");
 
                             let nowselected = game.clicked_object( selected.clone(), Some(GameObject::BoardObject( objectid.0.clone() )) );
+
+                            //if something was clicked, and nothing is selected anymore, treat that as an action
+                            if nowselected.is_none(){
+                                sinceaction.0 = 0;
+                            }
         
                             *selected = nowselected;
 
-                            log!( &format!("selected {:?}", &*selected) );
+                            //log!( &format!("selected {:?}", &*selected) );
+
                             // if let Some(nowselected) = nowselected{
                             //     *selected = GameObject::BoardObject(nowselected);
                             // }
